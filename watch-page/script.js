@@ -2,6 +2,7 @@
 const API_URL = 'https://api.momentcast.live';
 
 const slug = window.location.pathname.split('/').filter(Boolean).pop() || '';
+// const slug = 'sofia-s-quince';
 
 // State management
 let eventData = null;
