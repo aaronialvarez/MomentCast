@@ -1,0 +1,25 @@
+{
+  "name": "momentcast-worker",
+  "version": "1.0.0",
+  "description": "MomentCast Cloudflare Worker API",
+  "main": "src/worker.ts",
+  "type": "module",
+  "scripts": {
+    "dev": "wrangler dev",
+    "build": "tsc",
+    "deploy": "wrangler publish",
+    "deploy:staging": "wrangler publish --env staging",
+    "type-check": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.89.0"
+  },
+  "devDependencies": {
+    "@cloudflare/workers-types": "^4.20260103.0",
+    "typescript": "^5.9.3",
+    "wrangler": "^3.114.16"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC"
+}

@@ -1,0 +1,7 @@
+name = "momentcast-api-production"
+main = "src/worker.ts"
+compatibility_date = "2025-01-05"
+
+[env.production]
+name = "momentcast-api-production"
+vars = { ENVIRONMENT = "production" }

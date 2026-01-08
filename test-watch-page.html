@@ -1,0 +1,173 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MomentCast Test Stream - Jan 4 2026</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #0a0a0a;
+            color: #ffffff;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        /* Header */
+        .header {
+            background: #1a1a1a;
+            padding: 20px;
+            border-bottom: 1px solid #333;
+        }
+        
+        .header h1 {
+            font-size: 24px;
+            font-weight: 600;
+            margin-bottom: 8px;
+        }
+        
+        .header .event-info {
+            font-size: 14px;
+            color: #888;
+        }
+        
+        /* Video Container */
+        .video-wrapper {
+            flex: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 20px;
+            max-width: 1400px;
+            width: 100%;
+            margin: 0 auto;
+        }
+        
+        .video-container {
+            position: relative;
+            width: 100%;
+            padding-bottom: 56.25%; /* 16:9 aspect ratio */
+            background: #000;
+            border-radius: 8px;
+            overflow: hidden;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.5);
+        }
+        
+        .video-container iframe {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            border: none;
+        }
+        
+        /* Status Badge */
+        .status-badge {
+            position: absolute;
+            top: 16px;
+            left: 16px;
+            background: #ef4444;
+            color: white;
+            padding: 8px 16px;
+            border-radius: 4px;
+            font-size: 14px;
+            font-weight: 600;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            z-index: 10;
+        }
+        
+        .status-badge.live::before {
+            content: '';
+            width: 8px;
+            height: 8px;
+            background: white;
+            border-radius: 50%;
+            animation: pulse 2s infinite;
+        }
+        
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        
+        /* Footer */
+        .footer {
+            background: #1a1a1a;
+            padding: 20px;
+            text-align: center;
+            border-top: 1px solid #333;
+            font-size: 14px;
+            color: #666;
+        }
+        
+        .footer a {
+            color: #3b82f6;
+            text-decoration: none;
+        }
+        
+        .footer a:hover {
+            text-decoration: underline;
+        }
+        
+        /* Responsive */
+        @media (max-width: 768px) {
+            .header h1 {
+                font-size: 20px;
+            }
+            
+            .video-wrapper {
+                padding: 12px;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header -->
+    <div class="header">
+        <h1>MomentCast Test Stream - Jan 4 2026</h1>
+        <div class="event-info">Test Event • Streaming via MomentCast</div>
+    </div>
+
+    <!-- Video Player -->
+    <div class="video-wrapper">
+        <div class="video-container">
+            <!-- Live/Replay Badge (remove this later if not needed) -->
+            <div class="status-badge live">LIVE</div>
+            
+            <!-- 
+                IMPORTANT: Replace YOUR_LIVE_INPUT_UID below with your actual Live Input ID
+                From your Cloudflare dashboard: 9b1b6bd5a08440a7b1a96f606f94a435
+            -->
+            <iframe 
+                src="https://customer-r5vkm8rpzqtdt9cz.cloudflarestream.com/9b1b6bd5a08440a7b1a96f606f94a435/iframe"
+                allow="accelerometer; autoplay; encrypted-media; gyroscope; picture-in-picture"
+                allowfullscreen="true">
+            </iframe>
+        </div>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        Powered by <a href="https://momentcast.live" target="_blank">MomentCast</a> • 
+        Professional livestreaming for events
+    </div>
+
+    <script>
+        // Auto-detect if stream is live or replay (future enhancement)
+        // For now, manually change the badge text in HTML
+        
+        // Optional: Remove "LIVE" badge after stream ends
+        // You can implement this by checking Cloudflare Stream API status
+    </script>
+</body>
+</html>

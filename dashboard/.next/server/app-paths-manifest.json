@@ -1,0 +1,6 @@
+{
+  "/page": "app/page.js",
+  "/create-event/page": "app/create-event/page.js",
+  "/login/page": "app/login/page.js",
+  "/events/[id]/page": "app/events/[id]/page.js"
+}

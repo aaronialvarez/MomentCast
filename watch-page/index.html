@@ -1,0 +1,115 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>MomentCast - Live Event</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <!-- Loading State -->
+    <div id="loading" class="state">
+      <div class="container">
+        <div class="spinner"></div>
+        <p>Loading event...</p>
+      </div>
+    </div>
+
+    <!-- Error State -->
+    <div id="error" class="state hidden">
+      <div class="container">
+        <h1>Event Not Found</h1>
+        <p>This event doesn't exist or has been removed.</p>
+        <div class="powered-by">
+          <p>Powered by <a href="https://momentcast.live"><strong>MomentCast.live</strong></a></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Countdown State -->
+    <div id="countdown" class="state hidden">
+      <div class="container">
+        <div class="event-header">
+          <h1 id="event-title"></h1>
+        </div>
+        
+        <div class="countdown-timer">
+          <h2>Event starts in</h2>
+          <div class="timer-display">
+            <div class="timer-unit">
+              <span id="days" class="timer-value">00</span>
+              <span class="timer-label">Days</span>
+            </div>
+            <div class="timer-unit">
+              <span id="hours" class="timer-value">00</span>
+              <span class="timer-label">Hours</span>
+            </div>
+            <div class="timer-unit">
+              <span id="minutes" class="timer-value">00</span>
+              <span class="timer-label">Minutes</span>
+            </div>
+            <div class="timer-unit">
+              <span id="seconds" class="timer-value">00</span>
+              <span class="timer-label">Seconds</span>
+            </div>
+          </div>
+          <p id="scheduled-time" class="scheduled-time"></p>
+        </div>
+
+        <div class="powered-by">
+          <p>Powered by <strong>MomentCast</strong></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Live Stream State -->
+    <div id="live" class="state hidden">
+      <div class="container-full">
+        <div class="event-header">
+          <h1 id="live-title"></h1>
+          <span class="live-badge">🔴 LIVE</span>
+        </div>
+        
+        <div class="video-container">
+          <iframe
+            id="live-stream"
+            src=""
+            allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
+            allowfullscreen="true"
+          ></iframe>
+        </div>
+
+        <div class="powered-by">
+          <p>Powered by <strong>MomentCast</strong></p>
+        </div>
+      </div>
+    </div>
+
+    <!-- Replay State -->
+    <div id="replay" class="state hidden">
+      <div class="container-full">
+        <div class="event-header">
+          <h1 id="replay-title"></h1>
+          <span class="ended-badge">ENDED</span>
+        </div>
+        
+        <div class="video-container">
+          <iframe
+            id="replay-stream"
+            src=""
+            allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
+            allowfullscreen="true"
+          ></iframe>
+        </div>
+
+        <div class="powered-by">
+          <p>Powered by <strong>MomentCast</strong></p>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script src="script.js"></script>
+</body>
+</html>
