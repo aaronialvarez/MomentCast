@@ -17,7 +17,7 @@ async function init() {
     startPolling();
   } catch (error) {
     console.error('Init error:', error);
-    showError();
+    showError('Event not found. Please check the URL and try again.');
   }
 }
 
@@ -33,7 +33,7 @@ async function fetchEvent() {
     eventData = await response.json();
   } catch (error) {
     console.error('Fetch error:', error);
-    throw error;
+    throw error; // Re-throw so init() can catch it
   }
 }
 
