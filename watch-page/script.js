@@ -251,8 +251,15 @@ function showReplay() {
 
 // Show error state
 function showError(message = 'Event not found') {
+  // Hide loading state
+  document.getElementById('loading').classList.add('hidden');
+  
+  // Show error
   const errorEl = document.getElementById('error');
-  errorEl.querySelector('p').textContent = message;
+  const errorMessage = errorEl.querySelector('p');
+  if (errorMessage) {
+    errorMessage.textContent = message;
+  }
   errorEl.classList.remove('hidden');
 }
 
