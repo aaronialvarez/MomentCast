@@ -106,7 +106,15 @@ export default function CreateEventPage() {
               type="datetime-local"
               value={scheduledDate}
               onChange={(e) => setScheduledDate(e.target.value)}
-              min={new Date(Date.now() + 15 * 60 * 1000).toISOString().slice(0, 16)}
+              min={(() => {
+                const now = new Date(Date.now() + 15 * 60 * 1000);
+                const year = now.getFullYear();
+                const month = String(now.getMonth() + 1).padStart(2, '0');
+                const day = String(now.getDate()).padStart(2, '0');
+                const hours = String(now.getHours()).padStart(2, '0');
+                const minutes = String(now.getMinutes()).padStart(2, '0');
+                return `${year}-${month}-${day}T${hours}:${minutes}`;
+              })()}
               className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-purple-500 text-white"
               required
             />
