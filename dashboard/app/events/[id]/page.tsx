@@ -17,6 +17,9 @@ interface Event {
   rtmps_key?: string;
   tier: string;
   viewer_hour_limit: number;
+  stream_credentials_revealed: boolean;
+  stream_started_manually_at?: string;
+  can_be_rescheduled: boolean;
 }
 
 export default function EventDetailPage() {
@@ -35,6 +38,8 @@ export default function EventDetailPage() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
+  const [startingStream, setStartingStream] = useState(false);
+  const [streamError, setStreamError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadEvent() {
@@ -76,6 +81,64 @@ export default function EventDetailPage() {
     navigator.clipboard.writeText(text);
     setCopied(label);
     setTimeout(() => setCopied(null), 2000);
+  }
+
+  function isEventToday(scheduledDate: string): boolean {
+    const eventDate = new Date(scheduledDate);
+    const today = new Date();
+    eventDate.setHours(0, 0, 0, 0);
+    today.setHours(0, 0, 0, 0);
+    return eventDate.getTime() === today.getTime();
+  }
+
+  async function handleStartStreaming() {
+    if (!event) return;
+    
+    setStartingStream(true);
+    setStreamError(null);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        router.push('/login');
+        return;
+      }
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_WORKER_API_URL}/api/events/${event.slug}/start-streaming`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to start streaming');
+      }
+
+      // Reload event to get updated credentials
+      const { data: eventData } = await supabase
+        .from('events')
+        .select('*')
+        .eq('id', event.id)
+        .single();
+
+      if (eventData) {
+        setEvent(eventData);
+      }
+
+    } catch (err) {
+      console.error('Start streaming error:', err);
+      setStreamError(err instanceof Error ? err.message : 'Failed to start streaming');
+    } finally {
+      setStartingStream(false);
+    }
   }
 
   if (loading) {
@@ -122,8 +185,6 @@ export default function EventDetailPage() {
               year: 'numeric',
               month: 'long',
               day: 'numeric',
-              hour: '2-digit',
-              minute: '2-digit',
             })}
           </p>
         </div>
@@ -168,50 +229,102 @@ export default function EventDetailPage() {
         </div>
 
         {/* Streaming Details */}
-        <div className="bg-gray-800 rounded-lg p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-4">Streaming Details (OBS/Streaming Software)</h2>
-          
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium mb-2">RTMPS Server URL</label>
-              <div className="flex gap-2">
-                <input
-                  type="text"
-                  value={event.rtmps_url || ''}
-                  readOnly
-                  className="flex-1 px-4 py-3 bg-gray-700 border border-gray-600 rounded text-white font-mono text-sm"
-                />
+        {!event.stream_credentials_revealed ? (
+          <div className="bg-gray-800 rounded-lg p-6 mb-6">
+            <h2 className="text-xl font-semibold mb-4">Start Streaming</h2>
+            
+            {isEventToday(event.scheduled_date) ? (
+              <>
+                <p className="text-gray-400 mb-6">
+                  Ready to go live? Click below to start your 24-hour streaming window and get your streaming credentials.
+                </p>
+                
+                {streamError && (
+                  <div className="bg-red-900 text-red-100 p-4 rounded-lg mb-4">
+                    {streamError}
+                  </div>
+                )}
+                
                 <button
-                  onClick={() => copyToClipboard(event.rtmps_url || '', 'rtmps-url')}
-                  className="px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded font-medium"
+                  onClick={handleStartStreaming}
+                  disabled={startingStream}
+                  className="w-full px-6 py-4 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg font-semibold text-lg transition-colors"
                 >
-                  {copied === 'rtmps-url' ? 'Copied!' : 'Copy'}
+                  {startingStream ? 'Starting...' : 'Start Streaming'}
                 </button>
+                
+                <p className="text-sm text-gray-500 mt-4">
+                  âœ… Once started, you'll have 24 hours to stream
+                </p>
+              </>
+            ) : (
+              <div className="text-center py-8">
+                <p className="text-gray-400 mb-2">
+                  Streaming will be available on
+                </p>
+                <p className="text-xl font-semibold">
+                  {new Date(event.scheduled_date).toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    month: 'long',
+                    day: 'numeric',
+                    year: 'numeric'
+                  })}
+                </p>
               </div>
-            </div>
-
-            <div>
-              <label className="block text-sm font-medium mb-2">Stream Key</label>
-              <div className="flex gap-2">
-                <input
-                  type="password"
-                  value={event.rtmps_key || ''}
-                  readOnly
-                  className="flex-1 px-4 py-3 bg-gray-700 border border-gray-600 rounded text-white font-mono text-sm"
-                />
-                <button
-                  onClick={() => copyToClipboard(event.rtmps_key || '', 'stream-key')}
-                  className="px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded font-medium"
-                >
-                  {copied === 'stream-key' ? 'Copied!' : 'Copy'}
-                </button>
-              </div>
-              <p className="text-yellow-500 text-sm mt-2">
-                ⚠️ Keep this private! Anyone with this key can stream to your event.
+            )}
+          </div>
+        ) : (
+          <div className="bg-gray-800 rounded-lg p-6 mb-6">
+            <h2 className="text-xl font-semibold mb-2">Streaming Credentials</h2>
+            {event.stream_started_manually_at && (
+              <p className="text-sm text-gray-400 mb-4">
+                Started: {new Date(event.stream_started_manually_at).toLocaleString()} • 
+                Expires: {new Date(new Date(event.stream_started_manually_at).getTime() + 24 * 60 * 60 * 1000).toLocaleString()}
               </p>
+            )}
+            
+            <div className="space-y-4">
+              <div>
+                <label className="block text-sm font-medium mb-2">RTMPS Server URL</label>
+                <div className="flex gap-2">
+                  <input
+                    type="text"
+                    value={event.rtmps_url || ''}
+                    readOnly
+                    className="flex-1 px-4 py-3 bg-gray-700 border border-gray-600 rounded text-white font-mono text-sm"
+                  />
+                  <button
+                    onClick={() => copyToClipboard(event.rtmps_url || '', 'rtmps-url')}
+                    className="px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded font-medium"
+                  >
+                    {copied === 'rtmps-url' ? 'Copied!' : 'Copy'}
+                  </button>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium mb-2">Stream Key</label>
+                <div className="flex gap-2">
+                  <input
+                    type="password"
+                    value={event.rtmps_key || ''}
+                    readOnly
+                    className="flex-1 px-4 py-3 bg-gray-700 border border-gray-600 rounded text-white font-mono text-sm"
+                  />
+                  <button
+                    onClick={() => copyToClipboard(event.rtmps_key || '', 'stream-key')}
+                    className="px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded font-medium"
+                  >
+                    {copied === 'stream-key' ? 'Copied!' : 'Copy'}
+                  </button>
+                </div>
+                <p className="text-yellow-500 text-sm mt-2">
+                  ⚠️ Keep this private! Anyone with this key can stream to your event.
+                </p>
+              </div>
             </div>
           </div>
-        </div>
+        )}
 
         {/* Event Info */}
         <div className="bg-gray-800 rounded-lg p-6">

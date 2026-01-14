@@ -13,13 +13,13 @@ export default function CreateEventPage() {
     )
   );
 
-  // Allow any time today or future (block only past dates)
-  const [minDateTime] = useState(() => {
+  // Block only past dates (not past times on today)
+  const [minDate] = useState(() => {
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const day = String(now.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}T00:00`;
+    return `${year}-${month}-${day}`;
   });
 
   const [title, setTitle] = useState('');
@@ -44,6 +44,10 @@ export default function CreateEventPage() {
       console.log('Creating event...');
       console.log('API URL:', process.env.NEXT_PUBLIC_WORKER_API_URL);
 
+      // Convert date to midnight UTC for consistency
+      const eventDate = new Date(scheduledDate);
+      eventDate.setHours(0, 0, 0, 0);
+
       const response = await fetch(`${process.env.NEXT_PUBLIC_WORKER_API_URL}/api/events`, {
         method: 'POST',
         headers: {
@@ -52,7 +56,7 @@ export default function CreateEventPage() {
         },
         body: JSON.stringify({
           title,
-          scheduledDate: new Date(scheduledDate).toISOString(),
+          scheduledDate: eventDate.toISOString(),
           tier,
         }),
       });
@@ -109,18 +113,18 @@ export default function CreateEventPage() {
           {/* Scheduled Date Field */}
           <div className="mb-6">
             <label className="block text-sm font-medium mb-2">
-              Event Date & Time
+              Event Date
             </label>
             <input
-              type="datetime-local"
+              type="date"
               value={scheduledDate}
               onChange={(e) => setScheduledDate(e.target.value)}
-              min={minDateTime}
+              min={minDate}
               className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-purple-500 text-white"
               required
             />
             <p className="text-gray-400 text-sm mt-1">
-              Can be shared with guests 2+ weeks early
+              Share the watch page with guests anytime. You'll start streaming on this date.
             </p>
           </div>
 
@@ -147,8 +151,8 @@ export default function CreateEventPage() {
                     className="mr-3"
                   />
                   <div>
-                    <div className="font-medium">Standard (400 viewer hours)</div>
-                    <div className="text-sm text-gray-400">$40 per event</div>
+                    <div className="font-medium">1 Credit - 400 viewer hours</div>
+                    <div className="text-sm text-gray-400">$40 • Perfect for most events</div>
                   </div>
                 </div>
               </div>
@@ -172,8 +176,8 @@ export default function CreateEventPage() {
                     className="mr-3"
                   />
                   <div>
-                    <div className="font-medium">Premium (1,000 viewer hours)</div>
-                    <div className="text-sm text-gray-400">$70 per event</div>
+                    <div className="font-medium">2 Credits - 1,000 viewer hours</div>
+                    <div className="text-sm text-gray-400">$70 • For long events or large audiences</div>
                   </div>
                 </div>
               </div>
