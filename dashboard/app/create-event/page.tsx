@@ -13,15 +13,13 @@ export default function CreateEventPage() {
     )
   );
 
-  // Calculate min datetime once on component mount (15 min from now)
+  // Allow any time today or future (block only past dates)
   const [minDateTime] = useState(() => {
-    const now = new Date(Date.now() + 15 * 60 * 1000);
+    const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const day = String(now.getDate()).padStart(2, '0');
-    const hours = String(now.getHours()).padStart(2, '0');
-    const minutes = String(now.getMinutes()).padStart(2, '0');
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
+    return `${year}-${month}-${day}T00:00`;
   });
 
   const [title, setTitle] = useState('');
