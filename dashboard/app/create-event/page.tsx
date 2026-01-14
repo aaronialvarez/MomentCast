@@ -106,6 +106,7 @@ export default function CreateEventPage() {
               type="datetime-local"
               value={scheduledDate}
               onChange={(e) => setScheduledDate(e.target.value)}
+              min={new Date().toISOString().slice(0, 16)}
               className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-purple-500 text-white"
               required
             />
