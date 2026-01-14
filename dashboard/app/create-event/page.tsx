@@ -147,7 +147,7 @@ export default function CreateEventPage() {
                     className="mr-3"
                   />
                   <div>
-                    <div className="font-medium">Standard (5,000 viewer hours)</div>
+                    <div className="font-medium">Standard (400 viewer hours)</div>
                     <div className="text-sm text-gray-400">$40 per event</div>
                   </div>
                 </div>
@@ -172,8 +172,8 @@ export default function CreateEventPage() {
                     className="mr-3"
                   />
                   <div>
-                    <div className="font-medium">Premium (15,000 viewer hours)</div>
-                    <div className="text-sm text-gray-400">$80 per event</div>
+                    <div className="font-medium">Premium (1,000 viewer hours)</div>
+                    <div className="text-sm text-gray-400">$70 per event</div>
                   </div>
                 </div>
               </div>
