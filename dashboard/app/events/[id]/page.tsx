@@ -84,13 +84,8 @@ export default function EventDetailPage() {
   }
 
   function isEventToday(scheduledDate: string): boolean {
-    const eventDate = new Date(scheduledDate);
-    const today = new Date();
-    
-    // Compare UTC date components only
-    return eventDate.getUTCFullYear() === today.getUTCFullYear() &&
-          eventDate.getUTCMonth() === today.getUTCMonth() &&
-          eventDate.getUTCDate() === today.getUTCDate();
+    const today = new Date().toISOString().split('T')[0];
+    return scheduledDate === today;
   }
 
   async function handleStartStreaming() {

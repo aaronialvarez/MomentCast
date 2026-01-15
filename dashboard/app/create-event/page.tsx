@@ -55,7 +55,7 @@ export default function CreateEventPage() {
         },
         body: JSON.stringify({
           title,
-          scheduledDate: eventDate.toISOString(),
+          scheduledDate: scheduledDate,
           tier,
         }),
       });
