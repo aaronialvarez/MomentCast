@@ -86,9 +86,11 @@ export default function EventDetailPage() {
   function isEventToday(scheduledDate: string): boolean {
     const eventDate = new Date(scheduledDate);
     const today = new Date();
-    eventDate.setHours(0, 0, 0, 0);
-    today.setHours(0, 0, 0, 0);
-    return eventDate.getTime() === today.getTime();
+    
+    // Compare UTC date components only
+    return eventDate.getUTCFullYear() === today.getUTCFullYear() &&
+          eventDate.getUTCMonth() === today.getUTCMonth() &&
+          eventDate.getUTCDate() === today.getUTCDate();
   }
 
   async function handleStartStreaming() {
@@ -182,9 +184,10 @@ export default function EventDetailPage() {
           <p className="text-white/80 mt-2">
             {new Date(event.scheduled_date).toLocaleDateString('en-US', {
               weekday: 'long',
-              year: 'numeric',
               month: 'long',
               day: 'numeric',
+              year: 'numeric',
+              timeZone: 'UTC'  // Forces UTC interpretation
             })}
           </p>
         </div>
