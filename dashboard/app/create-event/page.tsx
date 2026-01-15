@@ -44,9 +44,8 @@ export default function CreateEventPage() {
       console.log('Creating event...');
       console.log('API URL:', process.env.NEXT_PUBLIC_WORKER_API_URL);
 
-      // Convert date to midnight UTC for consistency
-      const eventDate = new Date(scheduledDate);
-      eventDate.setHours(0, 0, 0, 0);
+      // Convert date to midnight UTC (not local timezone)
+      const eventDate = new Date(scheduledDate + 'T00:00:00Z');
 
       const response = await fetch(`${process.env.NEXT_PUBLIC_WORKER_API_URL}/api/events`, {
         method: 'POST',
