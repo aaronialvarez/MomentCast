@@ -86,6 +86,8 @@ function updateUI() {
     showLive();
   } else if (hasEnded && hasRecordings) {
     showReplay();
+  } else if (hasEnded) {
+    showEnded(); // Event ended but no recordings available
   } else if (now < scheduledDate) {
     showCountdown();
   } else {
@@ -249,6 +251,35 @@ function showReplay() {
   }
 
   replayEl.classList.remove('hidden');
+}
+
+// Show ended state (event finished, no recordings)
+function showEnded() {
+  const countdownEl = document.getElementById('countdown');
+  const titleEl = document.getElementById('event-title');
+  const scheduledTimeEl = document.getElementById('scheduled-time');
+  
+  // Clear any existing countdown interval
+  if (countdownInterval) {
+    clearInterval(countdownInterval);
+    countdownInterval = null;
+  }
+  
+  titleEl.textContent = eventData.title;
+  scheduledTimeEl.textContent = 'This event has ended';
+  
+  // Replace countdown timer with ended message
+  const timerContainer = countdownEl.querySelector('.grid');
+  if (timerContainer) {
+    timerContainer.innerHTML = `
+      <div class="col-span-full text-center">
+        <p class="text-2xl font-bold mb-4">Event Has Ended</p>
+        <p class="text-gray-400">Thank you for watching!</p>
+      </div>
+    `;
+  }
+  
+  countdownEl.classList.remove('hidden');
 }
 
 // Show limit exceeded state
