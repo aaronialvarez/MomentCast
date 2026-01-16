@@ -243,11 +243,19 @@ function showReplay() {
 
   titleEl.textContent = eventData.title;
 
-  // Use first recording or merged video
-  const videoId = eventData.merged_video_id || (eventData.recordings[0]?.uid);
+  console.log('Replay data:', eventData.recordings);
+
+  // Use first recording (they're ordered newest first from API)
+  const videoId = eventData.recordings[0]?.uid;
   
   if (videoId) {
-    streamEl.src = `https://customer-${videoId.substring(0, 8)}.cloudflarestream.com/${videoId}/iframe`;
+    // Use your account-specific customer subdomain
+    const embedUrl = `https://customer-r5vkm8rpzqtdt9cz.cloudflarestream.com/${videoId}/iframe?autoplay=true&muted=false`;
+    
+    console.log('Setting replay iframe src to:', embedUrl);
+    streamEl.src = embedUrl;
+  } else {
+    console.error('No recordings found in eventData:', eventData);
   }
 
   replayEl.classList.remove('hidden');
