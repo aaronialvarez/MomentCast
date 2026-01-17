@@ -245,15 +245,18 @@ function showReplay() {
 
   console.log('Replay data:', eventData.recordings);
 
-  // Use first recording (they're ordered newest first from API)
-  const videoId = eventData.recordings[0]?.uid;
+  // Use oldest recording (last in array, since API returns newest first)
+  // Or use merged_video_id if available
+  const videoId = eventData.merged_video_id || (eventData.recordings[eventData.recordings.length - 1]?.uid);
   
   if (videoId) {
-    // Use your account-specific customer subdomain
     const embedUrl = `https://customer-r5vkm8rpzqtdt9cz.cloudflarestream.com/${videoId}/iframe?autoplay=true&muted=false`;
     
-    console.log('Setting replay iframe src to:', embedUrl);
-    streamEl.src = embedUrl;
+    // Only set src if it's different (prevents reload on poll)
+    if (streamEl.src !== embedUrl) {
+      console.log('Setting replay iframe src to:', embedUrl);
+      streamEl.src = embedUrl;
+    }
   } else {
     console.error('No recordings found in eventData:', eventData);
   }
