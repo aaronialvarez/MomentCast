@@ -52,10 +52,11 @@ function startPolling() {
     await fetchEvent();
     updateUI();
     
-    // Restart polling only if state changed
+    // Restart polling only if state changed (with proper cleanup)
     const newState = eventData?.status;
     if (previousState !== newState) {
-      startPolling();
+      clearInterval(pollInterval); // Clear current interval first
+      startPolling(); // Then start new one
     }
   }, pollFrequency);
 }
