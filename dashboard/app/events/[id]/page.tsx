@@ -84,8 +84,9 @@ export default function EventDetailPage() {
   }
 
   function isEventToday(scheduledDate: string): boolean {
-    const today = new Date().toISOString().split('T')[0];
-    return scheduledDate === today;
+    const today = new Date();
+    const todayLocal = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+    return scheduledDate === todayLocal;
   }
 
   async function handleStartStreaming() {
