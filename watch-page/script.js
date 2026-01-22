@@ -73,36 +73,76 @@ function updateUI() {
   const hasEnded = eventData.status === 'ended';
   const hasRecordings = eventData.recordings && eventData.recordings.length > 0;
 
-  // Hide all states
-  document.querySelectorAll('.state').forEach(el => el.classList.add('hidden'));
-
   // Check if viewer limit exceeded (only for live/replay states)
   if ((isLive || hasRecordings) && eventData.limitExceeded) {
-    showLimitExceeded();
+    const limitEl = document.getElementById('limit-exceeded');
+    if (!limitEl || limitEl.classList.contains('hidden')) {
+      // Hide all states first
+      document.querySelectorAll('.state').forEach(el => el.classList.add('hidden'));
+      showLimitExceeded();
+    }
     return;
   }
 
-  // Decision tree for what to show
+  // Decision tree for what to show - only update when transitioning
   if (isLive && !hasRecordings) {
     // First stream session, no recordings yet
-    showLive();
+    const liveEl = document.getElementById('live');
+    if (liveEl.classList.contains('hidden')) {
+      document.querySelectorAll('.state').forEach(el => el.classList.add('hidden'));
+      showLive();
+    }
   } else if (isLive && hasRecordings) {
     // Stream is live but recordings exist (resumed after pause)
-    showReplayWithLiveBanner();
+    const replayEl = document.getElementById('replay');
+    const liveBanner = document.getElementById('live-banner');
+    if (replayEl.classList.contains('hidden') || !liveBanner) {
+      document.querySelectorAll('.state').forEach(el => el.classList.add('hidden'));
+      showReplayWithLiveBanner();
+    }
   } else if (hasRecordings) {
     // Has recordings, stream paused or ended
-    showReplay();
+    const replayEl = document.getElementById('replay');
+    const liveBanner = document.getElementById('live-banner');
+    if (replayEl.classList.contains('hidden') || liveBanner) {
+      document.querySelectorAll('.state').forEach(el => el.classList.add('hidden'));
+      showReplay();
+    }
   } else if (eventData.status === 'ready') {
     // Credentials revealed but no stream/recordings yet
-    showWaiting();
+    const countdownEl = document.getElementById('countdown');
+    const isShowingWaiting = countdownEl && !countdownEl.classList.contains('hidden') && 
+                             countdownEl.querySelector('.grid')?.textContent?.includes('Event starting soon');
+    if (!isShowingWaiting) {
+      document.querySelectorAll('.state').forEach(el => el.classList.add('hidden'));
+      showWaiting();
+    }
   } else if (hasEnded) {
     // Event ended but no recordings available
-    showEnded();
+    const countdownEl = document.getElementById('countdown');
+    const isShowingEnded = countdownEl && !countdownEl.classList.contains('hidden') && 
+                           countdownEl.querySelector('.grid')?.textContent?.includes('Event Has Ended');
+    if (!isShowingEnded) {
+      document.querySelectorAll('.state').forEach(el => el.classList.add('hidden'));
+      showEnded();
+    }
   } else if (now < scheduledDate) {
-    showCountdown();
+    const countdownEl = document.getElementById('countdown');
+    const isShowingCountdown = countdownEl && !countdownEl.classList.contains('hidden') && 
+                               document.getElementById('days');
+    if (!isShowingCountdown) {
+      document.querySelectorAll('.state').forEach(el => el.classList.add('hidden'));
+      showCountdown();
+    }
   } else {
     // Scheduled time has passed but event hasn't started
-    showWaiting();
+    const countdownEl = document.getElementById('countdown');
+    const isShowingWaiting = countdownEl && !countdownEl.classList.contains('hidden') && 
+                             countdownEl.querySelector('.grid')?.textContent?.includes('Event starting soon');
+    if (!isShowingWaiting) {
+      document.querySelectorAll('.state').forEach(el => el.classList.add('hidden'));
+      showWaiting();
+    }
   }
 }
 
