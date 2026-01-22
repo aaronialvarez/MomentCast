@@ -265,7 +265,8 @@ export default function EventDetailPage() {
                     weekday: 'long',
                     month: 'long',
                     day: 'numeric',
-                    year: 'numeric'
+                    year: 'numeric',
+                    timeZone: 'UTC'  // Forces UTC interpretation
                   })}
                 </p>
               </div>
