@@ -69,7 +69,7 @@ function updateUI() {
 
   const now = new Date();
   const scheduledDate = new Date(eventData.scheduled_date);
-  const isLive = eventData.status === 'live' || eventData.stream_state === 'active';
+  const isLive = eventData.status === 'live' && eventData.stream_state === 'active';
   const hasEnded = eventData.status === 'ended';
   const hasRecordings = eventData.recordings && eventData.recordings.length > 0;
 
@@ -77,17 +77,27 @@ function updateUI() {
   document.querySelectorAll('.state').forEach(el => el.classList.add('hidden'));
 
   // Check if viewer limit exceeded (only for live/replay states)
-  if ((isLive || (hasEnded && hasRecordings)) && eventData.limitExceeded) {
+  if ((isLive || hasRecordings) && eventData.limitExceeded) {
     showLimitExceeded();
     return;
   }
 
-  if (isLive) {
+  // Decision tree for what to show
+  if (isLive && !hasRecordings) {
+    // First stream session, no recordings yet
     showLive();
-  } else if (hasEnded && hasRecordings) {
+  } else if (isLive && hasRecordings) {
+    // Stream is live but recordings exist (resumed after pause)
+    showReplayWithLiveBanner();
+  } else if (hasRecordings) {
+    // Has recordings, stream paused or ended
     showReplay();
+  } else if (eventData.status === 'ready') {
+    // Credentials revealed but no stream/recordings yet
+    showWaiting();
   } else if (hasEnded) {
-    showEnded(); // Event ended but no recordings available
+    // Event ended but no recordings available
+    showEnded();
   } else if (now < scheduledDate) {
     showCountdown();
   } else {
@@ -246,7 +256,6 @@ function showReplay() {
   console.log('Replay data:', eventData.recordings);
 
   // Use oldest recording (last in array, since API returns newest first)
-  // Or use merged_video_id if available
   const videoId = eventData.merged_video_id || (eventData.recordings[eventData.recordings.length - 1]?.uid);
   
   if (videoId) {
@@ -259,6 +268,57 @@ function showReplay() {
     }
   } else {
     console.error('No recordings found in eventData:', eventData);
+  }
+
+  // Remove live banner if it exists
+  const liveBanner = document.getElementById('live-banner');
+  if (liveBanner) {
+    liveBanner.remove();
+  }
+
+  replayEl.classList.remove('hidden');
+}
+
+// Show replay with live banner (stream resumed after pause)
+function showReplayWithLiveBanner() {
+  const replayEl = document.getElementById('replay');
+  const titleEl = document.getElementById('replay-title');
+  const streamEl = document.getElementById('replay-stream');
+
+  titleEl.textContent = eventData.title;
+
+  console.log('Replay with live banner:', eventData.recordings);
+
+  // Use oldest recording (last in array, since API returns newest first)
+  const videoId = eventData.merged_video_id || (eventData.recordings[eventData.recordings.length - 1]?.uid);
+  
+  if (videoId) {
+    const embedUrl = `https://customer-r5vkm8rpzqtdt9cz.cloudflarestream.com/${videoId}/iframe?autoplay=true&muted=false`;
+    
+    // Only set src if it's different (prevents reload on poll)
+    if (streamEl.src !== embedUrl) {
+      console.log('Setting replay iframe src to:', embedUrl);
+      streamEl.src = embedUrl;
+    }
+  }
+
+  // Add live banner if it doesn't exist
+  let liveBanner = document.getElementById('live-banner');
+  if (!liveBanner) {
+    liveBanner = document.createElement('div');
+    liveBanner.id = 'live-banner';
+    liveBanner.className = 'bg-red-600 text-white px-6 py-3 cursor-pointer hover:bg-red-700 transition-colors flex items-center justify-center gap-2 font-semibold';
+    liveBanner.innerHTML = `
+      <span class="inline-block w-3 h-3 bg-white rounded-full animate-pulse"></span>
+      <span>LIVE NOW - Click to watch live</span>
+    `;
+    liveBanner.onclick = () => {
+      // Switch to live stream
+      showLive();
+    };
+    
+    // Insert banner before replay content
+    replayEl.insertBefore(liveBanner, replayEl.firstChild);
   }
 
   replayEl.classList.remove('hidden');
