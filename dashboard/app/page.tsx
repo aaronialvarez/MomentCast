@@ -43,8 +43,7 @@ export default function DashboardHome() {
           return;
         }
 
-        await new Promise(resolve => setTimeout(resolve, 500));
-
+        // Fetch user data
         const { data: userData, error: userError } = await supabase
           .from('users')
           .select('*')
@@ -60,17 +59,40 @@ export default function DashboardHome() {
 
         setUser(userData);
 
-        const { data: eventsData, error: eventsError } = await supabase
+        // Fetch upcoming/active events first (prioritized load)
+        const { data: activeEvents, error: activeError } = await supabase
           .from('events')
-          .select('*')
+          .select('id, slug, title, scheduled_date, status, stream_state')
           .eq('user_id', authUser.id)
-          .order('scheduled_date', { ascending: false });
+          .in('status', ['live', 'ready', 'scheduled'])
+          .order('scheduled_date', { ascending: true })
+          .limit(50);
 
-        if (eventsError) {
-          console.error('Events fetch error:', eventsError);
+        if (activeError) {
+          console.error('Events fetch error:', activeError);
+          setError('Failed to load events');
+          setLoading(false);
+          return;
         }
-        
-        setEvents(eventsData || []);
+
+        // Show active events immediately
+        setEvents(activeEvents || []);
+        setLoading(false);
+
+        // Lazy-load ended events in background
+        supabase
+          .from('events')
+          .select('id, slug, title, scheduled_date, status, stream_state')
+          .eq('user_id', authUser.id)
+          .eq('status', 'ended')
+          .order('scheduled_date', { ascending: false })
+          .limit(20)
+          .then(({ data: endedEvents }) => {
+            if (endedEvents) {
+              setEvents(prev => [...prev, ...endedEvents]);
+            }
+          });
+
       } catch (err) {
         console.error('Dashboard load error:', err);
         setError('Failed to load dashboard');
