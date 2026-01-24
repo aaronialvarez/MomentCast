@@ -37,7 +37,7 @@ export default function DashboardHome() {
   const [endedPage, setEndedPage] = useState(0);
   const [error, setError] = useState<string | null>(null);
 
-  const ENDED_EVENTS_PER_PAGE = 2; // Change to 20 in production
+  const ENDED_EVENTS_PER_PAGE = 20; // Change to 20 in production
 
   useEffect(() => {
     async function loadDashboard() {
