@@ -38,6 +38,8 @@ export default function DashboardHome() {
 
   useEffect(() => {
     async function loadDashboard() {
+      console.log('🚀 Dashboard v2.0 - Loading with optimized queries');
+      
       try {
         const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
         
@@ -61,8 +63,12 @@ export default function DashboardHome() {
         }
 
         setUser(userData);
+        console.log('✅ User loaded:', userData.email);
 
         // Fetch upcoming/active events first (prioritized load)
+        console.log('📊 Fetching active events with optimized query...');
+        const startTime = performance.now();
+        
         const { data: activeEvents, error: activeError } = await supabase
           .from('events')
           .select('id, slug, title, scheduled_date, status, stream_state')
@@ -70,6 +76,9 @@ export default function DashboardHome() {
           .in('status', ['live', 'ready', 'scheduled'])
           .order('scheduled_date', { ascending: true })
           .limit(50);
+
+        const loadTime = performance.now() - startTime;
+        console.log(`✅ Active events loaded in ${loadTime.toFixed(0)}ms:`, activeEvents?.length || 0);
 
         if (activeError) {
           console.error('Events fetch error:', activeError);
@@ -81,8 +90,10 @@ export default function DashboardHome() {
         // Show active events immediately
         setEvents(activeEvents || []);
         setLoading(false);
+        console.log('✅ Dashboard rendered with active events');
 
         // Lazy-load ended events in background
+        console.log('📊 Background loading ended events...');
         supabase
           .from('events')
           .select('id, slug, title, scheduled_date, status, stream_state')
@@ -92,6 +103,7 @@ export default function DashboardHome() {
           .limit(20)
           .then(({ data: endedEvents }) => {
             if (endedEvents) {
+              console.log(`✅ Ended events loaded: ${endedEvents.length}`);
               setEvents(prev => [...prev, ...endedEvents]);
             }
           });
@@ -140,6 +152,8 @@ export default function DashboardHome() {
 
   return (
     <div className="min-h-screen bg-gray-900 text-white">
+      {/* Version marker - remove after confirming deployment */}
+      <div className="fixed bottom-4 right-4 bg-green-600 text-white px-3 py-1 rounded text-xs font-mono">v2.0-optimized</div>
       {/* Header with User Info */}
       <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-8">
         <div className="max-w-6xl mx-auto flex justify-between items-center">
