@@ -10,6 +10,9 @@ interface User {
   credits: number;
 }
 
+
+// delete this line
+
 interface Event {
   id: string;
   slug: string;
