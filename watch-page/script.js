@@ -150,6 +150,13 @@ function updateUI() {
   // Only update UI if mode has changed or if we're not showing the right state
   if (newMode !== playbackMode) {
     console.log(`Playback mode changed: ${playbackMode} -> ${newMode}`);
+    
+    // Clear any auto-advance interval when switching modes
+    if (advanceCheckInterval) {
+      clearInterval(advanceCheckInterval);
+      advanceCheckInterval = null;
+    }
+    
     playbackMode = newMode;
     document.querySelectorAll('.state').forEach(el => el.classList.add('hidden'));
     
@@ -357,7 +364,7 @@ function showLastRecording() {
   if (!waitingBanner) {
     waitingBanner = document.createElement('div');
     waitingBanner.id = 'waiting-banner';
-    waitingBanner.className = 'bg-purple-600 text-white px-6 py-3 flex items-center justify-center gap-2 font-semibold';
+    waitingBanner.className = 'bg-purple-600 text-white px-6 py-3 flex items-center justify-center gap-2 font-semibold w-full';
     
     // Calculate time since last activity for display
     let timeSinceText = '';
@@ -373,8 +380,12 @@ function showLastRecording() {
       <span>Stream paused${timeSinceText} - Photographer will return shortly...</span>
     `;
     
-    // Insert banner before replay content
-    replayEl.insertBefore(waitingBanner, replayEl.firstChild);
+    // Insert banner at the very top of replay element
+    if (replayEl.firstChild) {
+      replayEl.insertBefore(waitingBanner, replayEl.firstChild);
+    } else {
+      replayEl.appendChild(waitingBanner);
+    }
   }
 
   replayEl.classList.remove('hidden');
@@ -434,10 +445,14 @@ function showSequentialPlayback() {
   if (!progressBanner) {
     progressBanner = document.createElement('div');
     progressBanner.id = 'progress-banner';
-    progressBanner.className = 'bg-gray-700 text-white px-6 py-2 flex items-center justify-between text-sm';
+    progressBanner.className = 'bg-gray-700 text-white px-6 py-2 flex items-center justify-between text-sm w-full';
     
-    // Insert banner before replay content
-    replayEl.insertBefore(progressBanner, replayEl.firstChild);
+    // Insert banner at the very top of replay element
+    if (replayEl.firstChild) {
+      replayEl.insertBefore(progressBanner, replayEl.firstChild);
+    } else {
+      replayEl.appendChild(progressBanner);
+    }
   }
   
   // Update progress text
@@ -451,25 +466,40 @@ function showSequentialPlayback() {
 }
 
 // Setup auto-advance for sequential playback
+let advanceCheckInterval = null;
+
 function setupSequentialAdvance(iframeElement, recordings) {
-  // Listen for messages from the Cloudflare Stream player
-  const messageHandler = (event) => {
-    // Check if message is from Cloudflare Stream
-    if (event.data && event.data.event === 'stream-ended') {
-      console.log('Recording ended, advancing to next...');
+  // Clear any existing interval
+  if (advanceCheckInterval) {
+    clearInterval(advanceCheckInterval);
+    advanceCheckInterval = null;
+  }
+  
+  // Since Cloudflare Stream doesn't reliably send postMessage events,
+  // we'll use the Stream API to check video duration and poll progress
+  const currentRecording = recordings[currentRecordingIndex];
+  if (!currentRecording || !currentRecording.duration) {
+    console.warn('No duration found for recording, cannot set up auto-advance');
+    return;
+  }
+  
+  const videoDuration = currentRecording.duration; // Duration in seconds
+  const videoStartTime = Date.now();
+  
+  console.log(`Video ${currentRecordingIndex + 1} duration: ${videoDuration}s, setting up auto-advance`);
+  
+  // Poll every 5 seconds to check if video should have ended
+  advanceCheckInterval = setInterval(() => {
+    const elapsed = (Date.now() - videoStartTime) / 1000; // Convert to seconds
+    const bufferTime = 3; // Add 3 second buffer for loading/buffering
+    
+    if (elapsed >= (videoDuration + bufferTime)) {
+      console.log(`Video ${currentRecordingIndex + 1} should have ended (${elapsed.toFixed(1)}s >= ${videoDuration}s), advancing...`);
+      clearInterval(advanceCheckInterval);
+      advanceCheckInterval = null;
       advanceToNextRecording(recordings);
     }
-  };
-  
-  // Remove old listener if exists
-  window.removeEventListener('message', messageHandler);
-  
-  // Add new listener
-  window.addEventListener('message', messageHandler);
-  
-  // Fallback: Poll the iframe's currentTime (if accessible)
-  // Note: Due to CORS, we may not be able to access the iframe content directly
-  // The Cloudflare Stream player should send postMessage events
+  }, 5000); // Check every 5 seconds
 }
 
 // Advance to next recording in sequential playback
