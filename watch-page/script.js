@@ -153,14 +153,12 @@ function updateUI() {
     
     // Clear any auto-advance mechanisms when switching modes
     if (currentStreamPlayer) {
-      try {
-        currentStreamPlayer.removeEventListener('ended', () => {});
-        currentStreamPlayer.removeEventListener('error', () => {});
-      } catch (e) {}
+      window.removeEventListener('message', currentStreamPlayer);
       currentStreamPlayer = null;
     }
     if (advanceCheckInterval) {
       clearInterval(advanceCheckInterval);
+      clearTimeout(advanceCheckInterval); // In case it's a timeout instead of interval
       advanceCheckInterval = null;
     }
     
@@ -472,91 +470,101 @@ function showSequentialPlayback() {
   replayEl.classList.remove('hidden');
 }
 
-// Setup auto-advance for sequential playback using Stream Player SDK
+// Setup auto-advance for sequential playback
+// Uses Stream Player's postMessage API for accurate detection
 let currentStreamPlayer = null;
-
-function setupSequentialAdvance(iframeElement, recordings) {
-  // Clear any previous player instance
-  if (currentStreamPlayer) {
-    try {
-      currentStreamPlayer.removeEventListener('ended', handleVideoEnded);
-      currentStreamPlayer.removeEventListener('error', handleVideoError);
-    } catch (e) {
-      console.warn('Error clearing previous player:', e);
-    }
-    currentStreamPlayer = null;
-  }
-  
-  // Wait for iframe to load, then initialize Stream Player SDK
-  iframeElement.onload = () => {
-    try {
-      // Initialize Stream Player SDK
-      if (typeof Stream === 'function') {
-        currentStreamPlayer = Stream(iframeElement);
-        
-        // Ensure video is not muted
-        currentStreamPlayer.muted = false;
-        
-        // Listen for ended event (fires when video actually finishes)
-        currentStreamPlayer.addEventListener('ended', handleVideoEnded);
-        
-        // Listen for errors
-        currentStreamPlayer.addEventListener('error', handleVideoError);
-        
-        console.log(`Stream Player initialized for video ${currentRecordingIndex + 1}/${recordings.length}`);
-      } else {
-        console.warn('Stream Player SDK not loaded, falling back to duration-based detection');
-        // Fallback to duration-based approach
-        setupDurationBasedAdvance(recordings);
-      }
-    } catch (error) {
-      console.error('Error initializing Stream Player:', error);
-      // Fallback to duration-based approach
-      setupDurationBasedAdvance(recordings);
-    }
-  };
-  
-  function handleVideoEnded() {
-    console.log(`Video ${currentRecordingIndex + 1} ended (via Stream Player event), advancing...`);
-    advanceToNextRecording(recordings);
-  }
-  
-  function handleVideoError(error) {
-    console.error('Stream Player error:', error);
-  }
-}
-
-// Fallback: Duration-based advance (if Stream Player SDK not available)
 let advanceCheckInterval = null;
 
-function setupDurationBasedAdvance(recordings) {
+function setupSequentialAdvance(iframeElement, recordings) {
+  // Clear any previous instances
+  if (currentStreamPlayer) {
+    window.removeEventListener('message', currentStreamPlayer);
+    currentStreamPlayer = null;
+  }
   if (advanceCheckInterval) {
     clearInterval(advanceCheckInterval);
     advanceCheckInterval = null;
   }
   
   const currentRecording = recordings[currentRecordingIndex];
-  if (!currentRecording || !currentRecording.duration) {
-    console.warn('No duration found for recording, cannot set up auto-advance');
+  if (!currentRecording) {
+    console.warn('No current recording found');
     return;
   }
   
-  const videoDuration = currentRecording.duration;
-  const videoStartTime = Date.now();
-  
-  console.log(`Fallback: Video ${currentRecordingIndex + 1} duration: ${videoDuration}s`);
-  
-  advanceCheckInterval = setInterval(() => {
-    const elapsed = (Date.now() - videoStartTime) / 1000;
-    const bufferTime = 3;
+  // Method 1: Listen for postMessage from Stream Player
+  const messageHandler = (event) => {
+    // Only process messages from Cloudflare Stream
+    if (!event.origin.includes('cloudflarestream.com')) return;
     
-    if (elapsed >= (videoDuration + bufferTime)) {
-      console.log(`Video ${currentRecordingIndex + 1} should have ended (fallback), advancing...`);
-      clearInterval(advanceCheckInterval);
-      advanceCheckInterval = null;
-      advanceToNextRecording(recordings);
+    try {
+      const data = event.data;
+      
+      // Stream Player sends various events - we want 'ended' or time updates near the end
+      if (data && typeof data === 'object') {
+        // Check for ended event
+        if (data.event === 'ended' || data.ended === true) {
+          console.log(`Video ${currentRecordingIndex + 1} ended (via postMessage), advancing...`);
+          window.removeEventListener('message', messageHandler);
+          advanceToNextRecording(recordings);
+          return;
+        }
+        
+        // Check for timeupdate near end of video
+        if (data.event === 'timeupdate' && currentRecording.duration) {
+          const currentTime = data.currentTime || 0;
+          const duration = currentRecording.duration;
+          
+          // If within last 2 seconds, prepare to advance
+          if (duration - currentTime < 2 && duration - currentTime > 0) {
+            console.log(`Video ${currentRecordingIndex + 1} approaching end (${currentTime.toFixed(1)}/${duration}s)`);
+          }
+        }
+      }
+    } catch (e) {
+      // Ignore parsing errors
     }
-  }, 5000);
+  };
+  
+  currentStreamPlayer = messageHandler;
+  window.addEventListener('message', messageHandler);
+  
+  // Method 2: Fallback polling based on video duration
+  // This runs in parallel as a safety net
+  if (currentRecording.duration) {
+    const videoDuration = currentRecording.duration;
+    const videoStartTime = Date.now();
+    let hasAdvanced = false;
+    
+    console.log(`Video ${currentRecordingIndex + 1} duration: ${videoDuration}s (using dual detection: postMessage + fallback)`);
+    
+    advanceCheckInterval = setInterval(() => {
+      if (hasAdvanced) {
+        clearInterval(advanceCheckInterval);
+        return;
+      }
+      
+      const elapsed = (Date.now() - videoStartTime) / 1000;
+      const bufferTime = 2; // Reduced from 3 to 2 seconds
+      
+      // Advance when duration + buffer time has elapsed
+      if (elapsed >= (videoDuration + bufferTime)) {
+        console.log(`Video ${currentRecordingIndex + 1} ended (via fallback timer at ${elapsed.toFixed(1)}s), advancing...`);
+        hasAdvanced = true;
+        clearInterval(advanceCheckInterval);
+        advanceCheckInterval = null;
+        window.removeEventListener('message', messageHandler);
+        advanceToNextRecording(recordings);
+      }
+    }, 2000); // Check every 2 seconds (reduced from 5)
+  } else {
+    console.warn('No duration available for video, using 60-second default');
+    // If no duration, advance after 60 seconds as last resort
+    advanceCheckInterval = setTimeout(() => {
+      console.log('Advancing after default timeout (no duration available)');
+      advanceToNextRecording(recordings);
+    }, 60000);
+  }
 }
 
 // Advance to next recording in sequential playback
