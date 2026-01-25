@@ -8,6 +8,8 @@ const slug = window.location.pathname.split('/').filter(Boolean).pop() || '';
 let eventData = null;
 let countdownInterval = null;
 let pollInterval = null;
+let currentRecordingIndex = 0;
+let playbackMode = null; // 'LIVE', 'LAST_RECORDING', 'SEQUENTIAL', 'WAITING'
 
 // Initialize
 async function init() {
@@ -40,7 +42,16 @@ async function fetchEvent() {
 // Start polling based on event state
 function startPolling() {
   const isLive = eventData?.status === 'live' || eventData?.stream_state === 'active';
-  const pollFrequency = isLive ? 120000 : 60000; // Poll every 2 minutes when live, 1 min when scheduled
+  const isWaitingForResume = playbackMode === 'LAST_RECORDING'; // Poll more frequently when waiting
+  
+  let pollFrequency;
+  if (isLive) {
+    pollFrequency = 120000; // 2 minutes when live
+  } else if (isWaitingForResume) {
+    pollFrequency = 30000; // 30 seconds when waiting for stream to resume
+  } else {
+    pollFrequency = 60000; // 1 minute for other states
+  }
   
   // Only restart if frequency needs to change
   if (pollInterval) {
@@ -49,16 +60,69 @@ function startPolling() {
   
   pollInterval = setInterval(async () => {
     const previousState = eventData?.status;
+    const previousMode = playbackMode;
     await fetchEvent();
     updateUI();
     
-    // Restart polling only if state changed (with proper cleanup)
+    // Restart polling if state or mode changed (with proper cleanup)
     const newState = eventData?.status;
-    if (previousState !== newState) {
+    const newMode = playbackMode;
+    if (previousState !== newState || previousMode !== newMode) {
       clearInterval(pollInterval); // Clear current interval first
       startPolling(); // Then start new one
     }
   }, pollFrequency);
+}
+
+// Determine playback mode based on event state and 2-hour timeout
+function determinePlaybackMode() {
+  if (!eventData) return 'WAITING';
+  
+  const now = new Date();
+  const scheduledDate = new Date(eventData.scheduled_date);
+  const isLive = eventData.status === 'live' && eventData.stream_state === 'active';
+  const isEnded = eventData.status === 'ended';
+  const hasRecordings = eventData.recordings && eventData.recordings.length > 0;
+  
+  // Check 2-hour timeout if we have last_stream_activity
+  let timeSinceActivity = null;
+  let recentActivity = false;
+  if (eventData.last_stream_activity) {
+    const lastActivity = new Date(eventData.last_stream_activity);
+    timeSinceActivity = now - lastActivity;
+    const twoHours = 2 * 60 * 60 * 1000; // 2 hours in milliseconds
+    recentActivity = timeSinceActivity < twoHours;
+  }
+  
+  // Decision tree
+  if (isLive) {
+    return 'LIVE';
+  }
+  
+  if (isEnded) {
+    return hasRecordings ? 'SEQUENTIAL' : 'ENDED';
+  }
+  
+  // Event is 'ready' (within 24h window)
+  if (eventData.status === 'ready') {
+    if (!hasRecordings) {
+      return 'WAITING'; // No recordings yet, show waiting
+    }
+    
+    if (recentActivity) {
+      return 'LAST_RECORDING'; // < 2hrs, play last recording and wait
+    } else {
+      return 'SEQUENTIAL'; // > 2hrs, play all recordings sequentially
+    }
+  }
+  
+  // Scheduled state
+  if (now < scheduledDate) {
+    return 'COUNTDOWN';
+  }
+  
+  // Fallback
+  return 'WAITING';
 }
 
 // Update UI based on event state
@@ -68,81 +132,47 @@ function updateUI() {
     return;
   }
 
-  const now = new Date();
-  const scheduledDate = new Date(eventData.scheduled_date);
-  const isLive = eventData.status === 'live' && eventData.stream_state === 'active';
-  const hasEnded = eventData.status === 'ended';
+  // Check if viewer limit exceeded
   const hasRecordings = eventData.recordings && eventData.recordings.length > 0;
-
-  // Check if viewer limit exceeded (only for live/replay states)
+  const isLive = eventData.status === 'live' && eventData.stream_state === 'active';
   if ((isLive || hasRecordings) && eventData.limitExceeded) {
     const limitEl = document.getElementById('limit-exceeded');
     if (!limitEl || limitEl.classList.contains('hidden')) {
-      // Hide all states first
       document.querySelectorAll('.state').forEach(el => el.classList.add('hidden'));
       showLimitExceeded();
     }
     return;
   }
 
-  // Decision tree for what to show - only update when transitioning
-  if (isLive && !hasRecordings) {
-    // First stream session, no recordings yet
-    const liveEl = document.getElementById('live');
-    if (liveEl.classList.contains('hidden')) {
-      document.querySelectorAll('.state').forEach(el => el.classList.add('hidden'));
-      showLive();
-    }
-  } else if (isLive && hasRecordings) {
-    // Stream is live but recordings exist (resumed after pause)
-    const replayEl = document.getElementById('replay');
-    const liveBanner = document.getElementById('live-banner');
-    if (replayEl.classList.contains('hidden') || !liveBanner) {
-      document.querySelectorAll('.state').forEach(el => el.classList.add('hidden'));
-      showReplayWithLiveBanner();
-    }
-  } else if (hasRecordings) {
-    // Has recordings, stream paused or ended
-    const replayEl = document.getElementById('replay');
-    const liveBanner = document.getElementById('live-banner');
-    if (replayEl.classList.contains('hidden') || liveBanner) {
-      document.querySelectorAll('.state').forEach(el => el.classList.add('hidden'));
-      showReplay();
-    }
-  } else if (eventData.status === 'ready') {
-    // Credentials revealed but no stream/recordings yet
-    const countdownEl = document.getElementById('countdown');
-    const isShowingWaiting = countdownEl && !countdownEl.classList.contains('hidden') && 
-                             countdownEl.querySelector('.grid')?.textContent?.includes('Event starting soon');
-    if (!isShowingWaiting) {
-      document.querySelectorAll('.state').forEach(el => el.classList.add('hidden'));
-      showWaiting();
-    }
-  } else if (hasEnded) {
-    // Event ended but no recordings available
-    const countdownEl = document.getElementById('countdown');
-    const isShowingEnded = countdownEl && !countdownEl.classList.contains('hidden') && 
-                           countdownEl.querySelector('.grid')?.textContent?.includes('Event Has Ended');
-    if (!isShowingEnded) {
-      document.querySelectorAll('.state').forEach(el => el.classList.add('hidden'));
-      showEnded();
-    }
-  } else if (now < scheduledDate) {
-    const countdownEl = document.getElementById('countdown');
-    const isShowingCountdown = countdownEl && !countdownEl.classList.contains('hidden') && 
-                               document.getElementById('days');
-    if (!isShowingCountdown) {
-      document.querySelectorAll('.state').forEach(el => el.classList.add('hidden'));
-      showCountdown();
-    }
-  } else {
-    // Scheduled time has passed but event hasn't started
-    const countdownEl = document.getElementById('countdown');
-    const isShowingWaiting = countdownEl && !countdownEl.classList.contains('hidden') && 
-                             countdownEl.querySelector('.grid')?.textContent?.includes('Event starting soon');
-    if (!isShowingWaiting) {
-      document.querySelectorAll('.state').forEach(el => el.classList.add('hidden'));
-      showWaiting();
+  // Determine what mode we should be in
+  const newMode = determinePlaybackMode();
+  
+  // Only update UI if mode has changed or if we're not showing the right state
+  if (newMode !== playbackMode) {
+    console.log(`Playback mode changed: ${playbackMode} -> ${newMode}`);
+    playbackMode = newMode;
+    document.querySelectorAll('.state').forEach(el => el.classList.add('hidden'));
+    
+    switch (newMode) {
+      case 'LIVE':
+        showLive();
+        break;
+      case 'LAST_RECORDING':
+        showLastRecording();
+        break;
+      case 'SEQUENTIAL':
+        showSequentialPlayback();
+        break;
+      case 'COUNTDOWN':
+        showCountdown();
+        break;
+      case 'ENDED':
+        showEnded();
+        break;
+      case 'WAITING':
+      default:
+        showWaiting();
+        break;
     }
   }
 }
@@ -286,6 +316,217 @@ function showLive() {
   liveEl.classList.remove('hidden');
 }
 
+// Show last/most recent recording (< 2 hours since activity)
+function showLastRecording() {
+  const replayEl = document.getElementById('replay');
+  const titleEl = document.getElementById('replay-title');
+  const streamEl = document.getElementById('replay-stream');
+
+  titleEl.textContent = eventData.title;
+
+  console.log('Playing last recording (< 2hr timeout):', eventData.recordings);
+
+  // Sort recordings by created timestamp (newest first)
+  const recordings = [...eventData.recordings].sort((a, b) => 
+    new Date(b.created) - new Date(a.created)
+  );
+  
+  // Use most recent recording
+  const videoId = recordings[0]?.uid;
+  
+  if (videoId) {
+    const embedUrl = `https://customer-r5vkm8rpzqtdt9cz.cloudflarestream.com/${videoId}/iframe?autoplay=true&muted=false`;
+    
+    // Only set src if it's different (prevents reload on poll)
+    if (streamEl.src !== embedUrl) {
+      console.log('Setting last recording iframe src to:', embedUrl);
+      streamEl.src = embedUrl;
+    }
+  } else {
+    console.error('No recordings found in eventData:', eventData);
+  }
+
+  // Remove live banner if it exists
+  const liveBanner = document.getElementById('live-banner');
+  if (liveBanner) {
+    liveBanner.remove();
+  }
+  
+  // Add waiting message banner
+  let waitingBanner = document.getElementById('waiting-banner');
+  if (!waitingBanner) {
+    waitingBanner = document.createElement('div');
+    waitingBanner.id = 'waiting-banner';
+    waitingBanner.className = 'bg-purple-600 text-white px-6 py-3 flex items-center justify-center gap-2 font-semibold';
+    
+    // Calculate time since last activity for display
+    let timeSinceText = '';
+    if (eventData.last_stream_activity) {
+      const lastActivity = new Date(eventData.last_stream_activity);
+      const now = new Date();
+      const minutesAgo = Math.floor((now - lastActivity) / (1000 * 60));
+      timeSinceText = minutesAgo > 0 ? ` (${minutesAgo} min ago)` : '';
+    }
+    
+    waitingBanner.innerHTML = `
+      <span class="inline-block w-3 h-3 bg-white rounded-full animate-pulse"></span>
+      <span>Stream paused${timeSinceText} - Photographer will return shortly...</span>
+    `;
+    
+    // Insert banner before replay content
+    replayEl.insertBefore(waitingBanner, replayEl.firstChild);
+  }
+
+  replayEl.classList.remove('hidden');
+}
+
+// Show sequential playback (> 2 hours since activity or event ended)
+function showSequentialPlayback() {
+  const replayEl = document.getElementById('replay');
+  const titleEl = document.getElementById('replay-title');
+  const streamEl = document.getElementById('replay-stream');
+
+  titleEl.textContent = eventData.title;
+
+  console.log('Playing sequential recordings:', eventData.recordings);
+
+  // Sort recordings by created timestamp (oldest first)
+  const recordings = [...eventData.recordings].sort((a, b) => 
+    new Date(a.created) - new Date(b.created)
+  );
+  
+  // Start with first recording if not already playing
+  if (currentRecordingIndex >= recordings.length) {
+    currentRecordingIndex = 0;
+  }
+  
+  const videoId = recordings[currentRecordingIndex]?.uid;
+  
+  if (videoId) {
+    const embedUrl = `https://customer-r5vkm8rpzqtdt9cz.cloudflarestream.com/${videoId}/iframe?autoplay=true&muted=false`;
+    
+    // Only set src if it's different (prevents reload on poll)
+    if (streamEl.src !== embedUrl) {
+      console.log(`Setting sequential playback iframe src (${currentRecordingIndex + 1}/${recordings.length}):`, embedUrl);
+      streamEl.src = embedUrl;
+      
+      // Set up event listener for when this recording ends
+      setupSequentialAdvance(streamEl, recordings);
+    }
+  } else {
+    console.error('No recordings found in eventData:', eventData);
+  }
+
+  // Remove waiting banner if it exists
+  const waitingBanner = document.getElementById('waiting-banner');
+  if (waitingBanner) {
+    waitingBanner.remove();
+  }
+  
+  // Remove live banner if it exists
+  const liveBanner = document.getElementById('live-banner');
+  if (liveBanner) {
+    liveBanner.remove();
+  }
+  
+  // Add progress banner
+  let progressBanner = document.getElementById('progress-banner');
+  if (!progressBanner) {
+    progressBanner = document.createElement('div');
+    progressBanner.id = 'progress-banner';
+    progressBanner.className = 'bg-gray-700 text-white px-6 py-2 flex items-center justify-between text-sm';
+    
+    // Insert banner before replay content
+    replayEl.insertBefore(progressBanner, replayEl.firstChild);
+  }
+  
+  // Update progress text
+  const statusText = eventData.status === 'ended' ? 'Event Replay' : 'Event In Progress';
+  progressBanner.innerHTML = `
+    <span>${statusText} - Video <span id="current-video-num">${currentRecordingIndex + 1}</span> of ${recordings.length}</span>
+    <span class="text-gray-400">Auto-advancing</span>
+  `;
+
+  replayEl.classList.remove('hidden');
+}
+
+// Setup auto-advance for sequential playback
+function setupSequentialAdvance(iframeElement, recordings) {
+  // Listen for messages from the Cloudflare Stream player
+  const messageHandler = (event) => {
+    // Check if message is from Cloudflare Stream
+    if (event.data && event.data.event === 'stream-ended') {
+      console.log('Recording ended, advancing to next...');
+      advanceToNextRecording(recordings);
+    }
+  };
+  
+  // Remove old listener if exists
+  window.removeEventListener('message', messageHandler);
+  
+  // Add new listener
+  window.addEventListener('message', messageHandler);
+  
+  // Fallback: Poll the iframe's currentTime (if accessible)
+  // Note: Due to CORS, we may not be able to access the iframe content directly
+  // The Cloudflare Stream player should send postMessage events
+}
+
+// Advance to next recording in sequential playback
+function advanceToNextRecording(recordings) {
+  currentRecordingIndex++;
+  
+  if (currentRecordingIndex >= recordings.length) {
+    console.log('All recordings finished');
+    // Show end message
+    showAllRecordingsComplete();
+    return;
+  }
+  
+  // Update the progress counter
+  const currentVideoNum = document.getElementById('current-video-num');
+  if (currentVideoNum) {
+    currentVideoNum.textContent = currentRecordingIndex + 1;
+  }
+  
+  // Load next recording
+  const videoId = recordings[currentRecordingIndex]?.uid;
+  if (videoId) {
+    const streamEl = document.getElementById('replay-stream');
+    const embedUrl = `https://customer-r5vkm8rpzqtdt9cz.cloudflarestream.com/${videoId}/iframe?autoplay=true&muted=false`;
+    console.log(`Loading recording ${currentRecordingIndex + 1}/${recordings.length}`);
+    streamEl.src = embedUrl;
+  }
+}
+
+// Show completion message when all recordings are done
+function showAllRecordingsComplete() {
+  const replayEl = document.getElementById('replay');
+  const streamEl = document.getElementById('replay-stream');
+  
+  // Create completion overlay
+  let completionOverlay = document.getElementById('completion-overlay');
+  if (!completionOverlay) {
+    completionOverlay = document.createElement('div');
+    completionOverlay.id = 'completion-overlay';
+    completionOverlay.className = 'absolute inset-0 bg-black bg-opacity-90 flex items-center justify-center z-10';
+    completionOverlay.innerHTML = `
+      <div class="text-center">
+        <p class="text-2xl font-bold mb-4">All recordings complete</p>
+        <p class="text-gray-400 mb-6">Thank you for watching!</p>
+        <button onclick="location.reload()" class="bg-purple-600 hover:bg-purple-700 px-6 py-3 rounded-lg font-semibold">
+          Replay from beginning
+        </button>
+      </div>
+    `;
+    
+    // Find the iframe container and add overlay
+    const container = streamEl.parentElement;
+    container.style.position = 'relative';
+    container.appendChild(completionOverlay);
+  }
+}
+
 // Show replay state
 function showReplay() {
   const replayEl = document.getElementById('replay');
@@ -315,51 +556,6 @@ function showReplay() {
   const liveBanner = document.getElementById('live-banner');
   if (liveBanner) {
     liveBanner.remove();
-  }
-
-  replayEl.classList.remove('hidden');
-}
-
-// Show replay with live banner (stream resumed after pause)
-function showReplayWithLiveBanner() {
-  const replayEl = document.getElementById('replay');
-  const titleEl = document.getElementById('replay-title');
-  const streamEl = document.getElementById('replay-stream');
-
-  titleEl.textContent = eventData.title;
-
-  console.log('Replay with live banner:', eventData.recordings);
-
-  // Use oldest recording (last in array, since API returns newest first)
-  const videoId = eventData.merged_video_id || (eventData.recordings[eventData.recordings.length - 1]?.uid);
-  
-  if (videoId) {
-    const embedUrl = `https://customer-r5vkm8rpzqtdt9cz.cloudflarestream.com/${videoId}/iframe?autoplay=true&muted=false`;
-    
-    // Only set src if it's different (prevents reload on poll)
-    if (streamEl.src !== embedUrl) {
-      console.log('Setting replay iframe src to:', embedUrl);
-      streamEl.src = embedUrl;
-    }
-  }
-
-  // Add live banner if it doesn't exist
-  let liveBanner = document.getElementById('live-banner');
-  if (!liveBanner) {
-    liveBanner = document.createElement('div');
-    liveBanner.id = 'live-banner';
-    liveBanner.className = 'bg-red-600 text-white px-6 py-3 cursor-pointer hover:bg-red-700 transition-colors flex items-center justify-center gap-2 font-semibold';
-    liveBanner.innerHTML = `
-      <span class="inline-block w-3 h-3 bg-white rounded-full animate-pulse"></span>
-      <span>LIVE NOW - Click to watch live</span>
-    `;
-    liveBanner.onclick = () => {
-      // Switch to live stream
-      showLive();
-    };
-    
-    // Insert banner before replay content
-    replayEl.insertBefore(liveBanner, replayEl.firstChild);
   }
 
   replayEl.classList.remove('hidden');
