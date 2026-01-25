@@ -501,6 +501,11 @@ function setupSequentialAdvance(iframeElement, recordings) {
   
   // Listen for postMessage from Stream Player
   const messageHandler = (event) => {
+    // Debug: Log ALL messages from Cloudflare to see the format
+    if (event.origin.includes('cloudflarestream.com')) {
+      console.log('📨 CF Stream message:', event.data);
+    }
+    
     // Only process messages from Cloudflare Stream
     if (!event.origin.includes('cloudflarestream.com')) return;
     
