@@ -560,7 +560,7 @@ function showSequentialPlayback() {
   // Update progress text
   const statusText = eventData.status === 'ended' ? 'Event Replay' : 'Event In Progress';
   progressBanner.innerHTML = `
-    <span>${statusText} - Video <span id="current-video-num">${currentRecordingIndex + 1}</span> of ${recordings.length}</span>
+    <span>${statusText} - Video <span id="current-video-num">${currentRecordingIndex + 1}</span> of ${allRecordings.length}</span>
     <span class="text-gray-400 ml-2">Auto-advancing</span>
   `;
 
