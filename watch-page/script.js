@@ -461,11 +461,11 @@ function showSequentialPlayback() {
   }
   
   // Update progress text
-  //  const statusText = eventData.status === 'ended' ? 'Event Replay' : 'Event In Progress';
-  //  progressBanner.innerHTML = `
-  //  <span>${statusText} - Video <span id="current-video-num">${currentRecordingIndex + 1}</span> of ${recordings.length}</span>
-  //  <span class="text-gray-400">Auto-advancing</span>
-  //  `;
+  const statusText = eventData.status === 'ended' ? 'Event Replay' : 'Event In Progress';
+  progressBanner.innerHTML = `
+  <span>${statusText} - Video <span id="current-video-num">${currentRecordingIndex + 1}</span> of ${recordings.length}</span>
+  <span class="text-gray-400">Auto-advancing</span>
+  `;
 
   replayEl.classList.remove('hidden');
 }
