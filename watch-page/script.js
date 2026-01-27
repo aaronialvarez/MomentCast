@@ -461,11 +461,11 @@ function showSequentialPlayback() {
   }
   
   // Update progress text
-  const statusText = eventData.status === 'ended' ? 'Event Replay' : 'Event In Progress';
-  progressBanner.innerHTML = `
-    <span>${statusText} - Video <span id="current-video-num">${currentRecordingIndex + 1}</span> of ${recordings.length}</span>
-    <span class="text-gray-400">Auto-advancing</span>
-  `;
+  //  const statusText = eventData.status === 'ended' ? 'Event Replay' : 'Event In Progress';
+  //  progressBanner.innerHTML = `
+  //  <span>${statusText} - Video <span id="current-video-num">${currentRecordingIndex + 1}</span> of ${recordings.length}</span>
+  //  <span class="text-gray-400">Auto-advancing</span>
+  //  `;
 
   replayEl.classList.remove('hidden');
 }
@@ -501,20 +501,28 @@ function setupSequentialAdvance(iframeElement, recordings) {
   
   // Listen for postMessage from Stream Player
   const messageHandler = (event) => {
-    // Debug: Log ALL messages from Cloudflare to see the format
-    if (event.origin.includes('cloudflarestream.com')) {
-      console.log('📨 CF Stream message:', event.data);
-    }
-    
     // Only process messages from Cloudflare Stream
     if (!event.origin.includes('cloudflarestream.com')) return;
     
     try {
       const data = event.data;
       
-      if (data && typeof data === 'object') {
+      // Cloudflare Stream uses __privateUnstableMessageType format
+      if (data && data.__privateUnstableMessageType === 'propertyChange') {
+        
+        // Track currentTime updates
+        if (data.property === 'currentTime' && typeof data.value === 'number') {
+          lastKnownTime = data.value;
+          lastUpdateTimestamp = Date.now();
+          
+          // Optional: Log when approaching end
+          if (currentRecording.duration && currentRecording.duration - lastKnownTime < 3) {
+            console.log(`Video ${currentRecordingIndex + 1} at ${lastKnownTime.toFixed(1)}/${currentRecording.duration}s`);
+          }
+        }
+        
         // Check for ended event
-        if (data.event === 'ended' || data.ended === true) {
+        if (data.property === 'ended' && data.value === true) {
           if (!hasAdvanced) {
             console.log(`Video ${currentRecordingIndex + 1} ended (via ended event), advancing...`);
             hasAdvanced = true;
@@ -524,20 +532,10 @@ function setupSequentialAdvance(iframeElement, recordings) {
           }
           return;
         }
-        
-        // Track current playback time from timeupdate events
-        if (data.event === 'timeupdate' && typeof data.currentTime === 'number') {
-          lastKnownTime = data.currentTime;
-          lastUpdateTimestamp = Date.now();
-          
-          // Optional: Log when approaching end
-          if (currentRecording.duration && currentRecording.duration - lastKnownTime < 3) {
-            console.log(`Video ${currentRecordingIndex + 1} at ${lastKnownTime.toFixed(1)}/${currentRecording.duration}s`);
-          }
-        }
       }
     } catch (e) {
       // Ignore parsing errors
+      console.error('Error processing Stream message:', e);
     }
   };
   
