@@ -399,13 +399,20 @@ function showLastRecording() {
 
   console.log('Playing last recording (< 2hr timeout):', eventData.recordings);
 
-  // Sort recordings by created timestamp (newest first)
-  const recordings = [...eventData.recordings].sort((a, b) => 
-    new Date(b.created) - new Date(a.created)
-  );
+  // Sort recordings by created timestamp (newest first) and filter for ready ones
+  const recordings = [...eventData.recordings]
+    .filter(recording => recording.readyToStream === true)
+    .sort((a, b) => new Date(b.created) - new Date(a.created));
   
-  // Use most recent recording
+  // Use most recent READY recording (skip any still processing)
   const videoId = recordings[0]?.uid;
+
+  // If no ready recordings available, show processing state
+  if (!videoId && eventData.recordings.length > 0) {
+    console.log('No ready recordings yet, showing processing state');
+    showProcessing();
+    return;
+  }
   
   if (videoId) {
     const embedUrl = `https://customer-r5vkm8rpzqtdt9cz.cloudflarestream.com/${videoId}/iframe?autoplay=true&muted=false`;
