@@ -139,8 +139,29 @@ function determinePlaybackMode() {
   return 'WAITING';
 }
 
+// Update status badge based on event state
+function updateStatusBadge() {
+  const badge = document.getElementById('event-status-badge'); // or whatever the ID is
+  if (!badge) return;
+  
+  if (eventData.status === 'live' && eventData.stream_state === 'active') {
+    badge.textContent = 'LIVE';
+    badge.className = 'badge live'; // red badge
+  } else if (eventData.status === 'ready' && eventData.stream_state === 'disconnected') {
+    badge.textContent = 'PAUSED';
+    badge.className = 'badge paused'; // yellow badge
+  } else if (eventData.status === 'ended') {
+    badge.textContent = 'ENDED';
+    badge.className = 'badge ended'; // gray badge
+  } else {
+    badge.textContent = 'SCHEDULED';
+    badge.className = 'badge scheduled';
+  }
+}
+
 // Update UI based on event state
 function updateUI() {
+  updateStatusBadge();
   if (!eventData) {
     showError();
     return;
@@ -484,27 +505,27 @@ function showSequentialPlayback() {
   console.log('Playing sequential recordings:', eventData.recordings);
 
   // Sort recordings by created timestamp (oldest first) and filter for ready ones
-  const recordings = [...eventData.recordings]
+  const allRecordings = [...eventData.recordings]
     .filter(recording => recording.readyToStream === true)
     .sort((a, b) => new Date(a.created) - new Date(b.created));
   
-  // Start with first recording if not already playing
-  if (currentRecordingIndex >= recordings.length) {
+  // Reset index if it's beyond available recordings
+  if (currentRecordingIndex >= allRecordings.length) {
     currentRecordingIndex = 0;
   }
   
-  const videoId = recordings[currentRecordingIndex]?.uid;
+  const videoId = allRecordings[currentRecordingIndex]?.uid;
   
   if (videoId) {
     const embedUrl = `https://customer-r5vkm8rpzqtdt9cz.cloudflarestream.com/${videoId}/iframe?autoplay=true&muted=false`;
     
     // Only set src if it's different (prevents reload on poll)
     if (streamEl.src !== embedUrl) {
-      console.log(`Setting sequential playback iframe src (${currentRecordingIndex + 1}/${recordings.length}):`, embedUrl);
+      console.log(`Setting sequential playback iframe src (${currentRecordingIndex + 1}/${allRecordings.length}):`, embedUrl);
       streamEl.src = embedUrl;
       
       // Set up event listener for when this recording ends
-      setupSequentialAdvance(streamEl, recordings);
+      setupSequentialAdvance(streamEl, allRecordings);
     }
   } else {
     console.error('No recordings found in eventData:', eventData);
