@@ -483,10 +483,10 @@ function showSequentialPlayback() {
 
   console.log('Playing sequential recordings:', eventData.recordings);
 
-  // Sort recordings by created timestamp (oldest first)
-  const recordings = [...eventData.recordings].sort((a, b) => 
-    new Date(a.created) - new Date(b.created)
-  );
+  // Sort recordings by created timestamp (oldest first) and filter for ready ones
+  const recordings = [...eventData.recordings]
+    .filter(recording => recording.readyToStream === true)
+    .sort((a, b) => new Date(a.created) - new Date(b.created));
   
   // Start with first recording if not already playing
   if (currentRecordingIndex >= recordings.length) {
