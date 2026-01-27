@@ -115,7 +115,16 @@ function determinePlaybackMode() {
     }
     
     if (recentActivity) {
-      return 'LAST_RECORDING'; // < 2hrs, play last recording and wait
+      // Count ready recordings
+      const readyRecordings = eventData.recordings.filter(r => r.readyToStream === true);
+      
+      // If multiple finalized recordings exist, play them all sequentially
+      if (readyRecordings.length > 1) {
+        return 'SEQUENTIAL';
+      }
+      
+      // Single recording: play it and wait for stream to resume
+      return 'LAST_RECORDING';
     } else {
       return 'SEQUENTIAL'; // > 2hrs, play all recordings sequentially
     }
