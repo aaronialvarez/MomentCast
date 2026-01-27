@@ -116,7 +116,9 @@ function determinePlaybackMode() {
     
     if (recentActivity) {
       // Count ready recordings
-      const readyRecordings = eventData.recordings.filter(r => r.readyToStream === true);
+      const readyRecordings = eventData.recordings.filter(r => {
+        return r.readyToStream === true || r.status === 'ready' || r.state?.state === 'ready';
+      });
       
       // If multiple finalized recordings exist, play them all sequentially
       if (readyRecordings.length > 1) {
@@ -431,7 +433,9 @@ function showLastRecording() {
 
   // Sort recordings by created timestamp (newest first) and filter for ready ones
   const recordings = [...eventData.recordings]
-    .filter(recording => recording.readyToStream === true)
+    .filter(recording => {
+      return recording.readyToStream === true || recording.status === 'ready' || recording.state?.state === 'ready';
+    })
     .sort((a, b) => new Date(b.created) - new Date(a.created));
   
   // Use most recent READY recording (skip any still processing)
@@ -505,9 +509,19 @@ function showSequentialPlayback() {
   console.log('Playing sequential recordings:', eventData.recordings);
 
   // Sort recordings by created timestamp (oldest first) and filter for ready ones
+  // Handle different property formats: readyToStream, status, or state.state
   const allRecordings = [...eventData.recordings]
-    .filter(recording => recording.readyToStream === true)
+    .filter(recording => {
+      // Check multiple possible "ready" indicators
+      if (recording.readyToStream === true) return true;
+      if (recording.status === 'ready') return true;
+      if (recording.state?.state === 'ready') return true;
+      // If none of the above, assume it's ready (backward compatibility)
+      return false;
+    })
     .sort((a, b) => new Date(a.created) - new Date(b.created));
+  
+  console.log(`Found ${allRecordings.length} ready recordings out of ${eventData.recordings.length} total`);
   
   // Reset index if it's beyond available recordings
   if (currentRecordingIndex >= allRecordings.length) {
