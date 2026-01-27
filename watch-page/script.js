@@ -450,21 +450,20 @@ function showSequentialPlayback() {
   if (!progressBanner) {
     progressBanner = document.createElement('div');
     progressBanner.id = 'progress-banner';
-    progressBanner.className = 'bg-gray-700 text-white px-6 py-2 flex items-center justify-between text-sm w-full';
+    progressBanner.className = 'bg-gray-700 text-white px-6 py-3 text-sm w-full text-center';
     
-    // Insert banner at the very top of replay element
-    if (replayEl.firstChild) {
-      replayEl.insertBefore(progressBanner, replayEl.firstChild);
-    } else {
-      replayEl.appendChild(progressBanner);
+    // Insert banner after the title element
+    const titleEl = document.getElementById('replay-title');
+    if (titleEl && titleEl.parentNode) {
+      titleEl.parentNode.insertBefore(progressBanner, titleEl.nextSibling);
     }
   }
   
   // Update progress text
   const statusText = eventData.status === 'ended' ? 'Event Replay' : 'Event In Progress';
   progressBanner.innerHTML = `
-  <span>${statusText} - Video <span id="current-video-num">${currentRecordingIndex + 1}</span> of ${recordings.length}</span>
-  <span class="text-gray-400">Auto-advancing</span>
+    <span>${statusText} - Video <span id="current-video-num">${currentRecordingIndex + 1}</span> of ${recordings.length}</span>
+    <span class="text-gray-400 ml-2">Auto-advancing</span>
   `;
 
   replayEl.classList.remove('hidden');
