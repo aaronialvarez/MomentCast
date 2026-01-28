@@ -202,6 +202,9 @@ function updateUI() {
     playbackMode = newMode;
     document.querySelectorAll('.state').forEach(el => el.classList.add('hidden'));
     
+    // Update status badge
+    updateStatusBadge();
+    
     switch (newMode) {
       case 'LIVE':
         showLive();
@@ -925,6 +928,26 @@ function showError(message = 'Event not found') {
     errorMessage.textContent = message;
   }
   errorEl.classList.remove('hidden');
+}
+
+// Update status badge based on event state
+function updateStatusBadge() {
+  const badge = document.querySelector('.ended-badge');
+  if (!badge) return;
+  
+  if (eventData.status === 'live' && eventData.stream_state === 'active') {
+    badge.textContent = 'LIVE';
+    badge.className = 'live-badge';
+  } else if (eventData.status === 'ready' && eventData.stream_state === 'disconnected') {
+    badge.textContent = 'PAUSED';
+    badge.className = 'paused-badge';
+  } else if (eventData.status === 'ended') {
+    badge.textContent = 'ENDED';
+    badge.className = 'ended-badge';
+  } else if (eventData.status === 'ready') {
+    badge.textContent = 'READY';
+    badge.className = 'ready-badge';
+  }
 }
 
 // Start the app

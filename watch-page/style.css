@@ -202,3 +202,20 @@ body {
     padding: 1rem;
   }
 }
+
+/* Badge variations */
+.paused-badge {
+  background: #eab308; /* Yellow */
+  padding: 0.5rem 1rem;
+  border-radius: 9999px;
+  font-size: 1rem;
+  font-weight: 600;
+}
+
+.ready-badge {
+  background: #3b82f6; /* Blue */
+  padding: 0.5rem 1rem;
+  border-radius: 9999px;
+  font-size: 1rem;
+  font-weight: 600;
+}
