@@ -345,15 +345,37 @@ function updateCountdown(targetDate) {
 function showLive() {
   const liveEl = document.getElementById('live');
   const titleEl = document.getElementById('live-title');
-  const streamEl = document.getElementById('live-stream');
+  let streamEl = document.getElementById('live-stream');
+  
+  // Remove processing message if it exists
+  const processingMessage = liveEl.querySelector('.processing-message');
+  if (processingMessage) {
+    processingMessage.remove();
+  }
   
   titleEl.textContent = eventData.title;
   
   console.log('Event data:', eventData);
   
+  // If iframe was destroyed (by showProcessing), recreate it
+  if (!streamEl) {
+    const container = liveEl.querySelector('.relative');
+    if (container) {
+      container.innerHTML = `
+        <iframe
+          id="live-stream"
+          style="border: none; position: absolute; top: 0; height: 100%; width: 100%"
+          allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
+          allowfullscreen="true"
+        ></iframe>
+      `;
+      streamEl = document.getElementById('live-stream');
+    }
+  }
+  
   const liveInputId = eventData.live_input_id || eventData.liveinputid;
   
-  if (liveInputId) {
+  if (liveInputId && streamEl) {
     const embedUrl = `https://customer-r5vkm8rpzqtdt9cz.cloudflarestream.com/${liveInputId}/iframe?autoplay=true&muted=false`;
     
     // Only set src if it's different (prevents reload)
@@ -361,7 +383,7 @@ function showLive() {
       console.log('Setting iframe src to:', embedUrl);
       streamEl.src = embedUrl;
     }
-  } else {
+  } else if (!liveInputId) {
     console.error('No live_input_id found in eventData:', eventData);
   }
 
@@ -377,7 +399,7 @@ function showLive() {
         <div class="text-center">
           <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
           <p class="text-white text-lg">Processing recording...</p>
-          <p class="text-gray-400 text-sm mt-2">This usually takes 1-2 minutes</p>
+          <p class="text-gray-400 text-sm mt-2">This usually takes 5 minutes</p>
         </div>
       `;
       
@@ -405,18 +427,26 @@ function showProcessing() {
   
   titleEl.textContent = eventData.title;
   
-  // Show a processing message instead of frozen player
-  const streamContainer = document.getElementById('live-stream').parentElement;
-  streamContainer.innerHTML = `
-    <div class="flex items-center justify-center h-full bg-gray-900 rounded-lg">
+  // Show a processing message without destroying the iframe structure
+  const streamEl = document.getElementById('live-stream');
+  let processingMessage = liveEl.querySelector('.processing-message');
+  if (!processingMessage) {
+    processingMessage = document.createElement('div');
+    processingMessage.className = 'processing-message absolute inset-0 flex items-center justify-center bg-gray-900 rounded-lg z-20';
+    processingMessage.innerHTML = `
       <div class="text-center p-8">
         <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-500 mx-auto mb-6"></div>
         <p class="text-white text-xl font-medium mb-2">Processing recording...</p>
         <p class="text-gray-400">Your stream will be ready for playback shortly</p>
         <p class="text-gray-500 text-sm mt-4">Usually takes 1-2 minutes</p>
       </div>
-    </div>
-  `;
+    `;
+    const container = streamEl?.parentElement;
+    if (container) {
+      container.style.position = 'relative';
+      container.appendChild(processingMessage);
+    }
+  }
   
   liveEl.classList.remove('hidden');
 }
