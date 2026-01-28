@@ -729,6 +729,9 @@ function advanceToNextRecording(recordings) {
     const embedUrl = `https://customer-r5vkm8rpzqtdt9cz.cloudflarestream.com/${videoId}/iframe?autoplay=true&muted=false`;
     console.log(`Loading recording ${currentRecordingIndex + 1}/${recordings.length}`);
     streamEl.src = embedUrl;
+    
+    // CRITICAL: Set up auto-advance listener for the new video
+    setupSequentialAdvance(streamEl, recordings);
   }
 }
 
