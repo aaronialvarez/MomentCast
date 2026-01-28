@@ -381,11 +381,9 @@ function showLive() {
   if (liveInputId && streamEl) {
     const embedUrl = `https://customer-r5vkm8rpzqtdt9cz.cloudflarestream.com/${liveInputId}/iframe?autoplay=true&muted=false`;
     
-    // Only set src if it's different (prevents reload)
-    if (streamEl.src !== embedUrl) {
-      console.log('Setting iframe src to:', embedUrl);
-      streamEl.src = embedUrl;
-    }
+    // Always set src when switching to live mode to ensure it loads
+    console.log('Setting iframe src to:', embedUrl);
+    streamEl.src = embedUrl;
   } else if (!liveInputId) {
     console.error('No live_input_id found in eventData:', eventData);
   }
