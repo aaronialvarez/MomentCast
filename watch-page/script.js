@@ -516,12 +516,18 @@ function showSequentialPlayback() {
       if (recording.readyToStream === true) return true;
       if (recording.status === 'ready') return true;
       if (recording.state?.state === 'ready') return true;
-      // If none of the above, assume it's ready (backward compatibility)
       return false;
     })
     .sort((a, b) => new Date(a.created) - new Date(b.created));
   
   console.log(`Found ${allRecordings.length} ready recordings out of ${eventData.recordings.length} total`);
+  
+  // If no ready recordings available yet, show processing state
+  if (allRecordings.length === 0) {
+    console.log('No ready recordings yet, showing processing state');
+    showProcessing();
+    return;
+  }
   
   // Reset index if it's beyond available recordings
   if (currentRecordingIndex >= allRecordings.length) {
