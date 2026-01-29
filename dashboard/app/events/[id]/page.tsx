@@ -45,6 +45,7 @@ export default function EventDetailPage() {
     viewerHoursUsed: number;
     viewerHoursLimit: number;
   } | null>(null);
+  const [timeRemaining, setTimeRemaining] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadEvent() {
@@ -113,6 +114,47 @@ export default function EventDetailPage() {
 
     fetchAnalytics();
   }, [event, supabase]);
+
+  useEffect(() => {
+    // Only run for ready/live events with streaming started
+    if (!event || !event.stream_started_manually_at) {
+      setTimeRemaining(null);
+      return;
+    }
+
+    if (event.status !== 'ready' && event.status !== 'live') {
+      setTimeRemaining(null);
+      return;
+    }
+
+    function calculateTimeRemaining() {
+      if (!event?.stream_started_manually_at) return null;
+
+      const startedAt = new Date(event.stream_started_manually_at).getTime();
+      const expiresAt = startedAt + (24 * 60 * 60 * 1000);
+      const now = Date.now();
+      const remaining = expiresAt - now;
+
+      if (remaining <= 0) {
+        return "Expired";
+      }
+
+      const hours = Math.floor(remaining / (60 * 60 * 1000));
+      const minutes = Math.floor((remaining % (60 * 60 * 1000)) / (60 * 1000));
+
+      return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}`;
+    }
+
+    // Calculate immediately
+    setTimeRemaining(calculateTimeRemaining());
+
+    // Update every minute
+    const interval = setInterval(() => {
+      setTimeRemaining(calculateTimeRemaining());
+    }, 60000);
+
+    return () => clearInterval(interval);
+  }, [event]);
 
   function copyToClipboard(text: string, label: string) {
     navigator.clipboard.writeText(text);
@@ -358,10 +400,22 @@ export default function EventDetailPage() {
           <div className="bg-gray-800 rounded-lg p-6 mb-6">
             <h2 className="text-xl font-semibold mb-2">Streaming Credentials</h2>
             {event.stream_started_manually_at && (
-              <p className="text-sm text-gray-400 mb-4">
-                Started: {new Date(event.stream_started_manually_at).toLocaleString()} • 
-                Expires: {new Date(new Date(event.stream_started_manually_at).getTime() + 24 * 60 * 60 * 1000).toLocaleString()}
-              </p>
+              <div className="mb-4">
+                <p className="text-sm text-gray-400">
+                  Started: {new Date(event.stream_started_manually_at).toLocaleString()} • 
+                  Expires: {new Date(new Date(event.stream_started_manually_at).getTime() + 24 * 60 * 60 * 1000).toLocaleString()}
+                </p>
+                {timeRemaining && timeRemaining !== "Expired" && (
+                  <div className="mt-2 inline-flex items-center gap-2 px-3 py-1 bg-blue-900/50 border border-blue-700 rounded-lg">
+                    <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                    </svg>
+                    <span className="text-sm font-semibold text-blue-200">
+                      {timeRemaining} remaining
+                    </span>
+                  </div>
+                )}
+              </div>
             )}
             
             <div className="space-y-4">
