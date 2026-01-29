@@ -401,10 +401,18 @@ export default function EventDetailPage() {
             <h2 className="text-xl font-semibold mb-2">Streaming Credentials</h2>
             {event.stream_started_manually_at && (
               <div className="mb-4">
-                <p className="text-sm text-gray-400">
-                  Started: {new Date(event.stream_started_manually_at).toLocaleString()} • 
-                  Expires: {new Date(new Date(event.stream_started_manually_at).getTime() + 24 * 60 * 60 * 1000).toLocaleString()}
+                <p className="text-sm text-gray-400 mb-4">
+                  Started: {new Date(event.stream_started_manually_at).toLocaleString()}
+                  {timeRemaining && timeRemaining !== "Expired" && (() => {
+                    const hours = parseInt(timeRemaining.split(':')[0]);
+                    const minutes = timeRemaining.split(':')[1];
+                    const colorClass = hours >= 12 ? 'text-green-400' : 'text-yellow-400';
+                    return (
+                      <span className={colorClass}> • {hours} hours {minutes} minutes left to stream</span>
+                    );
+                  })()}
                 </p>
+
                 {timeRemaining && timeRemaining !== "Expired" && (
                   <div className="mt-2 inline-flex items-center gap-2 px-3 py-1 bg-blue-900/50 border border-blue-700 rounded-lg">
                     <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
