@@ -72,8 +72,7 @@ export default function CreateEventPage() {
       console.log('Event created successfully:', data);
       
       // Redirect back to dashboard
-      router.push('/');
-      router.refresh();
+      router.push(`/events/${data.eventId}`);
     } catch (err) {
       console.error('Create event error:', err);
       setError(err instanceof Error ? err.message : 'Failed to create event');
