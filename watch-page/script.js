@@ -717,7 +717,7 @@ function setupSequentialAdvance(iframeElement, recordings) {
       // Check if video seems stuck (no timeupdate for 10 seconds)
       const timeSinceLastUpdate = (Date.now() - lastUpdateTimestamp) / 1000;
       if (timeSinceLastUpdate > 10 && lastKnownTime > 0) {
-        console.warn(`No timeupdate for ${timeSinceLastUpdate.toFixed(0)}s, video may be paused or ended`);
+        // console.warn(`No timeupdate for ${timeSinceLastUpdate.toFixed(0)}s, video may be paused or ended`);
         
         // If we're near the end and haven't received updates, assume it ended
         if (remainingTime < 5) {
