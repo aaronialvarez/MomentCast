@@ -40,6 +40,11 @@ export default function EventDetailPage() {
   const [copied, setCopied] = useState<string | null>(null);
   const [startingStream, setStartingStream] = useState(false);
   const [streamError, setStreamError] = useState<string | null>(null);
+  const [showStreamKey, setShowStreamKey] = useState(false);
+  const [analytics, setAnalytics] = useState<{
+    viewerHoursUsed: number;
+    viewerHoursLimit: number;
+  } | null>(null);
 
   useEffect(() => {
     async function loadEvent() {
@@ -76,6 +81,38 @@ export default function EventDetailPage() {
 
     loadEvent();
   }, [supabase, router, eventId]);
+
+  useEffect(() => {
+    async function fetchAnalytics() {
+      if (!event || !event.slug) return;
+
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) return;
+
+        const response = await fetch(
+          `${process.env.NEXT_PUBLIC_WORKER_API_URL}/api/events/${event.slug}/analytics`,
+          {
+            headers: {
+              'Authorization': `Bearer ${session.access_token}`,
+            },
+          }
+        );
+
+        if (response.ok) {
+          const data = await response.json();
+          setAnalytics({
+            viewerHoursUsed: data.viewerHoursUsed || 0,
+            viewerHoursLimit: event.viewer_hour_limit,
+          });
+        }
+      } catch (err) {
+        console.error('Failed to fetch analytics:', err);
+      }
+    }
+
+    fetchAnalytics();
+  }, [event, supabase]);
 
   function copyToClipboard(text: string, label: string) {
     navigator.clipboard.writeText(text);
@@ -306,11 +343,27 @@ export default function EventDetailPage() {
                 <label className="block text-sm font-medium mb-2">Stream Key</label>
                 <div className="flex gap-2">
                   <input
-                    type="password"
+                    type={showStreamKey ? "text" : "password"}
                     value={event.rtmps_key || ''}
                     readOnly
                     className="flex-1 px-4 py-3 bg-gray-700 border border-gray-600 rounded text-white font-mono text-sm"
                   />
+                  <button
+                    onClick={() => setShowStreamKey(!showStreamKey)}
+                    className="px-4 py-3 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded"
+                    title={showStreamKey ? "Hide stream key" : "Show stream key"}
+                  >
+                    {showStreamKey ? (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13.875 18.825A10.05 10.05 0 0112 19c-4.478 0-8.268-2.943-9.543-7a9.97 9.97 0 011.563-3.029m5.858.908a3 3 0 114.243 4.243M9.878 9.878l4.242 4.242M9.88 9.88l-3.29-3.29m7.532 7.532l3.29 3.29M3 3l3.59 3.59m0 0A9.953 9.953 0 0112 5c4.478 0 8.268 2.943 9.543 7a10.025 10.025 0 01-4.132 5.411m0 0L21 21" />
+                      </svg>
+                    ) : (
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                    )}
+                  </button>
                   <button
                     onClick={() => copyToClipboard(event.rtmps_key || '', 'stream-key')}
                     className="px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded font-medium"
@@ -343,8 +396,20 @@ export default function EventDetailPage() {
               <p className="capitalize">{event.tier}</p>
             </div>
             <div>
-              <p className="text-gray-400 text-sm">Viewer Hour Limit</p>
-              <p>{event.viewer_hour_limit.toLocaleString()} hours</p>
+              <p className="text-gray-400 text-sm">Viewer Hours</p>
+              {analytics ? (
+                <p>
+                  <span className="font-semibold">{analytics.viewerHoursUsed.toLocaleString()}</span>
+                  {' of '}
+                  <span className="font-semibold">{analytics.viewerHoursLimit.toLocaleString()}</span>
+                  {' used'}
+                  <span className="text-gray-400 text-xs ml-2">
+                    ({(analytics.viewerHoursLimit - analytics.viewerHoursUsed).toLocaleString()} left)
+                  </span>
+                </p>
+              ) : (
+                <p className="text-gray-500">Loading...</p>
+              )}
             </div>
           </div>
         </div>

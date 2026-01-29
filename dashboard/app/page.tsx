@@ -288,7 +288,7 @@ export default function DashboardHome() {
                               event.status === 'live'
                                 ? 'bg-red-900 text-red-100'
                                 : event.status === 'ready'
-                                ? 'bg-yellow-900 text-yellow-100'
+                                ? 'bg-green-900 text-green-50'
                                 : 'bg-blue-900 text-blue-100'
                             }`}
                           >
