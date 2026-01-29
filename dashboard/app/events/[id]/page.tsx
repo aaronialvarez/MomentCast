@@ -412,17 +412,6 @@ export default function EventDetailPage() {
                     );
                   })()}
                 </p>
-
-                {timeRemaining && timeRemaining !== "Expired" && (
-                  <div className="mt-2 inline-flex items-center gap-2 px-3 py-1 bg-blue-900/50 border border-blue-700 rounded-lg">
-                    <svg className="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
-                    </svg>
-                    <span className="text-sm font-semibold text-blue-200">
-                      {timeRemaining} remaining
-                    </span>
-                  </div>
-                )}
               </div>
             )}
             
