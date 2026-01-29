@@ -247,7 +247,7 @@ export default function DashboardHome() {
 
         {/* Events List */}
         <div>
-          <h2 className="text-2xl font-bold mb-4">Your Events</h2>
+          <h2 className="text-2xl font-bold mb-4">Current Events</h2>
           
           {/* Active/Upcoming Events */}
           {events.length === 0 && endedEvents.length === 0 ? (
@@ -274,8 +274,7 @@ export default function DashboardHome() {
                               year: 'numeric',
                               month: 'long',
                               day: 'numeric',
-                              hour: '2-digit',
-                              minute: '2-digit',
+                              timeZone: 'UTC'
                             })}
                           </p>
                           <p className="text-gray-500 text-xs mt-2">
@@ -326,8 +325,7 @@ export default function DashboardHome() {
                                 year: 'numeric',
                                 month: 'long',
                                 day: 'numeric',
-                                hour: '2-digit',
-                                minute: '2-digit',
+                                timeZone: 'UTC'
                               })}
                             </p>
                             <p className="text-gray-600 text-xs mt-2">
