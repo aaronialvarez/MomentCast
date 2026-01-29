@@ -294,18 +294,27 @@ export default function EventDetailPage() {
                 </p>
               </>
             ) : (
-              <div className="text-center py-8">
-                <p className="text-gray-400 mb-2">
-                  Streaming will be available on
+              <div className="py-6">
+                <p className="text-gray-400 mb-4">
+                  Ready to go live? Click below to start your 24-hour streaming window and get your streaming credentials.
                 </p>
-                <p className="text-xl font-semibold">
-                  {new Date(event.scheduled_date).toLocaleDateString('en-US', {
-                    weekday: 'long',
-                    month: 'long',
-                    day: 'numeric',
-                    year: 'numeric',
-                    timeZone: 'UTC'  // Forces UTC interpretation
-                  })}
+                <button
+                  disabled={true}
+                  className="w-full bg-gray-600 text-gray-300 font-semibold py-3 px-6 rounded-lg cursor-not-allowed"
+                >
+                  Start Streaming
+                </button>
+                <p className="text-gray-400 text-sm mt-3 text-center">
+                  Streaming will be available on{' '}
+                  <span className="font-medium text-white">
+                    {new Date(event.scheduled_date).toLocaleDateString('en-US', {
+                      weekday: 'long',
+                      month: 'long',
+                      day: 'numeric',
+                      year: 'numeric',
+                      timeZone: 'UTC'
+                    })}
+                  </span>
                 </p>
               </div>
             )}
