@@ -46,6 +46,10 @@ export default function EventDetailPage() {
     viewerHoursLimit: number;
   } | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<string | null>(null);
+  const [showRescheduleModal, setShowRescheduleModal] = useState(false);
+  const [newDate, setNewDate] = useState('');
+  const [rescheduling, setRescheduling] = useState(false);
+  const [rescheduleError, setRescheduleError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadEvent() {
@@ -218,6 +222,59 @@ export default function EventDetailPage() {
     }
   }
 
+  async function handleReschedule() {
+    if (!event || !newDate) return;
+    
+    setRescheduling(true);
+    setRescheduleError(null);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        router.push('/login');
+        return;
+      }
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_WORKER_API_URL}/api/events/${event.slug}/reschedule`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ newDate }),
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to reschedule event');
+      }
+
+      // Reload event data
+      const { data: eventData } = await supabase
+        .from('events')
+        .select('*')
+        .eq('id', event.id)
+        .single();
+
+      if (eventData) {
+        setEvent(eventData);
+        setShowRescheduleModal(false);
+        setNewDate('');
+      }
+
+    } catch (err) {
+      console.error('Reschedule error:', err);
+      setRescheduleError(err instanceof Error ? err.message : 'Failed to reschedule event');
+    } finally {
+      setRescheduling(false);
+    }
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
@@ -283,6 +340,24 @@ export default function EventDetailPage() {
             {event.status.toUpperCase()}
           </span>
         </div>
+
+        {/* Change Date Button - Only show if event can be rescheduled */}
+        {event.can_be_rescheduled && event.status !== 'ended' && (
+          <div className="mb-6">
+            <button
+              onClick={() => setShowRescheduleModal(true)}
+              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg font-medium transition-colors"
+            >
+              Change Event Date
+            </button>
+            <p className="text-gray-400 text-xs mt-2">
+              ℹ️ You can change the date before starting the stream
+            </p>
+          </div>
+        )}
+
+        {/* Watch URL */}
+        <div className="bg-gray-800 rounded-lg p-6 mb-6"></div>
 
         {/* Watch URL */}
         <div className="bg-gray-800 rounded-lg p-6 mb-6">
@@ -509,6 +584,59 @@ export default function EventDetailPage() {
           </div>
         </div>
       </div>
+
+      {/* Reschedule Modal */}
+      {showRescheduleModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-xl font-semibold mb-4">Change Event Date</h3>
+            
+            {rescheduleError && (
+              <div className="bg-red-900 text-red-100 p-3 rounded-lg mb-4 text-sm">
+                {rescheduleError}
+              </div>
+            )}
+            
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">New Event Date</label>
+              <input
+                type="date"
+                value={newDate}
+                onChange={(e) => setNewDate(e.target.value)}
+                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+              />
+            </div>
+            
+            <div className="bg-blue-900/30 border border-blue-700 rounded-lg p-3 mb-4">
+              <p className="text-sm text-blue-200">
+                ✓ Your watch URL will stay the same<br/>
+                ✓ No additional credit needed
+              </p>
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowRescheduleModal(false);
+                  setNewDate('');
+                  setRescheduleError(null);
+                }}
+                className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded font-medium"
+                disabled={rescheduling}
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleReschedule}
+                disabled={!newDate || rescheduling}
+                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded font-medium"
+              >
+                {rescheduling ? 'Updating...' : 'Change Date'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }
