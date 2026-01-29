@@ -10,7 +10,7 @@ interface Event {
   slug: string;
   title: string;
   scheduled_date: string;
-  status: 'scheduled' | 'live' | 'ended' | 'cancelled';
+  status: 'scheduled' | 'live' | 'ended' | 'cancelled' | 'ready';
   stream_state: 'inactive' | 'active' | 'paused' | 'finalized';
   live_input_id?: string;
   rtmps_url?: string;
@@ -220,7 +220,7 @@ export default function EventDetailPage() {
               month: 'long',
               day: 'numeric',
               year: 'numeric',
-              timeZone: 'UTC'  // Forces UTC interpretation
+              timeZone: 'UTC'
             })}
           </p>
         </div>
@@ -265,7 +265,42 @@ export default function EventDetailPage() {
         </div>
 
         {/* Streaming Details */}
-        {!event.stream_credentials_revealed ? (
+        {event.status === 'ended' ? (
+          // Event ended - show completion message instead of credentials
+          <div className="bg-gray-800 rounded-lg p-6 mb-6">
+            <h2 className="text-xl font-semibold mb-4">Event Completed</h2>
+            <div className="bg-gray-700/50 rounded-lg p-6 text-center">
+              <p className="text-gray-400 mb-2">
+                This event ended on {event.stream_started_manually_at ? 
+                  new Date(new Date(event.stream_started_manually_at).getTime() + 24 * 60 * 60 * 1000).toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    month: 'long',
+                    day: 'numeric',
+                    year: 'numeric'
+                  }) : 
+                  new Date(event.scheduled_date).toLocaleDateString('en-US', {
+                    weekday: 'long',
+                    month: 'long',
+                    day: 'numeric',
+                    year: 'numeric',
+                    timeZone: 'UTC'
+                  })
+                }
+              </p>
+              <p className="text-gray-300 font-medium mb-4">
+                Recordings are available at the watch page
+              </p>
+              <a 
+                href={`https://go.momentcast.live/${event.slug}`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-block px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded-lg font-medium transition-colors"
+              >
+                View Recordings →
+              </a>
+            </div>
+          </div>
+        ) : !event.stream_credentials_revealed ? (
           <div className="bg-gray-800 rounded-lg p-6 mb-6">
             <h2 className="text-xl font-semibold mb-4">Start Streaming</h2>
             
@@ -290,7 +325,7 @@ export default function EventDetailPage() {
                 </button>
                 
                 <p className="text-sm text-gray-500 mt-4">
-                  âœ… Once started, you'll have 24 hours to stream
+                  ⏱️ Once started, you'll have 24 hours to stream. This cannot be undone.
                 </p>
               </>
             ) : (
