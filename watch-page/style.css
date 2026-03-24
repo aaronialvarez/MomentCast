@@ -1,6 +1,6 @@
 /* ==========================================================================
-   MomentCast Watch Page — Premium Cinematic Redesign
-   Dark theme · Warm gold accents · Editorial typography
+   MomentCast Watch Page — Premium Cinematic Theme
+   Dark · Warm gold accents · Editorial typography
    ========================================================================== */
 
 /* --------------------------------------------------------------------------
@@ -34,7 +34,6 @@
 
 /* --------------------------------------------------------------------------
    Base Reset
-   (Tailwind preflight is loaded first; these rules override where needed)
    -------------------------------------------------------------------------- */
 
 *, *::before, *::after {
@@ -52,12 +51,12 @@ body {
   min-height: 100vh;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  /* Subtle grain over everything */
+  /* Warm radial highlight at top — subtle brand warmth */
   background-image:
     radial-gradient(ellipse 80% 60% at 50% -10%, rgba(200, 169, 110, 0.04) 0%, transparent 70%);
 }
 
-/* Fine grain texture overlay */
+/* Fine grain texture overlay — adds depth without competing with content */
 body::after {
   content: '';
   position: fixed;
@@ -70,6 +69,7 @@ body::after {
 
 /* --------------------------------------------------------------------------
    State System
+   script.js toggles visibility by adding/removing .hidden on .state elements.
    -------------------------------------------------------------------------- */
 
 .state {
@@ -85,9 +85,46 @@ body::after {
   justify-content: center;
 }
 
-/* Tailwind's .hidden and our own both use display:none */
 .hidden {
   display: none !important;
+}
+
+/* --------------------------------------------------------------------------
+   Animations
+   -------------------------------------------------------------------------- */
+
+@keyframes mc-fadein {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+
+@keyframes mc-float {
+  0%, 60%, 100% { transform: translateY(0);    opacity: 0.25; }
+  30%            { transform: translateY(-9px); opacity: 1;    }
+}
+
+@keyframes mc-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes badge-live {
+  0%, 100% {
+    box-shadow: 0 0 0 2px rgba(229, 75, 75, 0),
+                0 0 8px var(--live-glow),
+                0 0 18px var(--live-glow);
+    opacity: 1;
+  }
+  50% {
+    box-shadow: 0 0 0 3px rgba(229, 75, 75, 0.15),
+                0 0 4px rgba(229, 75, 75, 0.3),
+                0 0 8px rgba(229, 75, 75, 0.2);
+    opacity: 0.7;
+  }
+}
+
+@keyframes badge-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
 }
 
 /* --------------------------------------------------------------------------
@@ -99,6 +136,7 @@ body::after {
   gap: 1.25rem;
 }
 
+/* Three bouncing gold dots */
 .mc-loader {
   display: flex;
   gap: 9px;
@@ -118,11 +156,6 @@ body::after {
 .mc-dot:nth-child(1) { animation-delay: 0s; }
 .mc-dot:nth-child(2) { animation-delay: 0.18s; }
 .mc-dot:nth-child(3) { animation-delay: 0.36s; }
-
-@keyframes mc-float {
-  0%, 60%, 100% { transform: translateY(0);   opacity: 0.25; }
-  30%            { transform: translateY(-9px); opacity: 1;    }
-}
 
 .mc-loading-text {
   font-size: 0.6875rem;
@@ -150,27 +183,21 @@ body::after {
   letter-spacing: 0.01em;
   line-height: 1.1;
   color: var(--text-1);
-  margin-bottom: 1rem;
-  /* Undo Tailwind preflight */
-  margin-top: 0;
+  margin: 0 0 1rem;
 }
 
 #error p {
   font-size: 0.9375rem;
   color: var(--text-2);
   line-height: 1.6;
-  margin-bottom: 0;
+  margin: 0;
 }
 
 /* --------------------------------------------------------------------------
    Shared Utilities
    -------------------------------------------------------------------------- */
 
-@keyframes mc-fadein {
-  from { opacity: 0; transform: translateY(14px); }
-  to   { opacity: 1; transform: translateY(0);    }
-}
-
+/* Centered content column — used by countdown, error, and loading states */
 .mc-center {
   width: 100%;
   max-width: 680px;
@@ -178,6 +205,7 @@ body::after {
   animation: mc-fadein 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
+/* Small all-caps label above a title */
 .mc-eyebrow {
   display: block;
   font-size: 0.625rem;
@@ -188,7 +216,7 @@ body::after {
   margin-bottom: 1.25rem;
 }
 
-/* The large decorative event title (countdown page) */
+/* Large serif event title on the countdown page */
 .mc-display-title {
   font-family: var(--font-display);
   font-size: clamp(2.25rem, 7vw, 4.5rem);
@@ -196,11 +224,10 @@ body::after {
   line-height: 1.1;
   letter-spacing: -0.01em;
   color: var(--text-1);
-  margin-bottom: 0;
-  /* Undo Tailwind preflight */
-  margin-top: 0;
+  margin: 0;
 }
 
+/* "Powered by MomentCast" footer line */
 .mc-powered {
   display: block;
   font-size: 0.6875rem;
@@ -237,13 +264,10 @@ body::after {
 }
 
 /*
-  .countdown-timer
-  IMPORTANT: script.js replaces the innerHTML of this element for
-  WAITING / ENDED / EXPIRED modes. The class name must remain exactly
-  'countdown-timer'. The inner children (timer-display, scheduled-time, etc.)
-  are only present during the COUNTDOWN mode. In other modes the injected
-  HTML uses .scheduled-time, .status-message, .status-message-title,
-  and .status-message-subtitle — all styled below.
+  IMPORTANT: script.js replaces the innerHTML of .countdown-timer for
+  WAITING / ENDED / EXPIRED modes. The class name must stay exactly
+  'countdown-timer'. Inner elements (timer-display, scheduled-time, etc.)
+  are only present during COUNTDOWN mode.
 */
 .countdown-timer {
   background: var(--surface);
@@ -254,6 +278,7 @@ body::after {
   max-width: 640px;
 }
 
+/* Small label above the timer digits */
 .mc-countdown-label {
   font-size: 0.625rem;
   letter-spacing: 0.28em;
@@ -261,22 +286,17 @@ body::after {
   color: var(--text-3);
   font-weight: 500;
   margin-bottom: 2.25rem;
-  /* Undo Tailwind preflight h2 sizing */
-  font-size: 0.625rem;
 }
 
 /*
-  .timer-display
-  The row holding the four timer units. Script.js hides daysEl.parentElement
-  (.timer-unit) when the countdown hits zero — only the days unit is hidden,
-  this is existing script behavior.
+  Four-unit timer row.
+  script.js hides daysEl.parentElement (.timer-unit) when countdown hits zero.
 */
 .timer-display {
   display: flex;
   gap: 2rem;
   justify-content: center;
   flex-wrap: wrap;
-  margin-bottom: 0;
 }
 
 .timer-unit {
@@ -287,10 +307,7 @@ body::after {
   min-width: 64px;
 }
 
-/*
-  .timer-value — the large countdown digits.
-  IDs: #days, #hours, #minutes, #seconds are set by script.js.
-*/
+/* Large serif countdown digits — IDs #days, #hours, #minutes, #seconds */
 .timer-value {
   font-family: var(--font-display);
   font-size: clamp(3rem, 9vw, 5.5rem);
@@ -299,7 +316,6 @@ body::after {
   color: var(--text-1);
   letter-spacing: -0.025em;
   display: block;
-  /* Subtle underline accent */
   border-bottom: 1px solid var(--border);
   padding-bottom: 0.5rem;
   min-width: 80px;
@@ -328,8 +344,8 @@ body::after {
 }
 
 /*
-  .status-message, .status-message-title, .status-message-subtitle
-  Injected by showCountdownState() for WAITING / ENDED / EXPIRED modes.
+  Status message block — injected by showCountdownState() for
+  WAITING / ENDED / EXPIRED modes.
 */
 .status-message {
   padding: 1.5rem 0 0.5rem;
@@ -352,12 +368,12 @@ body::after {
 }
 
 /* --------------------------------------------------------------------------
-   Player States (Live + Replay share structure)
+   Player States (Live + Replay share this structure)
    -------------------------------------------------------------------------- */
 
 #live,
 #replay {
-  /* Override the centered flex from .state */
+  /* Override the centered flex from .state — player fills the viewport */
   align-items: stretch;
   justify-content: stretch;
   padding: 0;
@@ -371,7 +387,7 @@ body::after {
   animation: mc-fadein 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
-/* Thin top bar: title + status badge */
+/* Compact top bar: title column + status badge */
 .mc-player-header {
   display: flex;
   align-items: center;
@@ -384,34 +400,46 @@ body::after {
 }
 
 /*
-  #live-title / #replay-title — set by script.js
+  Column wrapper for title + date subtitle.
+  Owns flex:1 so the badge stays pinned to the right.
+  min-width:0 allows text truncation to work inside a flex child.
 */
+.mc-player-header-text {
+  display: flex;
+  flex-direction: column;
+  gap: 0.3rem;
+  flex: 1;
+  min-width: 0;
+}
+
+/* Event title — set by script.js via #live-title / #replay-title */
 .mc-player-title {
   font-family: var(--font-display);
   font-size: clamp(1rem, 2.5vw, 1.5rem);
   font-weight: 400;
   letter-spacing: 0.01em;
   color: var(--text-1);
-  flex: 1;
   line-height: 1.2;
-  /* Undo Tailwind preflight */
   margin: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-/* Event date subtitle — injected by setEventDateSubtitle() beneath the player title */
+/*
+  Event date subtitle — injected by setEventDateSubtitle() in script.js.
+  Uses stream_started_manually_at, falls back to scheduled_date.
+*/
 .mc-event-date {
   font-size: 0.6875rem;
   letter-spacing: 0.12em;
   color: var(--text-3);
   font-weight: 400;
   margin: 0;
-  line-height: 1;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.4;
 }
 
-/* The area that wraps the video — grows to fill remaining height */
+/* Video area — expands to fill remaining viewport height */
 .mc-video-outer {
   flex: 1;
   background: #000;
@@ -422,10 +450,10 @@ body::after {
 }
 
 /*
-  .video-container — 16:9 aspect ratio wrapper
-  IMPORTANT: must also carry class .relative because:
-    showLive() queries liveEl.querySelector('.relative') to find this container
-    and may replace its innerHTML when the iframe needs to be recreated.
+  16:9 aspect ratio wrapper.
+  IMPORTANT: must carry both .video-container and .relative because
+  showLive() calls liveEl.querySelector('.relative') to find this element
+  and may replace its innerHTML when recreating the iframe.
 */
 .video-container {
   position: relative;
@@ -434,7 +462,7 @@ body::after {
   background: #000;
 }
 
-/* Tailwind's .relative utility — ensure position is set */
+/* .relative is queried directly by script.js — do not rename */
 .relative {
   position: relative;
 }
@@ -449,7 +477,7 @@ body::after {
   display: block;
 }
 
-/* Minimal footer */
+/* Minimal footer with "Powered by MomentCast" */
 .mc-player-footer {
   padding: 0.75rem 1.5rem;
   background: var(--surface);
@@ -460,13 +488,10 @@ body::after {
 
 /* --------------------------------------------------------------------------
    Badges
-   (.live-badge, .ended-badge, .paused-badge, .ready-badge)
-
-   updateStatusBadge() queries .ended-badge in the replay state and swaps
-   className among these four. All four must be styled.
+   updateStatusBadge() queries .ended-badge on the replay page and swaps
+   className among all four variants — all must be styled.
    -------------------------------------------------------------------------- */
 
-/* Base badge reset */
 .live-badge,
 .ended-badge,
 .paused-badge,
@@ -496,33 +521,15 @@ body::after {
   border-radius: 50%;
   background: var(--live-red);
   flex-shrink: 0;
-  box-shadow: 0 0 0 2px rgba(229, 75, 75, 0),
-              0 0 8px var(--live-glow),
-              0 0 18px var(--live-glow);
   animation: badge-live 2s ease-in-out infinite;
 }
 
-@keyframes badge-live {
-  0%, 100% {
-    box-shadow: 0 0 0 2px rgba(229, 75, 75, 0),
-                0 0 8px var(--live-glow),
-                0 0 18px var(--live-glow);
-    opacity: 1;
-  }
-  50% {
-    box-shadow: 0 0 0 3px rgba(229, 75, 75, 0.15),
-                0 0 4px rgba(229, 75, 75, 0.3),
-                0 0 8px rgba(229, 75, 75, 0.2);
-    opacity: 0.7;
-  }
-}
-
-/* ENDED — muted gray */
+/* ENDED — muted gray, no dot */
 .ended-badge {
   color: var(--text-3);
 }
 
-/* PAUSED — warm amber */
+/* PAUSED — amber pulsing dot */
 .paused-badge {
   color: #c9922a;
   gap: 7px;
@@ -539,22 +546,35 @@ body::after {
   animation: badge-pulse 2.5s ease-in-out infinite;
 }
 
-@keyframes badge-pulse {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.4; }
-}
-
-/* READY — soft blue */
+/* READY — soft blue, no dot */
 .ready-badge {
   color: #6b9cf5;
 }
 
 /* --------------------------------------------------------------------------
-   Legacy Spinner
-   (Kept in case any remaining code references it; also used inside Tailwind
-   injected processing overlays via .animate-spin which Tailwind CDN handles)
+   Spinners
    -------------------------------------------------------------------------- */
 
+/* Base spinner — white, used in dark overlays */
+.mc-spinner {
+  width: 40px;
+  height: 40px;
+  border: 2px solid rgba(255, 255, 255, 0.12);
+  border-top-color: #fff;
+  border-radius: 50%;
+  margin: 0 auto;
+  animation: mc-spin 0.85s linear infinite;
+}
+
+/* Gold variant — used inside the live container processing overlay */
+.mc-spinner--gold {
+  border-color: rgba(200, 169, 110, 0.15);
+  border-top-color: var(--gold);
+  width: 52px;
+  height: 52px;
+}
+
+/* Legacy .spinner — kept for any older markup references */
 .spinner {
   border: 2px solid rgba(200, 169, 110, 0.15);
   border-top-color: var(--gold);
@@ -565,64 +585,229 @@ body::after {
   margin: 0 auto 1.25rem;
 }
 
-@keyframes mc-spin {
-  to { transform: rotate(360deg); }
-}
-
 /* --------------------------------------------------------------------------
-   Dynamic element overrides
-   These elements are created and injected at runtime by script.js using
-   Tailwind utility classes. Tailwind CDN handles their layout. The rules
-   below provide minor customizations where needed.
+   Dynamically Injected Elements
+   All elements below are created at runtime by script.js.
+   No Tailwind utility classes are used — all styles are defined here.
    -------------------------------------------------------------------------- */
 
-/* Waiting banner (between ceremony and reception) */
-#waiting-banner {
-  font-size: 0.8125rem;
-  letter-spacing: 0.04em;
-  /* Tailwind: bg-purple-600 → remap to brand gold feel */
-  background: var(--surface-2) !important;
-  border-bottom: 1px solid var(--border);
-  color: var(--text-2) !important;
+/* "Event starting soon..." shown when the countdown reaches zero */
+.mc-starting-message {
+  font-size: 1.25rem;
+  font-weight: 700;
+  text-align: center;
+  margin-top: 2rem;
+  color: var(--text-1);
 }
 
-/* Progress banner (sequential video counter) */
-#progress-banner {
+/* Processing overlay — semi-transparent layer over the video container */
+.mc-processing-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.80);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
+}
+
+/* Darker variant used inside the live container while recording finalizes */
+.mc-processing-overlay--dark {
+  background: #111113;
+  border-radius: var(--radius);
+  z-index: 20;
+}
+
+.mc-processing-inner {
+  text-align: center;
+  padding: 2rem;
+}
+
+.mc-processing-title {
+  font-size: 1.125rem;
+  font-weight: 500;
+  color: var(--text-1);
+  margin: 1rem 0 0.375rem;
+}
+
+.mc-processing-sub {
+  font-size: 0.8125rem;
+  color: var(--text-2);
+  margin: 0;
+}
+
+.mc-processing-sub--faint {
+  color: var(--text-3);
+  font-size: 0.75rem;
+  margin-top: 0.5rem;
+}
+
+/* Waiting banner — shown between ceremony and reception while stream is paused */
+.mc-waiting-banner {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.625rem;
+  padding: 0.75rem 1.5rem;
+  background: var(--surface-2);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-2);
+  font-size: 0.8125rem;
+  font-weight: 500;
+  letter-spacing: 0.04em;
+  width: 100%;
+}
+
+/* Pulsing gold dot inside the waiting banner */
+.mc-waiting-dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--gold);
+  flex-shrink: 0;
+  animation: badge-pulse 2.5s ease-in-out infinite;
+}
+
+/* Progress banner — "Video X of Y · Auto-advancing" shown during sequential replay */
+.mc-progress-banner {
+  padding: 0.5rem 1.5rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  color: var(--text-2);
   font-size: 0.6875rem;
   letter-spacing: 0.1em;
-  background: var(--surface) !important;
-  color: var(--text-2) !important;
-  border-bottom: 1px solid var(--border);
+  text-transform: uppercase;
+  width: 100%;
+  text-align: center;
 }
 
-#progress-banner .text-gray-400 {
-  color: var(--text-3) !important;
+/* Completion overlay — shown when all sequential recordings finish */
+.mc-completion-overlay {
+  position: absolute;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.90);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 10;
 }
 
-/* Completion overlay "Replay from beginning" button */
-#completion-overlay button {
-  background: var(--gold) !important;
-  color: #0b0b0d !important;
-  border-radius: var(--radius-sm) !important;
+.mc-completion-inner {
+  text-align: center;
+  padding: 2rem;
+}
+
+.mc-completion-title {
+  font-family: var(--font-display);
+  font-size: 1.75rem;
+  font-weight: 400;
+  color: var(--text-1);
+  margin: 0 0 0.75rem;
+}
+
+.mc-completion-sub {
+  font-size: 0.875rem;
+  color: var(--text-2);
+  margin: 0 0 1.5rem;
+}
+
+.mc-completion-btn {
+  background: var(--gold);
+  color: #0b0b0d;
+  border: none;
+  border-radius: var(--radius-sm);
+  padding: 0.75rem 1.5rem;
   font-family: var(--font-body);
+  font-size: 0.875rem;
   font-weight: 600;
   letter-spacing: 0.04em;
+  cursor: pointer;
 }
 
-#completion-overlay button:hover {
+.mc-completion-btn:hover {
   opacity: 0.88;
 }
 
-/* Limit-exceeded screen */
-#limit-exceeded {
-  background: var(--bg);
-  font-family: var(--font-body);
+/* Viewer limit screen — full page shown when event hits its viewing cap */
+.mc-limit-screen {
+  align-items: center;
+  justify-content: center;
+  padding: 1.5rem;
 }
 
-#limit-exceeded h2 {
+.mc-limit-inner {
+  max-width: 420px;
+  width: 100%;
+  text-align: center;
+}
+
+.mc-limit-icon {
+  margin-bottom: 1.5rem;
+  color: var(--gold);
+}
+
+.mc-limit-title {
   font-family: var(--font-display);
+  font-size: 2rem;
   font-weight: 300;
   letter-spacing: 0.01em;
+  color: var(--text-1);
+  margin: 0 0 1rem;
+}
+
+.mc-limit-body {
+  font-size: 0.9375rem;
+  color: var(--text-2);
+  line-height: 1.6;
+  margin: 0 0 0.5rem;
+}
+
+.mc-limit-body--faint {
+  color: var(--text-3);
+  font-size: 0.875rem;
+  margin-bottom: 1.5rem;
+}
+
+.mc-limit-event-card {
+  background: var(--surface-2);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-sm);
+  padding: 0.875rem 1rem;
+}
+
+.mc-limit-event-label {
+  font-size: 0.8125rem;
+  color: var(--text-2);
+  margin: 0;
+}
+
+.mc-limit-event-label span {
+  color: var(--text-1);
+  font-weight: 500;
+}
+
+/*
+  Expired block — legacy fallback inside showExpired().
+  Primary handler is showCountdownState('EXPIRED') but this is kept for safety.
+*/
+.mc-expired-block {
+  text-align: center;
+  padding: 1.5rem 0;
+}
+
+.mc-expired-title {
+  font-family: var(--font-display);
+  font-size: 1.5rem;
+  font-weight: 400;
+  color: var(--text-1);
+  margin: 0 0 0.5rem;
+}
+
+.mc-expired-sub {
+  font-size: 0.8125rem;
+  color: var(--text-3);
+  margin: 0;
 }
 
 /* --------------------------------------------------------------------------
@@ -665,7 +850,7 @@ body::after {
   }
 }
 
-/* Large screens: let the video breathe */
+/* Large screens — give the header and footer a bit more breathing room */
 @media (min-width: 1280px) {
   .mc-player-header {
     padding: 1rem 2rem;

@@ -335,7 +335,7 @@ function updateCountdown(targetDate) {
     if (!messageEl) {
       messageEl = document.createElement('p');
       messageEl.id = 'starting-message';
-      messageEl.className = 'text-2xl font-bold text-center mt-8';
+      messageEl.className = 'mc-starting-message'; // "Event starting soon..." text
       messageEl.textContent = 'Event starting soon...';
       document.getElementById('countdown').appendChild(messageEl);
     }
@@ -411,12 +411,12 @@ function showLive() {
     if (!processingOverlay) {
       processingOverlay = document.createElement('div');
       processingOverlay.id = 'processing-overlay';
-      processingOverlay.className = 'absolute inset-0 bg-black/80 flex items-center justify-center z-10';
+      processingOverlay.className = 'mc-processing-overlay'; // Dark overlay shown while recording finalizes
       processingOverlay.innerHTML = `
-        <div class="text-center">
-          <div class="animate-spin rounded-full h-12 w-12 border-b-2 border-white mx-auto mb-4"></div>
-          <p class="text-white text-lg">Processing recording...</p>
-          <p class="text-gray-400 text-sm mt-2">This usually takes 5 minutes</p>
+        <div class="mc-processing-inner">
+          <div class="mc-spinner"></div>
+          <p class="mc-processing-title">Processing recording...</p>
+          <p class="mc-processing-sub">This usually takes 5 minutes</p>
         </div>
       `;
       
@@ -449,13 +449,13 @@ function showProcessing() {
   let processingMessage = liveEl.querySelector('.processing-message');
   if (!processingMessage) {
     processingMessage = document.createElement('div');
-    processingMessage.className = 'processing-message absolute inset-0 flex items-center justify-center bg-gray-900 rounded-lg z-20';
+    processingMessage.className = 'processing-message mc-processing-overlay mc-processing-overlay--dark'; // Full-area overlay inside live container
     processingMessage.innerHTML = `
-      <div class="text-center p-8">
-        <div class="animate-spin rounded-full h-16 w-16 border-b-2 border-purple-500 mx-auto mb-6"></div>
-        <p class="text-white text-xl font-medium mb-2">Processing recording...</p>
-        <p class="text-gray-400">Your stream will be ready for playback shortly</p>
-        <p class="text-gray-500 text-sm mt-4">Usually takes 1-2 minutes</p>
+      <div class="mc-processing-inner">
+        <div class="mc-spinner mc-spinner--gold"></div>
+        <p class="mc-processing-title">Processing recording...</p>
+        <p class="mc-processing-sub">Your stream will be ready for playback shortly</p>
+        <p class="mc-processing-sub mc-processing-sub--faint">Usually takes 1-2 minutes</p>
       </div>
     `;
     const container = streamEl?.parentElement;
@@ -519,7 +519,7 @@ function showLastRecording() {
   if (!waitingBanner) {
     waitingBanner = document.createElement('div');
     waitingBanner.id = 'waiting-banner';
-    waitingBanner.className = 'bg-purple-600 text-white px-6 py-3 flex items-center justify-center gap-2 font-semibold w-full';
+    waitingBanner.className = 'mc-waiting-banner'; // Shown between ceremony and reception sessions
     
     // Calculate time since last activity for display
     let timeSinceText = '';
@@ -531,7 +531,7 @@ function showLastRecording() {
     }
     
     waitingBanner.innerHTML = `
-      <span class="inline-block w-3 h-3 bg-white rounded-full animate-pulse"></span>
+      <span class="mc-waiting-dot"></span>
       <span>Stream paused${timeSinceText} - Photographer will return shortly...</span>
     `;
     
@@ -617,7 +617,7 @@ function showSequentialPlayback() {
   if (!progressBanner) {
     progressBanner = document.createElement('div');
     progressBanner.id = 'progress-banner';
-    progressBanner.className = 'bg-gray-700 text-white px-6 py-3 text-sm w-full text-center';
+    progressBanner.className = 'mc-progress-banner'; // Sequential video counter shown during replay
     
     // Insert banner after the title element
     const titleEl = document.getElementById('replay-title');
@@ -809,12 +809,12 @@ function showAllRecordingsComplete() {
   if (!completionOverlay) {
     completionOverlay = document.createElement('div');
     completionOverlay.id = 'completion-overlay';
-    completionOverlay.className = 'absolute inset-0 bg-black bg-opacity-90 flex items-center justify-center z-10';
+    completionOverlay.className = 'mc-completion-overlay'; // Shown when all sequential recordings finish
     completionOverlay.innerHTML = `
-      <div class="text-center">
-        <p class="text-2xl font-bold mb-4">All recordings complete</p>
-        <p class="text-gray-400 mb-6">Thank you for watching!</p>
-        <button onclick="location.reload()" class="bg-purple-600 hover:bg-purple-700 px-6 py-3 rounded-lg font-semibold">
+      <div class="mc-completion-inner">
+        <p class="mc-completion-title">All recordings complete</p>
+        <p class="mc-completion-sub">Thank you for watching!</p>
+        <button onclick="location.reload()" class="mc-completion-btn">
           Replay from beginning
         </button>
       </div>
@@ -927,23 +927,19 @@ function showLimitExceeded() {
   if (!limitEl) {
     limitEl = document.createElement('div');
     limitEl.id = 'limit-exceeded';
-    limitEl.className = 'state min-h-screen flex items-center justify-center px-4';
+    limitEl.className = 'state mc-limit-screen'; // Full-screen viewer limit message
     limitEl.innerHTML = `
-      <div class="max-w-md mx-auto text-center">
-        <div class="mb-8">
-          <svg class="w-20 h-20 mx-auto text-yellow-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+      <div class="mc-limit-inner">
+        <div class="mc-limit-icon">
+          <svg width="48" height="48" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
           </svg>
         </div>
-        <h2 class="text-3xl font-bold mb-4">Viewing Limit Reached</h2>
-        <p class="text-gray-400 text-lg mb-6">
-          This event has reached its viewing hour limit.
-        </p>
-        <p class="text-gray-500 mb-8">
-          Please contact the event host if you'd like to continue watching.
-        </p>
-        <div class="bg-gray-800 rounded-lg p-4">
-          <p class="text-sm text-gray-400">Event: <span class="text-white font-medium" id="limit-event-title"></span></p>
+        <h2 class="mc-limit-title">Viewing Limit Reached</h2>
+        <p class="mc-limit-body">This event has reached its viewing hour limit.</p>
+        <p class="mc-limit-body mc-limit-body--faint">Please contact the event host if you'd like to continue watching.</p>
+        <div class="mc-limit-event-card">
+          <p class="mc-limit-event-label">Event: <span id="limit-event-title"></span></p>
         </div>
       </div>
     `;
@@ -1014,12 +1010,14 @@ function showExpired() {
     timeZone: 'UTC'
   })}`;
   
+  // Note: showExpired() is a legacy fallback — showCountdownState('EXPIRED') is the
+  // primary handler. This block kept for safety in case it's ever called directly.
   const timerContainer = countdownEl.querySelector('.grid');
   if (timerContainer) {
     timerContainer.innerHTML = `
-      <div class="col-span-full text-center py-4">
-        <p class="text-2xl font-bold mb-2">Recording No Longer Available</p>
-        <p class="text-gray-400 text-sm">Recordings are kept for 30 days after the event.</p>
+      <div class="mc-expired-block">
+        <p class="mc-expired-title">Recording No Longer Available</p>
+        <p class="mc-expired-sub">Recordings are kept for 30 days after the event.</p>
       </div>
     `;
   }

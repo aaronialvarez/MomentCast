@@ -7,11 +7,6 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
-  <!--
-    Tailwind CDN: script.js injects dynamic elements (banners, overlays, limit screens)
-    using Tailwind utility classes. This ensures those runtime-injected elements are styled.
-  -->
-  <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
@@ -91,8 +86,11 @@
       <div class="mc-player-wrap">
 
         <div class="mc-player-header">
-          <!-- #live-title: set by showLive() -->
-          <h1 id="live-title" class="mc-player-title"></h1>
+          <!-- Title + date stacked; date is injected by setEventDateSubtitle() -->
+          <div class="mc-player-header-text">
+            <h1 id="live-title" class="mc-player-title"></h1>
+            <!-- .mc-event-date injected here by script.js -->
+          </div>
           <!--
             .live-badge: the LIVE indicator badge.
             Only the replay badge class gets swapped by updateStatusBadge().
@@ -131,8 +129,11 @@
       <div class="mc-player-wrap">
 
         <div class="mc-player-header">
-          <!-- #replay-title: set by showLastRecording(), showSequentialPlayback(), showReplay() -->
-          <h1 id="replay-title" class="mc-player-title"></h1>
+          <!-- Title + date stacked; date is injected by setEventDateSubtitle() -->
+          <div class="mc-player-header-text">
+            <h1 id="replay-title" class="mc-player-title"></h1>
+            <!-- .mc-event-date injected here by script.js -->
+          </div>
           <!--
             .ended-badge: updateStatusBadge() queries this class and swaps it to
             live-badge / paused-badge / ready-badge / ended-badge based on event state.
