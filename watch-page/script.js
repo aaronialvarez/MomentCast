@@ -44,6 +44,13 @@ function startPolling() {
   const isLive = eventData?.status === 'live' || eventData?.stream_state === 'active';
   const isWaitingForResume = playbackMode === 'LAST_RECORDING'; // Poll more frequently when waiting
   
+  // Terminal states never change — stop polling entirely
+  if (playbackMode === 'EXPIRED' || playbackMode === 'ENDED') {
+    if (pollInterval) clearInterval(pollInterval);
+    pollInterval = null;
+    return;
+  }
+
   let pollFrequency;
   if (isLive) {
     pollFrequency = 120000; // 2 minutes when live

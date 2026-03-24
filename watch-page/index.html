@@ -3,39 +3,62 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MomentCast - Live Event</title>
+  <title>MomentCast</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:wght@300;400;500;600&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap" rel="stylesheet">
+  <!--
+    Tailwind CDN: script.js injects dynamic elements (banners, overlays, limit screens)
+    using Tailwind utility classes. This ensures those runtime-injected elements are styled.
+  -->
+  <script src="https://cdn.tailwindcss.com"></script>
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
   <div id="app">
-    <!-- Loading State -->
+
+    <!-- ==================== LOADING ==================== -->
     <div id="loading" class="state">
-      <div class="container">
-        <div class="spinner"></div>
-        <p>Loading event...</p>
+      <div class="mc-center" style="text-align:center;">
+        <div class="mc-loader">
+          <span class="mc-dot"></span>
+          <span class="mc-dot"></span>
+          <span class="mc-dot"></span>
+        </div>
+        <p class="mc-loading-text">Loading event</p>
       </div>
     </div>
 
-    <!-- Error State -->
+    <!-- ==================== ERROR ==================== -->
     <div id="error" class="state hidden">
-      <div class="container">
+      <div class="mc-center" style="text-align:center;">
+        <p class="mc-eyebrow">MomentCast</p>
         <h1>Event Not Found</h1>
         <p>This event doesn't exist or has been removed.</p>
-        <div class="powered-by">
-          <p>Powered by <a href="https://momentcast.live"><strong>MomentCast.live</strong></a></p>
+        <div class="mc-powered" style="margin-top:3rem;">
+          Powered by <a href="https://momentcast.live"><strong>MomentCast</strong></a>
         </div>
       </div>
     </div>
 
-    <!-- Countdown State -->
+    <!-- ==================== COUNTDOWN ==================== -->
     <div id="countdown" class="state hidden">
-      <div class="container">
-        <div class="event-header">
-          <h1 id="event-title"></h1>
-        </div>
-        
+      <div class="mc-center">
+        <p class="mc-eyebrow">Upcoming Event</p>
+        <h1 id="event-title" class="mc-display-title"></h1>
+
+        <!--
+          .countdown-timer: script.js may replace innerHTML of this element
+          for WAITING / ENDED / EXPIRED modes. Keep the class name exactly.
+        -->
         <div class="countdown-timer">
-          <h2>Event starts in</h2>
+          <h2 class="mc-countdown-label">Event starts in</h2>
+
+          <!--
+            .timer-display: the grid holding timer units.
+            script.js hides daysEl.parentElement (.timer-unit) when countdown hits zero.
+            Each span ID (days/hours/minutes/seconds) must stay exactly as-is.
+          -->
           <div class="timer-display">
             <div class="timer-unit">
               <span id="days" class="timer-value">00</span>
@@ -47,68 +70,102 @@
             </div>
             <div class="timer-unit">
               <span id="minutes" class="timer-value">00</span>
-              <span class="timer-label">Minutes</span>
+              <span class="timer-label">Min</span>
             </div>
             <div class="timer-unit">
               <span id="seconds" class="timer-value">00</span>
-              <span class="timer-label">Seconds</span>
+              <span class="timer-label">Sec</span>
             </div>
           </div>
+
+          <!-- #scheduled-time: set by showCountdown() -->
           <p id="scheduled-time" class="scheduled-time"></p>
         </div>
 
-        <div class="powered-by">
-          <p>Powered by <strong>MomentCast</strong></p>
-        </div>
+        <p class="mc-powered">Powered by <strong>MomentCast</strong></p>
       </div>
     </div>
 
-    <!-- Live Stream State -->
+    <!-- ==================== LIVE STREAM ==================== -->
     <div id="live" class="state hidden">
-      <div class="container-full">
-        <div class="event-header">
-          <h1 id="live-title"></h1>
-          <span class="live-badge">🔴 LIVE</span>
-        </div>
-        
-        <div class="video-container">
-          <iframe
-            id="live-stream"
-            src=""
-            allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
-            allowfullscreen="true"
-          ></iframe>
+      <div class="mc-player-wrap">
+
+        <div class="mc-player-header">
+          <!-- #live-title: set by showLive() -->
+          <h1 id="live-title" class="mc-player-title"></h1>
+          <!--
+            .live-badge: the LIVE indicator badge.
+            Only the replay badge class gets swapped by updateStatusBadge().
+          -->
+          <span class="live-badge">Live</span>
         </div>
 
-        <div class="powered-by">
-          <p>Powered by <strong>MomentCast</strong></p>
+        <div class="mc-video-outer">
+          <!--
+            .video-container + .relative:
+            script.js does liveEl.querySelector('.relative') to find this container
+            and may replace its innerHTML when recreating the iframe.
+            Both classes are required.
+          -->
+          <div class="video-container relative">
+            <!-- #live-stream: src set by showLive() -->
+            <iframe
+              id="live-stream"
+              src=""
+              style="border:none; position:absolute; top:0; left:0; height:100%; width:100%"
+              allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
+              allowfullscreen="true"
+            ></iframe>
+          </div>
         </div>
+
+        <div class="mc-player-footer">
+          <p class="mc-powered">Powered by <strong>MomentCast</strong></p>
+        </div>
+
       </div>
     </div>
 
-    <!-- Replay State -->
+    <!-- ==================== REPLAY / RECORDING ==================== -->
     <div id="replay" class="state hidden">
-      <div class="container-full">
-        <div class="event-header">
-          <h1 id="replay-title"></h1>
-          <span class="ended-badge">ENDED</span>
-        </div>
-        
-        <div class="video-container">
-          <iframe
-            id="replay-stream"
-            src=""
-            allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
-            allowfullscreen="true"
-          ></iframe>
+      <div class="mc-player-wrap">
+
+        <div class="mc-player-header">
+          <!-- #replay-title: set by showLastRecording(), showSequentialPlayback(), showReplay() -->
+          <h1 id="replay-title" class="mc-player-title"></h1>
+          <!--
+            .ended-badge: updateStatusBadge() queries this class and swaps it to
+            live-badge / paused-badge / ready-badge / ended-badge based on event state.
+            The class name must stay as 'ended-badge' as the initial value.
+          -->
+          <span class="ended-badge">Ended</span>
         </div>
 
-        <div class="powered-by">
-          <p>Powered by <strong>MomentCast</strong></p>
+        <div class="mc-video-outer">
+          <!--
+            Same requirement as live: needs both .video-container and .relative.
+            Completion overlay and processing overlay are appended to streamEl.parentElement.
+          -->
+          <div class="video-container relative">
+            <!-- #replay-stream: src set by recording playback functions -->
+            <iframe
+              id="replay-stream"
+              src=""
+              style="border:none; position:absolute; top:0; left:0; height:100%; width:100%"
+              allow="accelerometer; gyroscope; autoplay; encrypted-media; picture-in-picture;"
+              allowfullscreen="true"
+            ></iframe>
+          </div>
         </div>
+
+        <div class="mc-player-footer">
+          <p class="mc-powered">Powered by <strong>MomentCast</strong></p>
+        </div>
+
       </div>
     </div>
-  </div>
+
+  </div><!-- /#app -->
 
   <script src="script.js"></script>
 </body>

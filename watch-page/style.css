@@ -1,154 +1,429 @@
-* {
-  margin: 0;
-  padding: 0;
+/* ==========================================================================
+   MomentCast Watch Page — Premium Cinematic Redesign
+   Dark theme · Warm gold accents · Editorial typography
+   ========================================================================== */
+
+/* --------------------------------------------------------------------------
+   Design Tokens
+   -------------------------------------------------------------------------- */
+
+:root {
+  --bg:           #0b0b0d;
+  --surface:      #131315;
+  --surface-2:    #1b1b1e;
+  --border:       rgba(255, 255, 255, 0.07);
+  --border-2:     rgba(255, 255, 255, 0.04);
+
+  --text-1:       #ede9e3;
+  --text-2:       rgba(237, 233, 227, 0.52);
+  --text-3:       rgba(237, 233, 227, 0.28);
+
+  --gold:         #c8a96e;
+  --gold-muted:   rgba(200, 169, 110, 0.12);
+
+  --live-red:     #e54b4b;
+  --live-glow:    rgba(229, 75, 75, 0.45);
+
+  --radius-sm:    8px;
+  --radius:       14px;
+  --radius-lg:    20px;
+
+  --font-display: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+  --font-body:    'DM Sans', system-ui, -apple-system, sans-serif;
+}
+
+/* --------------------------------------------------------------------------
+   Base Reset
+   (Tailwind preflight is loaded first; these rules override where needed)
+   -------------------------------------------------------------------------- */
+
+*, *::before, *::after {
   box-sizing: border-box;
 }
 
-body {
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
-  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-  min-height: 100vh;
-  color: white;
+html {
+  height: 100%;
 }
+
+body {
+  font-family: var(--font-body);
+  background-color: var(--bg);
+  color: var(--text-1);
+  min-height: 100vh;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  /* Subtle grain over everything */
+  background-image:
+    radial-gradient(ellipse 80% 60% at 50% -10%, rgba(200, 169, 110, 0.04) 0%, transparent 70%);
+}
+
+/* Fine grain texture overlay */
+body::after {
+  content: '';
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 9999;
+  opacity: 0.025;
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='300' height='300'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.75' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='300' height='300' filter='url(%23n)'/%3E%3C/svg%3E");
+}
+
+/* --------------------------------------------------------------------------
+   State System
+   -------------------------------------------------------------------------- */
 
 .state {
   display: none;
   min-height: 100vh;
-  align-items: center;
-  justify-content: center;
+  position: relative;
+  z-index: 1;
 }
 
 .state:not(.hidden) {
   display: flex;
-}
-
-.container {
-  max-width: 800px;
-  width: 90%;
-  text-align: center;
-  padding: 2rem;
-}
-
-.container-full {
-  width: 100%;
-  max-width: 1400px;
-  padding: 2rem;
-}
-
-/* Loading Spinner */
-.spinner {
-  border: 4px solid rgba(255, 255, 255, 0.3);
-  border-top: 4px solid white;
-  border-radius: 50%;
-  width: 50px;
-  height: 50px;
-  animation: spin 1s linear infinite;
-  margin: 0 auto 1rem;
-}
-
-@keyframes spin {
-  0% { transform: rotate(0deg); }
-  100% { transform: rotate(360deg); }
-}
-
-/* Event Header */
-.event-header {
-  margin-bottom: 2rem;
-  display: flex;
   align-items: center;
   justify-content: center;
-  gap: 1rem;
-  flex-wrap: wrap;
 }
 
-.event-header h1 {
-  font-size: 2.5rem;
-  font-weight: 700;
+/* Tailwind's .hidden and our own both use display:none */
+.hidden {
+  display: none !important;
 }
 
-.live-badge {
-  background: #ef4444;
-  padding: 0.5rem 1rem;
-  border-radius: 9999px;
-  font-size: 1rem;
-  font-weight: 600;
-  animation: pulse 2s infinite;
+/* --------------------------------------------------------------------------
+   Loading State
+   -------------------------------------------------------------------------- */
+
+#loading {
+  flex-direction: column;
+  gap: 1.25rem;
 }
 
-@keyframes pulse {
-  0%, 100% { opacity: 1; }
-  50% { opacity: 0.7; }
+.mc-loader {
+  display: flex;
+  gap: 9px;
+  align-items: center;
+  justify-content: center;
 }
 
-.ended-badge {
-  background: rgba(255, 255, 255, 0.2);
-  padding: 0.5rem 1rem;
-  border-radius: 9999px;
-  font-size: 1rem;
-  font-weight: 600;
+.mc-dot {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--gold);
+  display: inline-block;
+  animation: mc-float 1.5s ease-in-out infinite;
 }
 
-/* Countdown Timer */
-.countdown-timer {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  border-radius: 1rem;
-  padding: 3rem 2rem;
-  margin-bottom: 2rem;
+.mc-dot:nth-child(1) { animation-delay: 0s; }
+.mc-dot:nth-child(2) { animation-delay: 0.18s; }
+.mc-dot:nth-child(3) { animation-delay: 0.36s; }
+
+@keyframes mc-float {
+  0%, 60%, 100% { transform: translateY(0);   opacity: 0.25; }
+  30%            { transform: translateY(-9px); opacity: 1;    }
 }
 
-.countdown-timer h2 {
-  font-size: 1.5rem;
-  margin-bottom: 2rem;
+.mc-loading-text {
+  font-size: 0.6875rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--text-3);
   font-weight: 500;
 }
 
+/* --------------------------------------------------------------------------
+   Error State
+   -------------------------------------------------------------------------- */
+
+#error {
+  flex-direction: column;
+  padding: 2rem;
+  text-align: center;
+  animation: mc-fadein 0.6s ease both;
+}
+
+#error h1 {
+  font-family: var(--font-display);
+  font-size: clamp(2rem, 6vw, 3.75rem);
+  font-weight: 300;
+  letter-spacing: 0.01em;
+  line-height: 1.1;
+  color: var(--text-1);
+  margin-bottom: 1rem;
+  /* Undo Tailwind preflight */
+  margin-top: 0;
+}
+
+#error p {
+  font-size: 0.9375rem;
+  color: var(--text-2);
+  line-height: 1.6;
+  margin-bottom: 0;
+}
+
+/* --------------------------------------------------------------------------
+   Shared Utilities
+   -------------------------------------------------------------------------- */
+
+@keyframes mc-fadein {
+  from { opacity: 0; transform: translateY(14px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+
+.mc-center {
+  width: 100%;
+  max-width: 680px;
+  padding: 2.5rem 1.5rem;
+  animation: mc-fadein 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+.mc-eyebrow {
+  display: block;
+  font-size: 0.625rem;
+  letter-spacing: 0.3em;
+  text-transform: uppercase;
+  color: var(--gold);
+  font-weight: 500;
+  margin-bottom: 1.25rem;
+}
+
+/* The large decorative event title (countdown page) */
+.mc-display-title {
+  font-family: var(--font-display);
+  font-size: clamp(2.25rem, 7vw, 4.5rem);
+  font-weight: 400;
+  line-height: 1.1;
+  letter-spacing: -0.01em;
+  color: var(--text-1);
+  margin-bottom: 0;
+  /* Undo Tailwind preflight */
+  margin-top: 0;
+}
+
+.mc-powered {
+  display: block;
+  font-size: 0.6875rem;
+  color: var(--text-3);
+  letter-spacing: 0.08em;
+}
+
+.mc-powered strong {
+  font-weight: 500;
+  color: var(--text-2);
+}
+
+.mc-powered a {
+  color: var(--text-2);
+  text-decoration: none;
+  font-weight: 500;
+}
+
+.mc-powered a:hover {
+  color: var(--text-1);
+}
+
+/* --------------------------------------------------------------------------
+   Countdown State
+   -------------------------------------------------------------------------- */
+
+#countdown {
+  flex-direction: column;
+}
+
+#countdown .mc-center {
+  max-width: 760px;
+  text-align: center;
+}
+
+/*
+  .countdown-timer
+  IMPORTANT: script.js replaces the innerHTML of this element for
+  WAITING / ENDED / EXPIRED modes. The class name must remain exactly
+  'countdown-timer'. The inner children (timer-display, scheduled-time, etc.)
+  are only present during the COUNTDOWN mode. In other modes the injected
+  HTML uses .scheduled-time, .status-message, .status-message-title,
+  and .status-message-subtitle — all styled below.
+*/
+.countdown-timer {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 2.75rem 2rem;
+  margin: 2rem auto;
+  max-width: 640px;
+}
+
+.mc-countdown-label {
+  font-size: 0.625rem;
+  letter-spacing: 0.28em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  font-weight: 500;
+  margin-bottom: 2.25rem;
+  /* Undo Tailwind preflight h2 sizing */
+  font-size: 0.625rem;
+}
+
+/*
+  .timer-display
+  The row holding the four timer units. Script.js hides daysEl.parentElement
+  (.timer-unit) when the countdown hits zero — only the days unit is hidden,
+  this is existing script behavior.
+*/
 .timer-display {
   display: flex;
   gap: 2rem;
   justify-content: center;
   flex-wrap: wrap;
+  margin-bottom: 0;
 }
 
 .timer-unit {
   display: flex;
   flex-direction: column;
   align-items: center;
+  gap: 0.625rem;
+  min-width: 64px;
 }
 
+/*
+  .timer-value — the large countdown digits.
+  IDs: #days, #hours, #minutes, #seconds are set by script.js.
+*/
 .timer-value {
-  font-size: 4rem;
-  font-weight: 700;
+  font-family: var(--font-display);
+  font-size: clamp(3rem, 9vw, 5.5rem);
+  font-weight: 300;
   line-height: 1;
-  min-width: 100px;
-  background: rgba(255, 255, 255, 0.2);
-  border-radius: 0.5rem;
-  padding: 1rem;
-  margin-bottom: 0.5rem;
+  color: var(--text-1);
+  letter-spacing: -0.025em;
+  display: block;
+  /* Subtle underline accent */
+  border-bottom: 1px solid var(--border);
+  padding-bottom: 0.5rem;
+  min-width: 80px;
+  text-align: center;
 }
 
 .timer-label {
-  font-size: 0.875rem;
+  font-size: 0.5625rem;
+  letter-spacing: 0.22em;
   text-transform: uppercase;
-  opacity: 0.8;
+  color: var(--text-3);
   font-weight: 500;
 }
 
-.scheduled-time {
+/*
+  #scheduled-time — set by showCountdown().
+  Also injected as <p class="scheduled-time"> by showCountdownState().
+*/
+.scheduled-time,
+#scheduled-time {
+  font-size: 0.8125rem;
+  color: var(--text-2);
   margin-top: 2rem;
-  font-size: 1.125rem;
-  opacity: 0.9;
+  letter-spacing: 0.04em;
+  line-height: 1.5;
 }
 
-/* Video Container */
+/*
+  .status-message, .status-message-title, .status-message-subtitle
+  Injected by showCountdownState() for WAITING / ENDED / EXPIRED modes.
+*/
+.status-message {
+  padding: 1.5rem 0 0.5rem;
+}
+
+.status-message-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.5rem, 4vw, 2.25rem);
+  font-weight: 400;
+  color: var(--text-1);
+  letter-spacing: 0.01em;
+  line-height: 1.2;
+}
+
+.status-message-subtitle {
+  font-size: 0.8125rem;
+  color: var(--text-3);
+  margin-top: 0.625rem;
+  letter-spacing: 0.04em;
+}
+
+/* --------------------------------------------------------------------------
+   Player States (Live + Replay share structure)
+   -------------------------------------------------------------------------- */
+
+#live,
+#replay {
+  /* Override the centered flex from .state */
+  align-items: stretch;
+  justify-content: stretch;
+  padding: 0;
+}
+
+.mc-player-wrap {
+  width: 100%;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  animation: mc-fadein 0.5s cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+/* Thin top bar: title + status badge */
+.mc-player-header {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  padding: 1rem 1.5rem;
+  background: var(--surface);
+  border-bottom: 1px solid var(--border);
+  flex-shrink: 0;
+  min-height: 56px;
+}
+
+/*
+  #live-title / #replay-title — set by script.js
+*/
+.mc-player-title {
+  font-family: var(--font-display);
+  font-size: clamp(1rem, 2.5vw, 1.5rem);
+  font-weight: 400;
+  letter-spacing: 0.01em;
+  color: var(--text-1);
+  flex: 1;
+  line-height: 1.2;
+  /* Undo Tailwind preflight */
+  margin: 0;
+}
+
+/* The area that wraps the video — grows to fill remaining height */
+.mc-video-outer {
+  flex: 1;
+  background: #000;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+}
+
+/*
+  .video-container — 16:9 aspect ratio wrapper
+  IMPORTANT: must also carry class .relative because:
+    showLive() queries liveEl.querySelector('.relative') to find this container
+    and may replace its innerHTML when the iframe needs to be recreated.
+*/
 .video-container {
   position: relative;
   width: 100%;
-  padding-bottom: 56.25%; /* 16:9 aspect ratio */
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 1rem;
-  overflow: hidden;
-  margin-bottom: 2rem;
+  padding-bottom: 56.25%; /* 16:9 */
+  background: #000;
+}
+
+/* Tailwind's .relative utility — ensure position is set */
+.relative {
+  position: relative;
 }
 
 .video-container iframe {
@@ -158,80 +433,232 @@ body {
   width: 100%;
   height: 100%;
   border: none;
+  display: block;
 }
 
-/* Powered By */
-.powered-by {
-  text-align: center;
-  opacity: 0.7;
-  font-size: 0.875rem;
+/* Minimal footer */
+.mc-player-footer {
+  padding: 0.75rem 1.5rem;
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+  flex-shrink: 0;
+  text-align: right;
 }
 
-.powered-by strong {
+/* --------------------------------------------------------------------------
+   Badges
+   (.live-badge, .ended-badge, .paused-badge, .ready-badge)
+
+   updateStatusBadge() queries .ended-badge in the replay state and swaps
+   className among these four. All four must be styled.
+   -------------------------------------------------------------------------- */
+
+/* Base badge reset */
+.live-badge,
+.ended-badge,
+.paused-badge,
+.ready-badge {
+  display: inline-flex;
+  align-items: center;
+  font-size: 0.625rem;
+  letter-spacing: 0.22em;
   font-weight: 600;
+  text-transform: uppercase;
+  white-space: nowrap;
+  flex-shrink: 0;
+  line-height: 1;
 }
 
-/* Error State */
-#error h1 {
-  font-size: 2rem;
-  margin-bottom: 1rem;
+/* LIVE — glowing red dot */
+.live-badge {
+  color: var(--live-red);
+  gap: 7px;
 }
 
-#error p {
-  font-size: 1.125rem;
-  opacity: 0.9;
-  margin-bottom: 2rem;
+.live-badge::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--live-red);
+  flex-shrink: 0;
+  box-shadow: 0 0 0 2px rgba(229, 75, 75, 0),
+              0 0 8px var(--live-glow),
+              0 0 18px var(--live-glow);
+  animation: badge-live 2s ease-in-out infinite;
 }
 
-/* Responsive */
-@media (max-width: 768px) {
-  .event-header h1 {
-    font-size: 1.75rem;
+@keyframes badge-live {
+  0%, 100% {
+    box-shadow: 0 0 0 2px rgba(229, 75, 75, 0),
+                0 0 8px var(--live-glow),
+                0 0 18px var(--live-glow);
+    opacity: 1;
+  }
+  50% {
+    box-shadow: 0 0 0 3px rgba(229, 75, 75, 0.15),
+                0 0 4px rgba(229, 75, 75, 0.3),
+                0 0 8px rgba(229, 75, 75, 0.2);
+    opacity: 0.7;
+  }
+}
+
+/* ENDED — muted gray */
+.ended-badge {
+  color: var(--text-3);
+}
+
+/* PAUSED — warm amber */
+.paused-badge {
+  color: #c9922a;
+  gap: 7px;
+}
+
+.paused-badge::before {
+  content: '';
+  display: inline-block;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #c9922a;
+  flex-shrink: 0;
+  animation: badge-pulse 2.5s ease-in-out infinite;
+}
+
+@keyframes badge-pulse {
+  0%, 100% { opacity: 1; }
+  50%       { opacity: 0.4; }
+}
+
+/* READY — soft blue */
+.ready-badge {
+  color: #6b9cf5;
+}
+
+/* --------------------------------------------------------------------------
+   Legacy Spinner
+   (Kept in case any remaining code references it; also used inside Tailwind
+   injected processing overlays via .animate-spin which Tailwind CDN handles)
+   -------------------------------------------------------------------------- */
+
+.spinner {
+  border: 2px solid rgba(200, 169, 110, 0.15);
+  border-top-color: var(--gold);
+  border-radius: 50%;
+  width: 36px;
+  height: 36px;
+  animation: mc-spin 0.85s linear infinite;
+  margin: 0 auto 1.25rem;
+}
+
+@keyframes mc-spin {
+  to { transform: rotate(360deg); }
+}
+
+/* --------------------------------------------------------------------------
+   Dynamic element overrides
+   These elements are created and injected at runtime by script.js using
+   Tailwind utility classes. Tailwind CDN handles their layout. The rules
+   below provide minor customizations where needed.
+   -------------------------------------------------------------------------- */
+
+/* Waiting banner (between ceremony and reception) */
+#waiting-banner {
+  font-size: 0.8125rem;
+  letter-spacing: 0.04em;
+  /* Tailwind: bg-purple-600 → remap to brand gold feel */
+  background: var(--surface-2) !important;
+  border-bottom: 1px solid var(--border);
+  color: var(--text-2) !important;
+}
+
+/* Progress banner (sequential video counter) */
+#progress-banner {
+  font-size: 0.6875rem;
+  letter-spacing: 0.1em;
+  background: var(--surface) !important;
+  color: var(--text-2) !important;
+  border-bottom: 1px solid var(--border);
+}
+
+#progress-banner .text-gray-400 {
+  color: var(--text-3) !important;
+}
+
+/* Completion overlay "Replay from beginning" button */
+#completion-overlay button {
+  background: var(--gold) !important;
+  color: #0b0b0d !important;
+  border-radius: var(--radius-sm) !important;
+  font-family: var(--font-body);
+  font-weight: 600;
+  letter-spacing: 0.04em;
+}
+
+#completion-overlay button:hover {
+  opacity: 0.88;
+}
+
+/* Limit-exceeded screen */
+#limit-exceeded {
+  background: var(--bg);
+  font-family: var(--font-body);
+}
+
+#limit-exceeded h2 {
+  font-family: var(--font-display);
+  font-weight: 300;
+  letter-spacing: 0.01em;
+}
+
+/* --------------------------------------------------------------------------
+   Responsive
+   -------------------------------------------------------------------------- */
+
+@media (max-width: 640px) {
+  .mc-player-header {
+    padding: 0.875rem 1rem;
+    gap: 0.75rem;
   }
 
-  .timer-value {
-    font-size: 2.5rem;
-    min-width: 70px;
+  .countdown-timer {
+    padding: 2rem 1.25rem;
+    border-radius: var(--radius);
   }
 
   .timer-display {
-    gap: 1rem;
+    gap: 1.25rem;
   }
 
-  .container-full {
-    padding: 1rem;
+  .timer-value {
+    font-size: 2.75rem;
+    min-width: 60px;
+  }
+
+  .mc-center {
+    padding: 2rem 1.25rem;
   }
 }
 
-/* Badge variations */
-.paused-badge {
-  background: #eab308; /* Yellow */
-  padding: 0.5rem 1rem;
-  border-radius: 9999px;
-  font-size: 1rem;
-  font-weight: 600;
+@media (max-width: 380px) {
+  .timer-display {
+    gap: 0.875rem;
+  }
+
+  .timer-value {
+    font-size: 2.25rem;
+    min-width: 52px;
+  }
 }
 
-.ready-badge {
-  background: #3b82f6; /* Blue */
-  padding: 0.5rem 1rem;
-  border-radius: 9999px;
-  font-size: 1rem;
-  font-weight: 600;
-}
+/* Large screens: let the video breathe */
+@media (min-width: 1280px) {
+  .mc-player-header {
+    padding: 1rem 2rem;
+  }
 
-.status-message {
-  text-align: center;
-  padding: 2rem 0;
-}
-
-.status-message-title {
-  font-size: 1.5rem;
-  font-weight: 700;
-  margin-bottom: 0.5rem;
-}
-
-.status-message-subtitle {
-  font-size: 0.875rem;
-  opacity: 0.6;
+  .mc-player-footer {
+    padding: 0.875rem 2rem;
+  }
 }
