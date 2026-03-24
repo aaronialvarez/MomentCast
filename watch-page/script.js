@@ -81,6 +81,29 @@ function startPolling() {
   }, pollFrequency);
 }
 
+// Returns the best available event date string.
+// Prefers stream_started_manually_at (actual start) over scheduled_date (planned time).
+function getEventDate() {
+  const raw = eventData.stream_started_manually_at || eventData.scheduled_date;
+  if (!raw) return null;
+  return new Date(raw).toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC'
+  });
+}
+
+// Injects or updates a date subtitle element directly after the given title element.
+// Safe to call on every poll — creates the node once, updates text thereafter.
+function setEventDateSubtitle(titleEl, dateString) {
+  if (!titleEl || !dateString) return;
+  let dateEl = titleEl.parentElement.querySelector('.mc-event-date');
+  if (!dateEl) {
+    dateEl = document.createElement('p');
+    dateEl.className = 'mc-event-date';
+    titleEl.insertAdjacentElement('afterend', dateEl);
+  }
+  dateEl.textContent = dateString;
+}
+
 // Determine playback mode based on event state and 2-hour timeout
 function determinePlaybackMode() {
   if (!eventData) return 'WAITING';
@@ -349,6 +372,7 @@ function showLive() {
   }
   
   titleEl.textContent = eventData.title;
+  setEventDateSubtitle(titleEl, getEventDate()); // Show event date below title
   
   console.log('Event data:', eventData);
   
@@ -451,6 +475,7 @@ function showLastRecording() {
   const streamEl = document.getElementById('replay-stream');
 
   titleEl.textContent = eventData.title;
+  setEventDateSubtitle(titleEl, getEventDate()); // Show event date below title
 
   console.log('Playing last recording (< 2hr timeout):', eventData.recordings);
 
@@ -528,6 +553,7 @@ function showSequentialPlayback() {
   const streamEl = document.getElementById('replay-stream');
 
   titleEl.textContent = eventData.title;
+  setEventDateSubtitle(titleEl, getEventDate()); // Show event date below title
 
   console.log('Playing sequential recordings:', eventData.recordings);
 
@@ -808,6 +834,7 @@ function showReplay() {
   const streamEl = document.getElementById('replay-stream');
 
   titleEl.textContent = eventData.title;
+  setEventDateSubtitle(titleEl, getEventDate()); // Show event date below title
 
   console.log('Replay data:', eventData.recordings);
 
