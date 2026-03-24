@@ -8,10 +8,60 @@ function generateSlug(title: string): string {
   return title
     .toLowerCase()
     .trim()
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Remove accents (for Spanish characters)
     .replace(/[^a-z0-9]+/g, '-')
     .replace(/^-+|-+$/g, '')
     .replace(/--+/g, '-')
     .substring(0, 50);
+}
+
+/**
+ * Utility: Get unique slug with time-window collision detection
+ * Checks for conflicts within ±180 days of event date
+ * Returns clean slug if no conflicts, minimal suffix if conflict exists
+ */
+async function getUniqueSlug(
+  title: string,
+  scheduledDate: string,
+  supabase: any
+): Promise<string> {
+  const baseSlug = generateSlug(title);
+  const eventDate = new Date(scheduledDate);
+  
+  // Define time window: ±180 days from event date
+  const windowStart = new Date(eventDate.getTime() - 180 * 24 * 60 * 60 * 1000);
+  const windowEnd = new Date(eventDate.getTime() + 180 * 24 * 60 * 60 * 1000);
+  
+  // Check for conflicts in time window
+  const { data: conflicts, error } = await supabase
+    .from('events')
+    .select('slug')
+    .eq('slug', baseSlug)
+    .gte('scheduled_date', windowStart.toISOString())
+    .lte('scheduled_date', windowEnd.toISOString());
+  
+  if (error) {
+    console.error('Slug conflict check error:', error);
+  }
+  
+  // No temporal conflicts = use clean slug
+  if (!conflicts || conflicts.length === 0) {
+    return baseSlug;
+  }
+  
+  // Conflict exists - generate family-safe 3-char suffix
+  // Uses consonants and numbers only to avoid forming offensive words
+  const safeChars = 'bdfghjkmnpqrstvwxyz23456789';
+  const timestamp = Date.now();
+  let num = timestamp % (safeChars.length ** 3); // 13,824 combinations
+  let suffix = '';
+  
+  for (let i = 0; i < 3; i++) {
+    suffix = safeChars[num % safeChars.length] + suffix;
+    num = Math.floor(num / safeChars.length);
+  }
+  
+  return `${baseSlug}-${suffix}`;
 }
 
 /**
@@ -64,13 +114,14 @@ async function createCloudflareStreamLiveInput(
         },
         body: JSON.stringify({
           meta: { name: title },
-          preferLowLatency: true,  // ← Enables Low-Latency HLS (beta)
+          //  preferLowLatency: true,
           recording: {
             mode: 'automatic',
-            timeoutSeconds: 86400,
+            timeoutSeconds: 300,  // 5 minutes - allows quick reconnects, finalizes recordings after disconnect
+            requireSignedURLs: false,
+            allowedOrigins: [],
           },
-          requireSignedURLs: false,
-          allowedOrigins: [],
+          deleteRecordingAfterDays: 30,
         }),
       }
     );
@@ -86,7 +137,7 @@ async function createCloudflareStreamLiveInput(
 
     return {
       liveInputId: input.uid,
-      rtmpsUrl: input.rtmps?.url,
+      rtmpsUrl: 'rtmps://push.momentcast.live:443/live/',
       rtmpsKey: input.rtmps?.streamKey,
     };
   } catch (error) {
@@ -123,55 +174,248 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
     if (pathname === '/api/webhooks/cloudflare' && method === 'POST') {
       const body = await request.json() as any;
       
-      // Cloudflare sends lifecycle events for live inputs
-      if (body.notification && body.notification.eventType === 'live_input.connected') {
-        const liveInputId = body.liveInputUID;
+      console.log('Webhook received:', JSON.stringify(body));
+      
+      // Cloudflare notifications payload structure:
+      // { data: { event_type: "live_input.connected", input_id: "..." }, ... }
+      const eventType = body.data?.event_type;
+      const liveInputId = body.data?.input_id;
+      
+      console.log('Parsed event:', { eventType, liveInputId });
+      
+      if (!eventType || !liveInputId) {
+        console.error('Missing event_type or input_id in webhook payload');
+        return new Response(JSON.stringify({ 
+          error: 'Invalid payload',
+          received: body 
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+        });
+      }
+      
+      if (eventType === 'live_input.connected') {
+        console.log('Processing live_input.connected for:', liveInputId);
         
         // Find event by live_input_id
         const { data: event, error } = await supabase
           .from('events')
-          .select('id, slug, status')
-          .eq('liveinputid', liveInputId)
+          .select('id, slug, status, stream_started_manually_at')
+          .eq('live_input_id', liveInputId)
           .single();
         
-        if (event && event.status !== 'live') {
-          // Update to live
-          await supabase
-            .from('events')
-            .update({
-              status: 'live',
-              streamstate: 'active',
-              streamstartedat: new Date().toISOString()
-            })
-            .eq('id', event.id);
+        if (error) {
+          console.error('Error finding event:', error);
+        }
+        
+        if (event) {
+          // Check if Live Input has expired (24 hours since start)
+          const startedAt = new Date(event.stream_started_manually_at);
+          const expiresAt = new Date(startedAt.getTime() + 24 * 60 * 60 * 1000);
+          const now = new Date();
+          const isExpired = now > expiresAt;
           
-          console.log(`Event ${event.slug} is now live`);
+          if (isExpired) {
+            console.log(`⚠️ Event ${event.slug} Live Input has expired, deleting...`);
+            
+            // Delete Live Input immediately
+            try {
+              const deleteResponse = await fetch(
+                `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/stream/live_inputs/${liveInputId}`,
+                {
+                  method: 'DELETE',
+                  headers: {
+                    'Authorization': `Bearer ${env.CLOUDFLARE_STREAM_API_TOKEN}`,
+                  },
+                }
+              );
+              
+              const deleteResult = await deleteResponse.json() as any;
+              
+              if (deleteResult.success) {
+                console.log(`🗑️ Deleted expired Live Input ${liveInputId} on connection attempt`);
+              } else {
+                console.error('Failed to delete Live Input:', deleteResult.errors);
+              }
+            } catch (err) {
+              console.error('Error deleting Live Input:', err);
+            }
+            
+            // Update event status if not already ended
+            if (event.status !== 'ended') {
+              await supabase
+                .from('events')
+                .update({
+                  status: 'ended',
+                  stream_state: 'disconnected',
+                })
+                .eq('id', event.id);
+              
+              console.log(`✅ Event ${event.slug} status updated to ended`);
+            }
+            
+            return new Response(JSON.stringify({ 
+              received: true, 
+              eventType, 
+              liveInputId,
+              expired: true,
+              deleted: true,
+              message: 'Live Input has expired and been deleted'
+            }), {
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+          
+          if (event.status !== 'live') {
+            console.log('Updating event to live:', event.slug);
+            // Update to live
+            const { error: updateError } = await supabase
+              .from('events')
+              .update({
+                status: 'live',
+                stream_state: 'active',
+                stream_started_at: new Date().toISOString(),
+                last_stream_activity: new Date().toISOString()
+              })
+              .eq('id', event.id);
+            
+            if (updateError) {
+              console.error('Error updating event:', updateError);
+            } else {
+              console.log(`✅ Event ${event.slug} is now live`);
+            }
+          } else {
+            console.log('Event already live, updating last_stream_activity');
+            // Already live, just update activity timestamp
+            const { error: updateError } = await supabase
+              .from('events')
+              .update({
+                last_stream_activity: new Date().toISOString()
+              })
+              .eq('id', event.id);
+            
+            if (updateError) {
+              console.error('Error updating last_stream_activity:', updateError);
+            }
+          }
+        } else {
+          console.error('No event found with live_input_id:', liveInputId);
         }
       }
       
-      if (body.notification && body.notification.eventType === 'live_input.disconnected') {
-        const liveInputId = body.liveInputUID;
+      if (eventType === 'live_input.disconnected') {
+        console.log('Processing live_input.disconnected for:', liveInputId);
         
-        // Update to ended
         const { data: event } = await supabase
           .from('events')
-          .select('id, slug')
-          .eq('liveinputid', liveInputId)
+          .select('id, slug, status, stream_started_manually_at')
+          .eq('live_input_id', liveInputId)
           .single();
         
         if (event) {
-          await supabase
-            .from('events')
-            .update({
-              streamstate: 'disconnected'
-            })
-            .eq('id', event.id);
+          console.log('Found event:', event.slug, 'current status:', event.status);
           
-          console.log(`Event ${event.slug} disconnected`);
+          // Check if 24 hours have passed since "Start Streaming" was clicked
+          const startedAt = new Date(event.stream_started_manually_at);
+          const expiresAt = new Date(startedAt.getTime() + 24 * 60 * 60 * 1000);
+          const now = new Date();
+          const isExpired = now > expiresAt;
+          
+          if (isExpired) {
+            console.log(`⏰ Event ${event.slug} has expired (24h passed)`);
+            
+            // Fetch all recordings from this Live Input BEFORE deleting
+            let recordings: any[] = [];
+            try {
+              const recordingsResponse = await fetch(
+                `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/stream/live_inputs/${liveInputId}/videos`,
+                {
+                  headers: {
+                    'Authorization': `Bearer ${env.CLOUDFLARE_STREAM_API_TOKEN}`,
+                  },
+                }
+              );
+              
+              const recordingsData = await recordingsResponse.json() as any;
+              
+              if (recordingsData.success && recordingsData.result) {
+                recordings = recordingsData.result.map((video: any) => ({
+                  uid: video.uid,
+                  status: video.status?.state,
+                  duration: video.duration,
+                  created: video.created,
+                  thumbnail: video.thumbnail
+                }));
+                console.log(`✅ Fetched ${recordings.length} recordings to preserve`);
+              }
+            } catch (err) {
+              console.error('Error fetching recordings before deletion:', err);
+            }
+            
+            // Save recordings to database and update status to 'ended'
+            const { error: updateError } = await supabase
+              .from('events')
+              .update({
+                status: 'ended',
+                stream_state: 'disconnected',
+                recordings: recordings,
+                last_stream_activity: new Date().toISOString()
+              })
+              .eq('id', event.id);
+            
+            if (updateError) {
+              console.error('Error updating expired event:', updateError);
+            } else {
+              console.log(`✅ Event ${event.slug} ended and ${recordings.length} recordings saved`);
+            }
+            
+            // Delete Live Input in Cloudflare
+            try {
+              const deleteResponse = await fetch(
+                `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/stream/live_inputs/${liveInputId}`,
+                {
+                  method: 'DELETE',
+                  headers: {
+                    'Authorization': `Bearer ${env.CLOUDFLARE_STREAM_API_TOKEN}`,
+                  },
+                }
+              );
+              
+              const deleteResult = await deleteResponse.json() as any;
+              
+              if (deleteResult.success) {
+                console.log(`🗑️ Deleted expired Live Input ${liveInputId} (recordings preserved in database)`);
+              } else {
+                console.error('Failed to delete Live Input:', deleteResult.errors);
+              }
+            } catch (err) {
+              console.error('Error deleting Live Input:', err);
+            }
+          } else {
+            // Within 24-hour window - just update stream state, keep status as 'ready'
+            const { error: updateError } = await supabase
+              .from('events')
+              .update({
+                status: 'ready',
+                stream_state: 'disconnected',
+                last_stream_activity: new Date().toISOString()
+                // Note: status stays 'ready', NOT 'ended'
+              })
+              .eq('id', event.id);
+            
+            if (updateError) {
+              console.error('Error updating event on disconnect:', updateError);
+            } else {
+              const timeLeft = Math.round((expiresAt.getTime() - now.getTime()) / (1000 * 60));
+              console.log(`✅ Event ${event.slug} disconnected (${timeLeft} minutes left in 24h window, can reconnect)`);
+            }
+          }
+        } else {
+          console.error('No event found with live_input_id:', liveInputId);
         }
       }
       
-      return new Response(JSON.stringify({ received: true }), {
+      return new Response(JSON.stringify({ received: true, eventType, liveInputId }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' }
       });
     }
@@ -227,22 +471,8 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
         );
       }
 
-      // Generate slug
-      const slug = generateSlug(body.title);
-
-      // Check slug uniqueness
-      const { data: existingEvent } = await supabase
-        .from('events')
-        .select('id')
-        .eq('slug', slug)
-        .single();
-
-      if (existingEvent) {
-        return new Response(
-          JSON.stringify({ error: 'Event slug already exists' }),
-          { status: 409, headers: corsHeaders }
-        );
-      }
+      // Generate unique slug with time-window collision detection
+      const slug = await getUniqueSlug(body.title, body.scheduledDate, supabase);
 
       // Create event
       const { data: event, error: createError } = await supabase
@@ -304,7 +534,7 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
 
       const { data: event, error } = await supabase
         .from('events')
-        .select('title, scheduled_date, status, stream_state, live_input_id, recordings, merged_video_id')
+        .select('id, title, scheduled_date, status, stream_state, live_input_id, recordings, merged_video_id, viewer_hours_consumed, viewer_hour_limit, stream_started_manually_at, last_stream_activity')
         .eq('slug', slug)
         .single();
 
@@ -315,10 +545,390 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
         );
       }
 
-      return new Response(JSON.stringify(event), {
+      // Check if 24-hour streaming window has expired
+      if (event.stream_started_manually_at && event.status !== 'ended') {
+        const startedAt = new Date(event.stream_started_manually_at);
+        const expiresAt = new Date(startedAt.getTime() + 24 * 60 * 60 * 1000);
+        const now = new Date();
+        const isExpired = now > expiresAt;
+
+        if (isExpired) {
+          console.log(`⏰ Event ${slug} has expired on GET request, updating to ended`);
+          
+          // Fetch all recordings from this Live Input BEFORE potential deletion
+          let recordings: any[] = [];
+          if (event.live_input_id) {
+            try {
+              const recordingsResponse = await fetch(
+                `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/stream/live_inputs/${event.live_input_id}/videos`,
+                {
+                  headers: {
+                    'Authorization': `Bearer ${env.CLOUDFLARE_STREAM_API_TOKEN}`,
+                  },
+                }
+              );
+              
+              const recordingsData = await recordingsResponse.json() as any;
+              
+              if (recordingsData.success && recordingsData.result) {
+                recordings = recordingsData.result.map((video: any) => ({
+                  uid: video.uid,
+                  status: video.status?.state,
+                  duration: video.duration,
+                  created: video.created,
+                  thumbnail: video.thumbnail,
+                  playback: {
+                    hls: video.playback?.hls,
+                    dash: video.playback?.dash
+                  },
+                  readyToStream: video.readyToStream,
+                  state: video.status
+                }));
+                console.log(`✅ Fetched ${recordings.length} recordings to preserve`);
+              }
+            } catch (err) {
+              console.error('Error fetching recordings before expiration update:', err);
+            }
+          }
+          
+          // Update event to ended status
+          const { error: updateError } = await supabase
+            .from('events')
+            .update({
+              status: 'ended',
+              stream_state: 'disconnected',
+              recordings: recordings,
+              last_stream_activity: new Date().toISOString()
+            })
+            .eq('id', event.id);
+          
+          if (updateError) {
+            console.error('Error updating expired event:', updateError);
+          } else {
+            console.log(`✅ Event ${slug} status updated to ended with ${recordings.length} recordings`);
+            // Update local event object to reflect changes
+            event.status = 'ended';
+            event.stream_state = 'disconnected';
+            event.recordings = recordings;
+          }
+        }
+      }
+
+      // Fetch recordings from Cloudflare Stream if event is ready or ended
+      let recordings = event.recordings || []; // Use stored recordings as fallback
+      
+      if ((event.status === 'ready' || event.status === 'ended') && event.live_input_id) {
+        try {
+          const recordingsResponse = await fetch(
+            `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/stream/live_inputs/${event.live_input_id}/videos`,
+            {
+              headers: {
+                'Authorization': `Bearer ${env.CLOUDFLARE_STREAM_API_TOKEN}`,
+              },
+            }
+          );
+
+          const recordingsData = await recordingsResponse.json() as any;
+          
+          if (recordingsData.success && recordingsData.result) {
+            recordings = recordingsData.result.map((video: any) => ({
+              uid: video.uid,
+              status: video.status?.state,
+              duration: video.duration,
+              created: video.created,
+              thumbnail: video.thumbnail,
+              playback: {
+                hls: video.playback?.hls,
+                dash: video.playback?.dash
+              }
+            }));
+          }
+        } catch (err) {
+          console.error('Error fetching recordings:', err);
+          // Fall back to stored recordings in database if fetch fails
+        }
+      }
+
+      // Check if viewer limit exceeded (only applies to live/replay viewing)
+      const viewerHoursConsumed = event.viewer_hours_consumed || 0;
+      const viewerHourLimit = event.viewer_hour_limit || 400;
+      const limitExceeded = viewerHoursConsumed >= viewerHourLimit;
+
+      return new Response(JSON.stringify({
+        ...event,
+        recordings, // Override with fresh data from Cloudflare
+        limitExceeded,
+      }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+
+    // POST /api/events/:slug/start-streaming - Start streaming window (authenticated)
+    if (pathname.match(/^\/api\/events\/[a-z0-9-]+\/start-streaming$/) && method === 'POST') {
+      const token = extractToken(request.headers.get('authorization'));
+      if (!token) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: corsHeaders,
+        });
+      }
+
+      const userId = await verifyJWT(token, env);
+      if (!userId) {
+        return new Response(JSON.stringify({ error: 'Invalid token' }), {
+          status: 401,
+          headers: corsHeaders,
+        });
+      }
+
+      const slug = pathname.split('/')[3];
+
+      // Get event
+      const { data: event, error: getError } = await supabase
+        .from('events')
+        .select('*')
+        .eq('slug', slug)
+        .eq('user_id', userId)
+        .single();
+
+      if (getError || !event) {
+        return new Response(JSON.stringify({ error: 'Event not found' }), {
+          status: 404,
+          headers: corsHeaders,
+        });
+      }
+
+      // Check if already started
+      if (event.stream_credentials_revealed) {
+        const startedAt = new Date(event.stream_started_manually_at);
+        const expiresAt = new Date(startedAt.getTime() + 24 * 60 * 60 * 1000);
+        const now = new Date();
+        const isExpired = now > expiresAt;
+        
+        if (isExpired) {
+          console.log(`⏰ Event ${event.slug} has expired on start-streaming attempt, updating to ended`);
+          
+          // Fetch all recordings from this Live Input before returning error
+          let recordings: any[] = [];
+          if (event.live_input_id) {
+            try {
+              const recordingsResponse = await fetch(
+                `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/stream/live_inputs/${event.live_input_id}/videos`,
+                {
+                  headers: {
+                    'Authorization': `Bearer ${env.CLOUDFLARE_STREAM_API_TOKEN}`,
+                  },
+                }
+              );
+              
+              const recordingsData = await recordingsResponse.json() as any;
+              
+              if (recordingsData.success && recordingsData.result) {
+                recordings = recordingsData.result.map((video: any) => ({
+                  uid: video.uid,
+                  status: video.status?.state,
+                  duration: video.duration,
+                  created: video.created,
+                  thumbnail: video.thumbnail,
+                  playback: {
+                    hls: video.playback?.hls,
+                    dash: video.playback?.dash
+                  },
+                  readyToStream: video.readyToStream,
+                  state: video.status
+                }));
+                console.log(`✅ Fetched ${recordings.length} recordings for expired event`);
+              }
+            } catch (err) {
+              console.error('Error fetching recordings on expiration:', err);
+            }
+          }
+          
+          // Update event to ended status if not already
+          if (event.status !== 'ended') {
+            const { error: updateError } = await supabase
+              .from('events')
+              .update({
+                status: 'ended',
+                stream_state: 'disconnected',
+                recordings: recordings,
+                last_stream_activity: new Date().toISOString()
+              })
+              .eq('id', event.id);
+            
+            if (updateError) {
+              console.error('Error updating expired event:', updateError);
+            } else {
+              console.log(`✅ Event ${event.slug} status updated to ended`);
+            }
+          }
+          
+          return new Response(JSON.stringify({ 
+            error: 'Streaming window has expired',
+            expired: true,
+            startedAt: event.stream_started_manually_at,
+            expiresAt: expiresAt.toISOString(),
+            message: 'The 24-hour streaming window has expired. This event can no longer accept new streams.'
+          }), {
+            status: 410, // 410 Gone
+            headers: corsHeaders,
+          });
+        }
+        
+        return new Response(JSON.stringify({ 
+          message: 'Streaming has already been started',
+          credentials: {
+            rtmpsUrl: event.rtmps_url,
+            rtmpsKey: event.rtmps_key,
+            liveInputId: event.live_input_id
+          },
+          startedAt: event.stream_started_manually_at,
+          expiresAt: expiresAt.toISOString(),
+          expired: false
+        }), {
+          status: 200,
+          headers: corsHeaders,
+        });
+      }
+
+      // Mark credentials as revealed and record start time
+      const startTime = new Date().toISOString();
+      const { error: updateError } = await supabase
+        .from('events')
+        .update({
+          status: 'ready',  // New status: credentials revealed, waiting for stream
+          stream_credentials_revealed: true,
+          stream_started_manually_at: startTime,
+          last_stream_activity: startTime,
+          can_be_rescheduled: false
+        })
+        .eq('id', event.id);
+
+      if (updateError) {
+        console.error('Failed to update event:', updateError);
+        return new Response(JSON.stringify({ error: 'Failed to start streaming' }), {
+          status: 500,
+          headers: corsHeaders,
+        });
+      }
+
+      return new Response(JSON.stringify({
+        message: 'Streaming started successfully',
+        credentials: {
+          rtmpsUrl: event.rtmps_url,
+          rtmpsKey: event.rtmps_key,
+          liveInputId: event.live_input_id
+        },
+        startedAt: startTime,
+        expiresAt: new Date(new Date(startTime).getTime() + 24 * 60 * 60 * 1000).toISOString()
+      }), {
+        status: 200,
+        headers: corsHeaders,
+      });
+    }
+
+    // PATCH /api/events/:slug/reschedule - Reschedule event date (authenticated)
+    if (pathname.match(/^\/api\/events\/[a-z0-9-]+\/reschedule$/) && method === 'PATCH') {
+      const token = extractToken(request.headers.get('authorization'));
+      if (!token) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const userId = await verifyJWT(token, env);
+      if (!userId) {
+        return new Response(JSON.stringify({ error: 'Invalid token' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const slug = pathname.split('/')[3];
+      const body = await request.json() as any;
+      const { newDate } = body;
+
+      if (!newDate) {
+        return new Response(JSON.stringify({ error: 'New date is required' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Validate date format (YYYY-MM-DD)
+      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
+      if (!dateRegex.test(newDate)) {
+        return new Response(JSON.stringify({ error: 'Invalid date format. Use YYYY-MM-DD' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Get event
+      const { data: event, error: getError } = await supabase
+        .from('events')
+        .select('*')
+        .eq('slug', slug)
+        .eq('user_id', userId)
+        .single();
+
+      if (getError || !event) {
+        return new Response(JSON.stringify({ error: 'Event not found' }), {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Check if event can be rescheduled
+      if (!event.can_be_rescheduled) {
+        return new Response(JSON.stringify({ 
+          error: 'Event cannot be rescheduled. Streaming has already been started.' 
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Check if event is already ended
+      if (event.status === 'ended') {
+        return new Response(JSON.stringify({ error: 'Cannot reschedule ended events' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Update the scheduled date
+      const { data: updatedEvent, error: updateError } = await supabase
+        .from('events')
+        .update({ 
+          scheduled_date: newDate,
+          updated_at: new Date().toISOString()
+        })
+        .eq('id', event.id)
+        .select()
+        .single();
+
+      if (updateError) {
+        console.error('Error updating event date:', updateError);
+        return new Response(JSON.stringify({ error: 'Failed to update event date' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      console.log(`✅ Event ${slug} rescheduled from ${event.scheduled_date} to ${newDate}`);
+
+      return new Response(JSON.stringify({ 
+        success: true,
+        event: updatedEvent 
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // PATCH /api/events/:slug/status - Update event status (authenticated)
 
     // PATCH /api/events/:slug/status - Update event status (authenticated)
     if (pathname.match(/^\/api\/events\/[a-z0-9-]+\/status$/) && method === 'PATCH') {
@@ -448,7 +1058,7 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
       // Get event
       const { data: event, error: getError } = await supabase
         .from('events')
-        .select('id, user_id, live_input_id, viewer_hours_used, viewer_hour_limit')
+        .select('id, user_id, live_input_id, viewer_hours_consumed, viewer_hour_limit')
         .eq('slug', slug)
         .single();
 
@@ -459,18 +1069,61 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
         );
       }
 
-      // Fetch analytics from Cloudflare
+      // Fetch analytics from Cloudflare using GraphQL API
+      const today = new Date();
+      const ninetyDaysAgo = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000);
+      
+      const graphqlQuery = {
+        query: `
+          query StreamAnalytics($accountTag: String!, $startDate: String!, $endDate: String!, $creator: String!) {
+            viewer {
+              accounts(filter: { accountTag: $accountTag }) {
+                streamMinutesViewedAdaptiveGroups(
+                  filter: { 
+                    date_geq: $startDate, 
+                    date_lt: $endDate,
+                    creator: $creator
+                  }
+                ) {
+                  sum {
+                    minutesViewed
+                  }
+                }
+              }
+            }
+          }
+        `,
+        variables: {
+          accountTag: env.CLOUDFLARE_ACCOUNT_ID,
+          startDate: ninetyDaysAgo.toISOString().split('T')[0],
+          endDate: today.toISOString().split('T')[0],
+          creator: event.live_input_id
+        }
+      };
+
       const analyticsResponse = await fetch(
-        `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/stream/analytics/views?creator=${event.live_input_id}`,
+        'https://api.cloudflare.com/client/v4/graphql',
         {
+          method: 'POST',
           headers: {
             'Authorization': `Bearer ${env.CLOUDFLARE_STREAM_API_TOKEN}`,
+            'Content-Type': 'application/json',
           },
+          body: JSON.stringify(graphqlQuery)
         }
       );
 
       const analyticsData = await analyticsResponse.json() as any;
-      const viewerMinutes = analyticsData.result?.data?.[0]?.viewerMinutes || 0;
+      
+      // Extract minutes viewed from GraphQL response
+      let viewerMinutes = 0;
+      const groups = analyticsData.data?.viewer?.accounts?.[0]?.streamMinutesViewedAdaptiveGroups;
+      if (groups && groups.length > 0) {
+        viewerMinutes = groups.reduce((total: number, group: any) => {
+          return total + (group.sum?.minutesViewed || 0);
+        }, 0);
+      }
+      
       const viewerHours = Math.ceil(viewerMinutes / 60);
 
       const limitWarning = viewerHours >= event.viewer_hour_limit
@@ -518,4 +1171,52 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
 
 export default {
   fetch: handleRequest,
+  
+  async scheduled(event: any, env: WorkerEnv, ctx: any) {
+    console.log('🧹 Running daily cleanup of expired Live Inputs...');
+    
+    const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
+    
+    // Find all ended events that still have live_input_id
+    const { data: expiredEvents } = await supabase
+      .from('events')
+      .select('id, slug, live_input_id, stream_started_manually_at')
+      .eq('status', 'ended')
+      .not('live_input_id', 'is', null);
+    
+    if (!expiredEvents || expiredEvents.length === 0) {
+      console.log('✅ No expired Live Inputs to clean up');
+      return;
+    }
+    
+    console.log(`Found ${expiredEvents.length} ended events with Live Inputs`);
+    
+    for (const event of expiredEvents) {
+      try {
+        const deleteResponse = await fetch(
+          `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/stream/live_inputs/${event.live_input_id}`,
+          {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${env.CLOUDFLARE_STREAM_API_TOKEN}`,
+            },
+          }
+        );
+        
+        const deleteResult = await deleteResponse.json() as any;
+        
+        if (deleteResult.success) {
+          console.log(`🗑️ Deleted Live Input for ended event: ${event.slug}`);
+        } else if (deleteResult.errors?.[0]?.code === 10009) {
+          console.log(`ℹ️ Live Input already deleted for: ${event.slug}`);
+        } else {
+          console.error(`Failed to delete Live Input for ${event.slug}:`, deleteResult.errors);
+        }
+      } catch (err) {
+        console.error(`Error deleting Live Input for ${event.slug}:`, err);
+      }
+    }
+    
+    console.log('✅ Daily cleanup completed');
+  }
 } as ExportedHandler<WorkerEnv>;

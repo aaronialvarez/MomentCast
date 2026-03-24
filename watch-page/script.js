@@ -100,6 +100,16 @@ function determinePlaybackMode() {
   }
   
   if (isEnded) {
+    // Check if event ended more than 30 days ago
+    const endedAt = eventData.stream_started_manually_at 
+      ? new Date(eventData.stream_started_manually_at) 
+      : scheduledDate;
+    const daysSinceEvent = (now - endedAt) / (1000 * 60 * 60 * 24);
+    
+    if (daysSinceEvent > 30) {
+      return 'EXPIRED';
+    }
+    
     return hasRecordings ? 'SEQUENTIAL' : 'ENDED';
   }
   
@@ -206,6 +216,9 @@ function updateUI() {
     updateStatusBadge();
     
     switch (newMode) {
+      case 'EXPIRED':
+        showExpired();
+        break;
       case 'LIVE':
         showLive();
         break;
@@ -849,22 +862,29 @@ function showEnded() {
   const titleEl = document.getElementById('event-title');
   const scheduledTimeEl = document.getElementById('scheduled-time');
   
-  // Clear any existing countdown interval
   if (countdownInterval) {
     clearInterval(countdownInterval);
     countdownInterval = null;
   }
   
   titleEl.textContent = eventData.title;
-  scheduledTimeEl.textContent = 'This event has ended';
   
-  // Replace countdown timer with ended message
+  // Show the scheduled date so context is preserved
+  const scheduledDate = new Date(eventData.scheduled_date);
+  scheduledTimeEl.textContent = `Held on ${scheduledDate.toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    timeZone: 'UTC'
+  })}`;
+  
   const timerContainer = countdownEl.querySelector('.grid');
   if (timerContainer) {
     timerContainer.innerHTML = `
-      <div class="col-span-full text-center">
-        <p class="text-2xl font-bold mb-4">Event Has Ended</p>
-        <p class="text-gray-400">Thank you for watching!</p>
+      <div class="col-span-full text-center py-4">
+        <p class="text-2xl font-bold mb-2">This event has ended</p>
+        <p class="text-gray-400 text-sm">No recording is available</p>
       </div>
     `;
   }
@@ -946,6 +966,40 @@ function updateStatusBadge() {
     badge.textContent = 'READY';
     badge.className = 'ready-badge';
   }
+}
+
+function showExpired() {
+  const countdownEl = document.getElementById('countdown');
+  const titleEl = document.getElementById('event-title');
+  const scheduledTimeEl = document.getElementById('scheduled-time');
+  
+  if (countdownInterval) {
+    clearInterval(countdownInterval);
+    countdownInterval = null;
+  }
+  
+  titleEl.textContent = eventData.title;
+  
+  const scheduledDate = new Date(eventData.scheduled_date);
+  scheduledTimeEl.textContent = `Held on ${scheduledDate.toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    timeZone: 'UTC'
+  })}`;
+  
+  const timerContainer = countdownEl.querySelector('.grid');
+  if (timerContainer) {
+    timerContainer.innerHTML = `
+      <div class="col-span-full text-center py-4">
+        <p class="text-2xl font-bold mb-2">Recording No Longer Available</p>
+        <p class="text-gray-400 text-sm">Recordings are kept for 30 days after the event.</p>
+      </div>
+    `;
+  }
+  
+  countdownEl.classList.remove('hidden');
 }
 
 // Start the app
