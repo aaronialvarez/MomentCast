@@ -104,6 +104,35 @@ function setEventDateSubtitle(titleEl, dateString) {
   dateEl.textContent = dateString;
 }
 
+// Renders the photographer's "Presented by" logo inside a player header.
+// Looks for .mc-presented-by inside the given header element, creates it if needed.
+// Safe to call on every poll — only creates/updates, never duplicates.
+function renderLogo(headerEl) {
+  if (!headerEl || !eventData?.logo_url) {
+    // No logo — remove container if it was previously shown
+    const existing = headerEl?.querySelector('.mc-presented-by');
+    if (existing) existing.remove();
+    return;
+  }
+
+  let container = headerEl.querySelector('.mc-presented-by');
+  if (!container) {
+    container = document.createElement('div');
+    container.className = 'mc-presented-by';
+    container.innerHTML = `
+      <span class="mc-presented-label">Presented by</span>
+      <img class="mc-presented-logo" src="" alt="Photographer logo" />
+    `;
+    headerEl.appendChild(container);
+  }
+
+  // Update src if it changed (e.g. photographer replaced logo mid-event)
+  const img = container.querySelector('.mc-presented-logo');
+  if (img && img.src !== eventData.logo_url) {
+    img.src = eventData.logo_url;
+  }
+}
+
 // Determine playback mode based on event state and 2-hour timeout
 function determinePlaybackMode() {
   if (!eventData) return 'WAITING';
@@ -373,8 +402,7 @@ function showLive() {
   
   titleEl.textContent = eventData.title;
   setEventDateSubtitle(titleEl, getEventDate()); // Show event date below title
-  
-  console.log('Event data:', eventData);
+  renderLogo(liveEl.querySelector('.mc-player-header')); // Show photographer logo
   
   // If iframe was destroyed (by showProcessing), recreate it
   if (!streamEl) {
@@ -476,6 +504,7 @@ function showLastRecording() {
 
   titleEl.textContent = eventData.title;
   setEventDateSubtitle(titleEl, getEventDate()); // Show event date below title
+  renderLogo(replayEl.querySelector('.mc-player-header')); // Show photographer logo
 
   console.log('Playing last recording (< 2hr timeout):', eventData.recordings);
 
@@ -554,6 +583,7 @@ function showSequentialPlayback() {
 
   titleEl.textContent = eventData.title;
   setEventDateSubtitle(titleEl, getEventDate()); // Show event date below title
+  renderLogo(replayEl.querySelector('.mc-player-header')); // Show photographer logo
 
   console.log('Playing sequential recordings:', eventData.recordings);
 
@@ -835,6 +865,7 @@ function showReplay() {
 
   titleEl.textContent = eventData.title;
   setEventDateSubtitle(titleEl, getEventDate()); // Show event date below title
+  renderLogo(replayEl.querySelector('.mc-player-header')); // Show photographer logo
 
   console.log('Replay data:', eventData.recordings);
 

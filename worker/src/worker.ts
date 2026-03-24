@@ -534,7 +534,7 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
 
       const { data: event, error } = await supabase
         .from('events')
-        .select('id, title, scheduled_date, status, stream_state, live_input_id, recordings, merged_video_id, viewer_hours_consumed, viewer_hour_limit, stream_started_manually_at, last_stream_activity')
+        .select('id, user_id, title, scheduled_date, status, stream_state, live_input_id, recordings, merged_video_id, viewer_hours_consumed, viewer_hour_limit, stream_started_manually_at, last_stream_activity')
         .eq('slug', slug)
         .single();
 
@@ -654,10 +654,24 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
       const viewerHourLimit = event.viewer_hour_limit || 400;
       const limitExceeded = viewerHoursConsumed >= viewerHourLimit;
 
+      // Fetch photographer's logo from users table
+      let logoUrl: string | null = null;
+      try {
+        const { data: ownerData } = await supabase
+          .from('users')
+          .select('logo_url')
+          .eq('id', (event as any).user_id)
+          .single();
+        logoUrl = ownerData?.logo_url || null;
+      } catch (err) {
+        console.error('Error fetching user logo:', err);
+      }
+
       return new Response(JSON.stringify({
         ...event,
         recordings, // Override with fresh data from Cloudflare
         limitExceeded,
+        logo_url: logoUrl,
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });

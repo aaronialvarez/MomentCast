@@ -552,6 +552,48 @@ body::after {
 }
 
 /* --------------------------------------------------------------------------
+   "Presented by" Photographer Logo
+   Rendered by renderLogo() in script.js inside .mc-player-header.
+   Hidden by default — only shown when the API returns a logo_url.
+   -------------------------------------------------------------------------- */
+
+.mc-presented-by {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  margin-left: auto;
+  padding-left: 0.75rem;
+}
+
+.mc-presented-label {
+  font-size: 0.5625rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+.mc-presented-logo {
+  display: block;
+  max-height: 36px;
+  width: auto;
+  object-fit: contain;
+}
+
+@media (max-width: 640px) {
+  .mc-presented-logo {
+    max-height: 28px;
+  }
+
+  .mc-presented-label {
+    /* Hide "Presented by" text on small screens — logo alone is enough */
+    display: none;
+  }
+}
+
+/* --------------------------------------------------------------------------
    Spinners
    -------------------------------------------------------------------------- */
 
