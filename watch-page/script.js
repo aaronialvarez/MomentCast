@@ -200,7 +200,7 @@ function updateUI() {
   );
   // Always render on first load (playbackMode is null), then only on state changes
   if (newMode !== playbackMode || playbackMode === null) {
-    console.log(`Playback mode changed v2: ${playbackMode} -> ${newMode}`);
+    console.log(`Playback mode changed v3: ${playbackMode} -> ${newMode}`);
     
     // Clear any auto-advance mechanisms when switching modes
     if (currentStreamPlayer) {
@@ -239,49 +239,17 @@ function updateUI() {
         showCountdown();
         break;
       case 'ENDED':
-        showEnded();
+        showCountdownState('ENDED');
         break;
       case 'EXPIRED':
-        showExpired();
+        showCountdownState('EXPIRED');
         break;
       case 'WAITING':
       default:
-        showWaiting();
+        showCountdownState('WAITING');
         break;
     }
   }
-}
-
-// Show waiting state (scheduled time passed, but stream not started)
-function showWaiting() {
-  const countdownEl = document.getElementById('countdown');
-  const titleEl = document.getElementById('event-title');
-  const scheduledTimeEl = document.getElementById('scheduled-time');
-  
-  // Clear any existing countdown interval
-  if (countdownInterval) {
-    clearInterval(countdownInterval);
-    countdownInterval = null;
-  }
-  
-  titleEl.textContent = eventData.title;
-  
-  const scheduledDate = new Date(eventData.scheduled_date);
-  scheduledTimeEl.textContent = `Scheduled for ${scheduledDate.toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    timeZone: 'UTC'
-  })}`;
-  
-  // Replace countdown timer with waiting message
-  const timerContainer = countdownEl.querySelector('.grid'); // Adjust selector to match your HTML
-  if (timerContainer) {
-    timerContainer.innerHTML = '<p class="text-2xl font-bold col-span-full">Event starting soon...</p>';
-  }
-  
-  countdownEl.classList.remove('hidden');
 }
 
 // Show countdown state
@@ -863,11 +831,11 @@ function showReplay() {
   replayEl.classList.remove('hidden');
 }
 
-// Show ended state (event finished, no recordings available)
-function showEnded() {
+// Consolidated handler for all non-live, non-replay countdown states
+// Modes: 'WAITING' | 'ENDED' | 'EXPIRED'
+function showCountdownState(mode) {
   const countdownEl = document.getElementById('countdown');
   const titleEl = document.getElementById('event-title');
-  const scheduledTimeEl = document.getElementById('scheduled-time');
 
   // Stop any running countdown
   if (countdownInterval) {
@@ -877,74 +845,43 @@ function showEnded() {
 
   titleEl.textContent = eventData.title;
 
-  // Show when the event was held instead of a scheduled date
   const scheduledDate = new Date(eventData.scheduled_date);
-  scheduledTimeEl.textContent = `Held on ${scheduledDate.toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    timeZone: 'UTC'
-  })}`;
+  const heldOn = scheduledDate.toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC'
+  });
 
-  // Hide the timer block entirely — heading, grid, and scheduled-time are all inside it
+  // Message config per mode
+  const config = {
+    WAITING: {
+      date: `Scheduled for ${heldOn}`,
+      title: 'Event starting soon\u2026',
+      subtitle: ''
+    },
+    ENDED: {
+      date: `Held on ${heldOn}`,
+      title: 'This event has ended',
+      subtitle: 'No recording is available'
+    },
+    EXPIRED: {
+      date: `Held on ${heldOn}`,
+      title: 'Recording No Longer Available',
+      subtitle: 'Recordings are kept for 30 days after the event.'
+    }
+  };
+
+  const { date, title, subtitle } = config[mode] || config.WAITING;
+
+  // Replace the entire timer block — no more timer grid or "Event starts in" heading
   const timerBlock = countdownEl.querySelector('.countdown-timer');
-  if (timerBlock) timerBlock.style.display = 'none';
-
-  // Inject message into the container after the timer block
-  let msgEl = countdownEl.querySelector('.status-message');
-  if (!msgEl) {
-    msgEl = document.createElement('div');
-    msgEl.className = 'status-message';
-    countdownEl.querySelector('.container').appendChild(msgEl);
+  if (timerBlock) {
+    timerBlock.innerHTML = `
+      <p class="scheduled-time">${date}</p>
+      <div class="status-message">
+        <p class="status-message-title">${title}</p>
+        ${subtitle ? `<p class="status-message-subtitle">${subtitle}</p>` : ''}
+      </div>
+    `;
   }
-  msgEl.innerHTML = `
-    <p class="status-message-title">This event has ended</p>
-    <p class="status-message-subtitle">No recording is available</p>
-  `;
-
-  countdownEl.classList.remove('hidden');
-}
-
-// Show expired state (event ended 30+ days ago, recordings deleted from Cloudflare)
-function showExpired() {
-  const countdownEl = document.getElementById('countdown');
-  const titleEl = document.getElementById('event-title');
-  const scheduledTimeEl = document.getElementById('scheduled-time');
-
-  // Stop any running countdown
-  if (countdownInterval) {
-    clearInterval(countdownInterval);
-    countdownInterval = null;
-  }
-
-  titleEl.textContent = eventData.title;
-
-  // Show when the event was held
-  const scheduledDate = new Date(eventData.scheduled_date);
-  scheduledTimeEl.textContent = `Held on ${scheduledDate.toLocaleDateString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    timeZone: 'UTC'
-  })}`;
-
-  // Hide the timer block entirely — heading, grid, and scheduled-time are all inside it
-  const timerBlock = countdownEl.querySelector('.countdown-timer');
-  if (timerBlock) timerBlock.style.display = 'none';
-
-  // Inject message into the container after the timer block
-  let msgEl = countdownEl.querySelector('.status-message');
-  if (!msgEl) {
-    msgEl = document.createElement('div');
-    msgEl.className = 'status-message';
-    countdownEl.querySelector('.container').appendChild(msgEl);
-  }
-  msgEl.innerHTML = `
-    <p class="status-message-title">Recording No Longer Available</p>
-    <p class="status-message-subtitle">Recordings are kept for 30 days after the event.</p>
-  `;
 
   countdownEl.classList.remove('hidden');
 }
