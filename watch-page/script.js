@@ -237,6 +237,9 @@ function updateUI() {
       case 'ENDED':
         showEnded();
         break;
+      case 'EXPIRED':
+        showExpired();
+        break;
       case 'WAITING':
       default:
         showWaiting();
@@ -856,20 +859,21 @@ function showReplay() {
   replayEl.classList.remove('hidden');
 }
 
-// Show ended state (event finished, no recordings)
+// Show ended state (event finished, no recordings available)
 function showEnded() {
   const countdownEl = document.getElementById('countdown');
   const titleEl = document.getElementById('event-title');
   const scheduledTimeEl = document.getElementById('scheduled-time');
-  
+
+  // Stop any running countdown
   if (countdownInterval) {
     clearInterval(countdownInterval);
     countdownInterval = null;
   }
-  
+
   titleEl.textContent = eventData.title;
-  
-  // Show the scheduled date so context is preserved
+
+  // Show when the event was held instead of a scheduled date
   const scheduledDate = new Date(eventData.scheduled_date);
   scheduledTimeEl.textContent = `Held on ${scheduledDate.toLocaleDateString('en-US', {
     weekday: 'long',
@@ -878,17 +882,50 @@ function showEnded() {
     day: 'numeric',
     timeZone: 'UTC'
   })}`;
-  
-  const timerContainer = countdownEl.querySelector('.grid');
-  if (timerContainer) {
-    timerContainer.innerHTML = `
-      <div class="col-span-full text-center py-4">
-        <p class="text-2xl font-bold mb-2">This event has ended</p>
-        <p class="text-gray-400 text-sm">No recording is available</p>
-      </div>
-    `;
+
+  // Replace the entire inner content — no timer grid, no "Event starts in"
+  countdownEl.innerHTML = `
+    <div class="text-center py-8">
+      <p class="text-2xl font-bold mb-2">This event has ended</p>
+      <p class="text-gray-400 text-sm">No recording is available</p>
+    </div>
+  `;
+
+  countdownEl.classList.remove('hidden');
+}
+
+// Show expired state (event ended 30+ days ago, recordings deleted from Cloudflare)
+function showExpired() {
+  const countdownEl = document.getElementById('countdown');
+  const titleEl = document.getElementById('event-title');
+  const scheduledTimeEl = document.getElementById('scheduled-time');
+
+  // Stop any running countdown
+  if (countdownInterval) {
+    clearInterval(countdownInterval);
+    countdownInterval = null;
   }
-  
+
+  titleEl.textContent = eventData.title;
+
+  // Show when the event was held
+  const scheduledDate = new Date(eventData.scheduled_date);
+  scheduledTimeEl.textContent = `Held on ${scheduledDate.toLocaleDateString('en-US', {
+    weekday: 'long',
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    timeZone: 'UTC'
+  })}`;
+
+  // Replace the entire inner content — no timer grid, no "Event starts in"
+  countdownEl.innerHTML = `
+    <div class="text-center py-8">
+      <p class="text-2xl font-bold mb-2">Recording No Longer Available</p>
+      <p class="text-gray-400 text-sm">Recordings are kept for 30 days after the event.</p>
+    </div>
+  `;
+
   countdownEl.classList.remove('hidden');
 }
 
