@@ -200,7 +200,7 @@ function updateUI() {
   );
   // Always render on first load (playbackMode is null), then only on state changes
   if (newMode !== playbackMode || playbackMode === null) {
-    console.log(`Playback mode changed: ${playbackMode} -> ${newMode}`);
+    console.log(`Playback mode changed v2: ${playbackMode} -> ${newMode}`);
     
     // Clear any auto-advance mechanisms when switching modes
     if (currentStreamPlayer) {
