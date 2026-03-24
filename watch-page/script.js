@@ -200,7 +200,7 @@ function updateUI() {
   );
   // Always render on first load (playbackMode is null), then only on state changes
   if (newMode !== playbackMode || playbackMode === null) {
-    console.log(`Playback mode changed v3: ${playbackMode} -> ${newMode}`);
+    console.log(`Playback mode changed v4: ${playbackMode} -> ${newMode}`);
     
     // Clear any auto-advance mechanisms when switching modes
     if (currentStreamPlayer) {
@@ -220,9 +220,6 @@ function updateUI() {
     updateStatusBadge();
     
     switch (newMode) {
-      case 'EXPIRED':
-        showExpired();
-        break;
       case 'LIVE':
         showLive();
         break;
