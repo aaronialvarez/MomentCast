@@ -887,12 +887,20 @@ function showEnded() {
     timeZone: 'UTC'
   })}`;
 
-  // Replace the entire inner content — no timer grid, no "Event starts in"
-  countdownEl.innerHTML = `
-    <div class="text-center py-8">
-      <p class="text-2xl font-bold mb-2">This event has ended</p>
-      <p class="text-gray-400 text-sm">No recording is available</p>
-    </div>
+  // Hide the timer block entirely — heading, grid, and scheduled-time are all inside it
+  const timerBlock = countdownEl.querySelector('.countdown-timer');
+  if (timerBlock) timerBlock.style.display = 'none';
+
+  // Inject message into the container after the timer block
+  let msgEl = countdownEl.querySelector('.status-message');
+  if (!msgEl) {
+    msgEl = document.createElement('div');
+    msgEl.className = 'status-message';
+    countdownEl.querySelector('.container').appendChild(msgEl);
+  }
+  msgEl.innerHTML = `
+    <p class="status-message-title">This event has ended</p>
+    <p class="status-message-subtitle">No recording is available</p>
   `;
 
   countdownEl.classList.remove('hidden');
@@ -922,12 +930,20 @@ function showExpired() {
     timeZone: 'UTC'
   })}`;
 
-  // Replace the entire inner content — no timer grid, no "Event starts in"
-  countdownEl.innerHTML = `
-    <div class="text-center py-8">
-      <p class="text-2xl font-bold mb-2">Recording No Longer Available</p>
-      <p class="text-gray-400 text-sm">Recordings are kept for 30 days after the event.</p>
-    </div>
+  // Hide the timer block entirely — heading, grid, and scheduled-time are all inside it
+  const timerBlock = countdownEl.querySelector('.countdown-timer');
+  if (timerBlock) timerBlock.style.display = 'none';
+
+  // Inject message into the container after the timer block
+  let msgEl = countdownEl.querySelector('.status-message');
+  if (!msgEl) {
+    msgEl = document.createElement('div');
+    msgEl.className = 'status-message';
+    countdownEl.querySelector('.container').appendChild(msgEl);
+  }
+  msgEl.innerHTML = `
+    <p class="status-message-title">Recording No Longer Available</p>
+    <p class="status-message-subtitle">Recordings are kept for 30 days after the event.</p>
   `;
 
   countdownEl.classList.remove('hidden');
