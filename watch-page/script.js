@@ -193,9 +193,13 @@ function updateUI() {
 
   // Determine what mode we should be in
   const newMode = determinePlaybackMode();
-  
-  // Only update UI if mode has changed or if we're not showing the right state
-  if (newMode !== playbackMode) {
+    console.log('Mode:', newMode, '| days since event:', 
+    (new Date() - new Date(eventData.stream_started_manually_at)) / (1000 * 60 * 60 * 24),
+    '| hasRecordings:', eventData.recordings?.length,
+    '| status:', eventData.status
+  );
+  // Always render on first load (playbackMode is null), then only on state changes
+  if (newMode !== playbackMode || playbackMode === null) {
     console.log(`Playback mode changed: ${playbackMode} -> ${newMode}`);
     
     // Clear any auto-advance mechanisms when switching modes
