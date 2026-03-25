@@ -572,8 +572,15 @@ function showLastRecording() {
   if (!waitingBanner) {
     waitingBanner = document.createElement('div');
     waitingBanner.id = 'waiting-banner';
-    waitingBanner.className = 'mc-waiting-banner'; // Compact strip below player
-    replayEl.appendChild(waitingBanner); // Always below the video
+    waitingBanner.className = 'mc-waiting-banner';
+    // Insert inside .mc-player-wrap, before the footer
+    const playerWrap = replayEl.querySelector('.mc-player-wrap');
+    const footer = replayEl.querySelector('.mc-player-footer');
+    if (footer) {
+      playerWrap.insertBefore(waitingBanner, footer);
+    } else {
+      playerWrap.appendChild(waitingBanner);
+    }
   }
 
   // Recalculate every poll so "X min ago" stays current
