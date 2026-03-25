@@ -486,18 +486,19 @@ function showUnmuteHint(iframeEl) {
   hint.id = 'unmute-hint';
   hint.className = 'mc-unmute-hint';
   hint.innerHTML = `
+    <span>Tap</span>
     <svg class="mc-unmute-hint-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
       <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
       <line x1="23" y1="9" x2="17" y2="15"></line>
       <line x1="17" y1="9" x2="23" y2="15"></line>
     </svg>
-    <span>Tap the video to unmute</span>
+    <span>to unmute</span>
   `;
 
   container.appendChild(hint);
 
-  // Auto-dismiss after 4 seconds
-  const timer = setTimeout(() => hint.remove(), 4000);
+  // Auto-dismiss after 5 seconds
+  const timer = setTimeout(() => hint.remove(), 5000);
 
   // Also dismiss on any click inside the container (user is interacting with player)
   container.addEventListener('click', function dismiss() {
