@@ -431,20 +431,10 @@ function showLive() {
       console.log('Setting iframe src to:', embedUrl);
       streamEl.src = embedUrl;
       
-      // Show tap-to-unmute overlay immediately after iframe loads
+      // Show tap-to-unmute overlay once iframe loads
       streamEl.addEventListener('load', function onIframeLoad() {
         streamEl.removeEventListener('load', onIframeLoad);
-        // Small delay to let the player initialize before overlay appears
-        setTimeout(() => {
-          try {
-            const player = Stream(streamEl);
-            showMuteOverlay(streamEl.parentElement, player);
-          } catch (e) {
-            // SDK unavailable — show overlay anyway, click will attempt unmute
-            console.log('Stream SDK not available:', e);
-            showMuteOverlay(streamEl.parentElement, null);
-          }
-        }, 1200);
+        showMuteOverlay(streamEl.parentElement, streamEl);
       });
     }
   } else if (!liveInputId) {
@@ -484,8 +474,9 @@ function showLive() {
   liveEl.classList.remove('hidden');
 }
 
-// Tap-to-unmute overlay — shown when browser blocks autoplay with audio
-function showMuteOverlay(container, player) {
+// Tap-to-unmute overlay — swaps iframe src from muted=true to muted=false on click.
+// Uses the browser's "user gesture unlocks autoplay" rule so no SDK needed.
+function showMuteOverlay(container, iframeEl) {
   if (document.getElementById('mute-overlay')) return;
 
   const overlay = document.createElement('div');
@@ -506,9 +497,9 @@ function showMuteOverlay(container, player) {
   container.appendChild(overlay);
 
   overlay.addEventListener('click', () => {
-    if (player) {
-      player.muted = false;
-      player.play().catch(() => {});
+    // Swap muted=true → muted=false in the iframe src (user gesture allows unmuted autoplay)
+    if (iframeEl && iframeEl.src) {
+      iframeEl.src = iframeEl.src.replace('muted=true', 'muted=false');
     }
     overlay.remove();
   });
