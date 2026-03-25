@@ -431,26 +431,20 @@ function showLive() {
       console.log('Setting iframe src to:', embedUrl);
       streamEl.src = embedUrl;
       
-      // Use Stream Player SDK to attempt unmuting after playback starts
+      // Show tap-to-unmute overlay immediately after iframe loads
       streamEl.addEventListener('load', function onIframeLoad() {
         streamEl.removeEventListener('load', onIframeLoad);
-        try {
-          const player = Stream(streamEl);
-          player.addEventListener('playing', function onPlaying() {
-            player.removeEventListener('playing', onPlaying);
-
-            // Try silent unmute first (works if user has already interacted)
-            player.muted = false;
-            player.play().catch(() => {
-              // Browser blocked it — show tap-to-unmute overlay instead
-              player.muted = true;
-              player.play();
-              showMuteOverlay(streamEl.parentElement, player);
-            });
-          });
-        } catch (e) {
-          console.log('Stream SDK not available, staying muted:', e);
-        }
+        // Small delay to let the player initialize before overlay appears
+        setTimeout(() => {
+          try {
+            const player = Stream(streamEl);
+            showMuteOverlay(streamEl.parentElement, player);
+          } catch (e) {
+            // SDK unavailable — show overlay anyway, click will attempt unmute
+            console.log('Stream SDK not available:', e);
+            showMuteOverlay(streamEl.parentElement, null);
+          }
+        }, 1200);
       });
     }
   } else if (!liveInputId) {
@@ -492,7 +486,6 @@ function showLive() {
 
 // Tap-to-unmute overlay — shown when browser blocks autoplay with audio
 function showMuteOverlay(container, player) {
-  // Don't create a second one if it already exists
   if (document.getElementById('mute-overlay')) return;
 
   const overlay = document.createElement('div');
@@ -513,10 +506,10 @@ function showMuteOverlay(container, player) {
   container.appendChild(overlay);
 
   overlay.addEventListener('click', () => {
-    player.muted = false;
-    player.play().catch(() => {
-      // Still blocked — leave muted, remove overlay anyway
-    });
+    if (player) {
+      player.muted = false;
+      player.play().catch(() => {});
+    }
     overlay.remove();
   });
 }
