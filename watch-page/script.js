@@ -567,34 +567,27 @@ function showLastRecording() {
     liveBanner.remove();
   }
   
-  // Add waiting message banner
+  // Add/update waiting message banner below the player
   let waitingBanner = document.getElementById('waiting-banner');
   if (!waitingBanner) {
     waitingBanner = document.createElement('div');
     waitingBanner.id = 'waiting-banner';
-    waitingBanner.className = 'mc-waiting-banner'; // Shown between ceremony and reception sessions
-    
-    // Calculate time since last activity for display
-    let timeSinceText = '';
-    if (eventData.last_stream_activity) {
-      const lastActivity = new Date(eventData.last_stream_activity);
-      const now = new Date();
-      const minutesAgo = Math.floor((now - lastActivity) / (1000 * 60));
-      timeSinceText = minutesAgo > 0 ? ` (${minutesAgo} min ago)` : '';
-    }
-    
-    waitingBanner.innerHTML = `
-      <span class="mc-waiting-dot"></span>
-      <span>Stream paused${timeSinceText} - Photographer will return shortly...</span>
-    `;
-    
-    // Insert banner at the very top of replay element
-    if (replayEl.firstChild) {
-      replayEl.insertBefore(waitingBanner, replayEl.firstChild);
-    } else {
-      replayEl.appendChild(waitingBanner);
-    }
+    waitingBanner.className = 'mc-waiting-banner'; // Compact strip below player
+    replayEl.appendChild(waitingBanner); // Always below the video
   }
+
+  // Recalculate every poll so "X min ago" stays current
+  let timeSinceText = '';
+  if (eventData.last_stream_activity) {
+    const lastActivity = new Date(eventData.last_stream_activity);
+    const minutesAgo = Math.floor((Date.now() - lastActivity) / (1000 * 60));
+    timeSinceText = minutesAgo > 0 ? ` (${minutesAgo} min ago)` : '';
+  }
+
+  waitingBanner.innerHTML = `
+    <span class="mc-waiting-dot"></span>
+    <span>Stream paused${timeSinceText} — Check back soon for more coverage...</span>
+  `;
 
   replayEl.classList.remove('hidden');
 }

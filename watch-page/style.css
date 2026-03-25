@@ -643,6 +643,7 @@ body::after {
 }
 
 /* Waiting banner — shown between ceremony and reception while stream is paused */
+/* Sits below the video player as a compact inline strip */
 .mc-waiting-banner {
   display: flex;
   align-items: center;
@@ -650,7 +651,8 @@ body::after {
   gap: 0.625rem;
   padding: 0.75rem 1.5rem;
   background: var(--surface-2);
-  border-bottom: 1px solid var(--border);
+  border-top: 1px solid var(--border);      /* was border-bottom — now faces the player above it */
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm); /* soft bottom corners only */
   color: var(--text-2);
   font-size: 0.8125rem;
   font-weight: 500;
