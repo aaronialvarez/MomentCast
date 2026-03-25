@@ -483,6 +483,15 @@ function showMuteOverlay(iframeEl, player) {
   const container = iframeEl?.parentElement;
   if (!container) return;
 
+  console.log('[UNMUTE DEBUG] showMuteOverlay called. player:', player, 'iframe id:', iframeEl?.id);
+
+  // Log player state if available
+  if (player) {
+    console.log('[UNMUTE DEBUG] player.muted BEFORE overlay:', player.muted);
+    console.log('[UNMUTE DEBUG] player.volume BEFORE overlay:', player.volume);
+    console.log('[UNMUTE DEBUG] player.paused BEFORE overlay:', player.paused);
+  }
+
   const overlay = document.createElement('div');
   overlay.id = 'mute-overlay';
   overlay.className = 'mc-mute-overlay';
@@ -498,26 +507,54 @@ function showMuteOverlay(iframeEl, player) {
   `;
 
   container.appendChild(overlay);
+  console.log('[UNMUTE DEBUG] Overlay appended to container');
 
   overlay.addEventListener('click', () => {
+    console.log('[UNMUTE DEBUG] Overlay CLICKED');
+    console.log('[UNMUTE DEBUG] player exists:', !!player);
+    
     if (player) {
+      console.log('[UNMUTE DEBUG] player.muted BEFORE set:', player.muted);
       player.muted = false;
+      console.log('[UNMUTE DEBUG] player.muted AFTER set:', player.muted);
+      console.log('[UNMUTE DEBUG] player.volume:', player.volume);
+      
+      // Also try setting volume explicitly
+      player.volume = 1;
+      console.log('[UNMUTE DEBUG] player.volume AFTER set:', player.volume);
+      
+      // Check state after a short delay to see if it stuck
+      setTimeout(() => {
+        console.log('[UNMUTE DEBUG] 500ms later — player.muted:', player.muted, 'player.volume:', player.volume);
+      }, 500);
+    } else {
+      console.log('[UNMUTE DEBUG] No player instance — overlay dismissed without unmuting');
     }
+    
     overlay.remove();
+    console.log('[UNMUTE DEBUG] Overlay removed');
   });
 }
 
 // Attaches a one-time load listener to bind the Stream SDK player and show overlay.
 // The SDK is initialized once on load (not inside the click handler) per Cloudflare's docs.
 function attachMuteOverlay(iframeEl) {
+  console.log('[UNMUTE DEBUG] attachMuteOverlay called for iframe:', iframeEl?.id);
+  
   iframeEl.addEventListener('load', function onLoad() {
     iframeEl.removeEventListener('load', onLoad);
+    console.log('[UNMUTE DEBUG] iframe load event fired for:', iframeEl?.id);
+    console.log('[UNMUTE DEBUG] typeof Stream:', typeof Stream);
+    
     try {
       // Bind SDK player ONCE, outside any click handler
       const player = Stream(iframeEl);
+      console.log('[UNMUTE DEBUG] Stream SDK player bound successfully:', player);
+      console.log('[UNMUTE DEBUG] player type:', typeof player);
+      console.log('[UNMUTE DEBUG] player.muted:', player.muted);
       showMuteOverlay(iframeEl, player);
     } catch (e) {
-      console.warn('Stream SDK unavailable:', e);
+      console.warn('[UNMUTE DEBUG] Stream SDK failed:', e);
       // Show overlay anyway with null player (tap just dismisses overlay)
       showMuteOverlay(iframeEl, null);
     }
