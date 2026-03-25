@@ -618,50 +618,43 @@ body::after {
   z-index: 20;
 }
 
-/* Tap-to-unmute overlay — centered on video, dismissed on click */
-.mc-mute-overlay {
+/* Unmute hint — non-blocking toast anchored to bottom of the video.
+   Doesn't cover the player controls so the user can tap directly on them.
+   Auto-dismisses after 4s or on any click. */
+.mc-unmute-hint {
   position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  cursor: pointer;
+  bottom: 52px;           /* sit above the Cloudflare player control bar */
+  left: 50%;
+  transform: translateX(-50%);
   z-index: 5;
-  /* Light scrim so the pill stands out and the user knows to tap here */
-  background: rgba(0, 0, 0, 0.35);
-}
-
-.mc-mute-inner {
   display: flex;
   align-items: center;
-  gap: 10px;
-  background: rgba(0, 0, 0, 0.52);
-  border: 1px solid rgba(255, 255, 255, 0.12);
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.72);
+  border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 999px;
-  padding: 0.6rem 1.25rem 0.6rem 1rem;
+  padding: 0.5rem 1.1rem 0.5rem 0.85rem;
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
   color: #fff;
   font-family: var(--font-body);
-  font-size: 0.9375rem;
+  font-size: 0.8125rem;
   font-weight: 500;
   letter-spacing: 0.02em;
-  pointer-events: none; /* click captured by parent overlay */
-  transition: background 0.15s ease;
+  white-space: nowrap;
+  pointer-events: none;     /* let clicks pass through to the player */
+  animation: mc-unmute-fadein 0.3s ease both;
 }
 
-.mc-mute-overlay:hover .mc-mute-inner {
-  background: rgba(0, 0, 0, 0.68);
-}
-
-.mc-mute-icon {
-  width: 20px;
-  height: 20px;
+.mc-unmute-hint-icon {
+  width: 18px;
+  height: 18px;
   flex-shrink: 0;
 }
 
-.mc-mute-text {
-  white-space: nowrap;
+@keyframes mc-unmute-fadein {
+  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
+  to   { opacity: 1; transform: translateX(-50%) translateY(0);   }
 }
 
 .mc-processing-inner {
