@@ -572,10 +572,9 @@ body::after {
 }
 
 .mc-presented-logo {
-  max-height: 100%;
-  max-width: 100%;
-  width: auto;
-  height: auto;
+  height: 100%;            /* fill container height — gives SVGs with width="100%" a concrete reference */
+  width: auto;             /* scale width from aspect ratio */
+  max-width: 100%;         /* never exceed container width */
   object-fit: contain;
   display: block;
 }
