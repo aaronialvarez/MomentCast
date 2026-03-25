@@ -438,13 +438,14 @@ function showLive() {
           const player = Stream(streamEl);
           player.addEventListener('playing', function onPlaying() {
             player.removeEventListener('playing', onPlaying);
-            // Attempt to unmute; browser may block this without prior interaction
+
+            // Try silent unmute first (works if user has already interacted)
             player.muted = false;
             player.play().catch(() => {
-              // Browser blocked unmuted playback, stay muted (viewer can unmute via controls)
-              console.log('Browser blocked unmuted autoplay, staying muted');
+              // Browser blocked it — show tap-to-unmute overlay instead
               player.muted = true;
               player.play();
+              showMuteOverlay(streamEl.parentElement, player);
             });
           });
         } catch (e) {
@@ -487,6 +488,37 @@ function showLive() {
   }
   
   liveEl.classList.remove('hidden');
+}
+
+// Tap-to-unmute overlay — shown when browser blocks autoplay with audio
+function showMuteOverlay(container, player) {
+  // Don't create a second one if it already exists
+  if (document.getElementById('mute-overlay')) return;
+
+  const overlay = document.createElement('div');
+  overlay.id = 'mute-overlay';
+  overlay.className = 'mc-mute-overlay';
+  overlay.innerHTML = `
+    <div class="mc-mute-inner">
+      <svg class="mc-mute-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
+        <line x1="23" y1="9" x2="17" y2="15"></line>
+        <line x1="17" y1="9" x2="23" y2="15"></line>
+      </svg>
+      <span class="mc-mute-text">Tap to unmute</span>
+    </div>
+  `;
+
+  container.style.position = 'relative';
+  container.appendChild(overlay);
+
+  overlay.addEventListener('click', () => {
+    player.muted = false;
+    player.play().catch(() => {
+      // Still blocked — leave muted, remove overlay anyway
+    });
+    overlay.remove();
+  });
 }
 
 // Show processing state when recording is finalizing

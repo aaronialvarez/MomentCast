@@ -618,6 +618,52 @@ body::after {
   z-index: 20;
 }
 
+/* Tap-to-unmute overlay — centered on video, dismissed on click */
+.mc-mute-overlay {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  z-index: 5;
+  /* Transparent by default — only the pill is visible */
+  background: transparent;
+}
+
+.mc-mute-inner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  background: rgba(0, 0, 0, 0.52);
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 999px;
+  padding: 0.6rem 1.25rem 0.6rem 1rem;
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  color: #fff;
+  font-family: var(--font-body);
+  font-size: 0.9375rem;
+  font-weight: 500;
+  letter-spacing: 0.02em;
+  pointer-events: none; /* click captured by parent overlay */
+  transition: background 0.15s ease;
+}
+
+.mc-mute-overlay:hover .mc-mute-inner {
+  background: rgba(0, 0, 0, 0.68);
+}
+
+.mc-mute-icon {
+  width: 20px;
+  height: 20px;
+  flex-shrink: 0;
+}
+
+.mc-mute-text {
+  white-space: nowrap;
+}
+
 .mc-processing-inner {
   text-align: center;
   padding: 2rem;
