@@ -627,8 +627,8 @@ body::after {
   justify-content: center;
   cursor: pointer;
   z-index: 5;
-  /* Transparent by default — only the pill is visible */
-  background: transparent;
+  /* Light scrim so the pill stands out and the user knows to tap here */
+  background: rgba(0, 0, 0, 0.35);
 }
 
 .mc-mute-inner {

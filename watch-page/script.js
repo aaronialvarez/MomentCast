@@ -471,11 +471,11 @@ function showLive() {
   liveEl.classList.remove('hidden');
 }
 
-// Tap-to-unmute overlay — uses Cloudflare Stream SDK to unmute without reloading.
-// Called by any playback function (showLive, showLastRecording, showSequentialPlayback, showReplay).
-// The iframe must have an id attribute for the SDK to bind.
+// Tap-to-unmute overlay — on click, reloads iframe with muted=false.
+// Browser allows unmuted autoplay when triggered by a user gesture (the tap).
+// No SDK dependency — works reliably across all playback modes.
 function showMuteOverlay(iframeEl) {
-  // Remove any existing overlay first (e.g. mode switch from LIVE → LAST_RECORDING)
+  // Remove any existing overlay (e.g. mode switch from LIVE → LAST_RECORDING)
   const existing = document.getElementById('mute-overlay');
   if (existing) existing.remove();
 
@@ -499,18 +499,11 @@ function showMuteOverlay(iframeEl) {
   container.appendChild(overlay);
 
   overlay.addEventListener('click', () => {
-    // Use Stream SDK (loaded in index.html) for instant unmute — no iframe reload
-    try {
-      const player = Stream(iframeEl);
-      player.muted = false;
-    } catch (e) {
-      // SDK failed — fall back to swapping the iframe src
-      console.warn('Stream SDK unmute failed, reloading iframe:', e);
-      if (iframeEl.src) {
-        iframeEl.src = iframeEl.src.replace('muted=true', 'muted=false');
-      }
-    }
     overlay.remove();
+    // Swap muted=true → muted=false and reload; user gesture permits unmuted autoplay
+    if (iframeEl.src) {
+      iframeEl.src = iframeEl.src.replace('muted=true', 'muted=false');
+    }
   });
 }
 
