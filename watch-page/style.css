@@ -567,9 +567,8 @@ body::after {
   min-width: 0;            /* let flex item shrink below content size */
   overflow: hidden;        /* clip if logo is still too wide */
   padding-left: 0.75rem;
-  /* Height is the primary constraint; width follows via object-fit */
+  /* Height is the primary constraint; width is governed by flex layout */
   height: 44px;
-  max-width: 300px;
 }
 
 .mc-presented-logo {
