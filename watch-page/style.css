@@ -552,6 +552,42 @@ body::after {
 }
 
 /* --------------------------------------------------------------------------
+   Presented-by Logo
+   Injected by renderLogo() inside .mc-player-header.
+   Fit-to-height with width clamping — handles square, wide, and tall logos
+   at any resolution without distortion or overflow.
+   -------------------------------------------------------------------------- */
+
+.mc-presented-by {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  flex-shrink: 0;
+  padding-left: 0.75rem;
+  /* Height is the primary constraint; width follows via object-fit */
+  height: 70px;
+  max-width: 300px;
+}
+
+.mc-presented-logo {
+  max-height: 100%;
+  max-width: 100%;
+  width: auto;
+  height: auto;
+  object-fit: contain;
+  display: block;
+}
+
+.mc-presented-label {
+  font-size: 0.5625rem;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  font-weight: 500;
+  white-space: nowrap;
+}
+
+/* --------------------------------------------------------------------------
    Spinners
    -------------------------------------------------------------------------- */
 
@@ -883,14 +919,16 @@ body::after {
     font-size: 0.5625rem;
   }
 
-  /* Logo container: shrink label, tighten spacing */
+  /* Logo container: tablet dimensions */
   .mc-presented-by {
+    height: 50px;
+    max-width: 200px;
     margin-left: auto;
     padding-left: 0;
   }
 
   .mc-presented-logo {
-    max-height: 28px;
+    max-height: 100%;
   }
 
   .mc-presented-label {
@@ -913,6 +951,14 @@ body::after {
 
   .mc-center {
     padding: 2rem 1.25rem;
+  }
+}
+
+@media (max-width: 479px) {
+  /* Logo container: mobile dimensions */
+  .mc-presented-by {
+    height: 36px;
+    max-width: 140px;
   }
 }
 
