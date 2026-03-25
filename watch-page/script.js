@@ -471,9 +471,9 @@ function showLive() {
   liveEl.classList.remove('hidden');
 }
 
-// Tap-to-unmute overlay — on click, reloads iframe with muted=false.
-// Browser allows unmuted autoplay when triggered by a user gesture (the tap).
-// No SDK dependency — works reliably across all playback modes.
+// Tap-to-unmute overlay — uses Cloudflare Stream SDK (postMessage) to unmute in place.
+// Waits for confirmation via volumechange event before dismissing.
+// Falls back to removing overlay after a short timeout if SDK doesn't respond.
 function showMuteOverlay(iframeEl) {
   // Remove any existing overlay (e.g. mode switch from LIVE → LAST_RECORDING)
   const existing = document.getElementById('mute-overlay');
@@ -499,10 +499,26 @@ function showMuteOverlay(iframeEl) {
   container.appendChild(overlay);
 
   overlay.addEventListener('click', () => {
-    overlay.remove();
-    // Swap muted=true → muted=false and reload; user gesture permits unmuted autoplay
-    if (iframeEl.src) {
-      iframeEl.src = iframeEl.src.replace('muted=true', 'muted=false');
+    try {
+      const player = Stream(iframeEl);
+
+      // Listen for confirmation that unmute took effect
+      const cleanup = () => overlay.remove();
+      player.addEventListener('volumechange', function onVol() {
+        player.removeEventListener('volumechange', onVol);
+        cleanup();
+      });
+
+      // Unmute and ensure playback
+      player.muted = false;
+      player.volume = 1;
+      player.play().catch(() => {});
+
+      // Fallback: if volumechange never fires, remove overlay after 800ms
+      setTimeout(cleanup, 800);
+    } catch (e) {
+      console.warn('Stream SDK unavailable, removing overlay:', e);
+      overlay.remove();
     }
   });
 }
