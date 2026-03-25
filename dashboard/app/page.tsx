@@ -170,10 +170,10 @@ export default function DashboardHome() {
     const file = e.target.files?.[0];
     if (!file || !user) return;
 
-    // Client-side validation: 500 KB max
-    const MAX_SIZE = 500 * 1024;
+    // Client-side validation: 100 KB max
+    const MAX_SIZE = 100 * 1024;
     if (file.size > MAX_SIZE) {
-      setLogoError('Logo must be under 500 KB');
+      setLogoError('Logo must be under 100 KB');
       return;
     }
 
@@ -390,7 +390,7 @@ export default function DashboardHome() {
                 className="hidden"
               />
             </label>
-            <span className="text-gray-500 text-xs">PNG, JPG, SVG, or WebP. Max 500 KB.</span>
+            <span className="text-gray-500 text-xs">PNG, JPG, SVG, or WebP. Max 100 KB.</span>
           </div>
 
           {/* Error message */}
