@@ -563,10 +563,12 @@ body::after {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  flex-shrink: 0;
+  flex-shrink: 1;          /* allow shrinking when header is tight */
+  min-width: 0;            /* let flex item shrink below content size */
+  overflow: hidden;        /* clip if logo is still too wide */
   padding-left: 0.75rem;
   /* Height is the primary constraint; width follows via object-fit */
-  height: 70px;
+  height: 44px;
   max-width: 300px;
 }
 
@@ -922,7 +924,7 @@ body::after {
 
   /* Logo container: tablet dimensions */
   .mc-presented-by {
-    height: 50px;
+    height: 36px;
     max-width: 200px;
     margin-left: auto;
     padding-left: 0;
@@ -958,7 +960,7 @@ body::after {
 @media (max-width: 479px) {
   /* Logo container: mobile dimensions */
   .mc-presented-by {
-    height: 36px;
+    height: 28px;
     max-width: 140px;
   }
 }
