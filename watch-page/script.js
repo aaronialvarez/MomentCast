@@ -471,10 +471,11 @@ function showLive() {
   liveEl.classList.remove('hidden');
 }
 
-// Tap-to-unmute overlay — uses Cloudflare Stream SDK (postMessage) to unmute in place.
-// Waits for confirmation via volumechange event before dismissing.
-// Falls back to removing overlay after a short timeout if SDK doesn't respond.
-function showMuteOverlay(iframeEl) {
+// Tap-to-unmute overlay — binds Stream SDK player once on iframe load,
+// then click handler toggles muted on the pre-bound player instance.
+// Key insight from Cloudflare community: Stream() must be called ONCE
+// outside event handlers, not re-initialized on every click.
+function showMuteOverlay(iframeEl, player) {
   // Remove any existing overlay (e.g. mode switch from LIVE → LAST_RECORDING)
   const existing = document.getElementById('mute-overlay');
   if (existing) existing.remove();
@@ -499,36 +500,27 @@ function showMuteOverlay(iframeEl) {
   container.appendChild(overlay);
 
   overlay.addEventListener('click', () => {
-    try {
-      const player = Stream(iframeEl);
-
-      // Listen for confirmation that unmute took effect
-      const cleanup = () => overlay.remove();
-      player.addEventListener('volumechange', function onVol() {
-        player.removeEventListener('volumechange', onVol);
-        cleanup();
-      });
-
-      // Unmute and ensure playback
+    if (player) {
       player.muted = false;
-      player.volume = 1;
-      player.play().catch(() => {});
-
-      // Fallback: if volumechange never fires, remove overlay after 800ms
-      setTimeout(cleanup, 800);
-    } catch (e) {
-      console.warn('Stream SDK unavailable, removing overlay:', e);
-      overlay.remove();
     }
+    overlay.remove();
   });
 }
 
-// Attaches a one-time load listener to show the mute overlay once the iframe is ready.
-// Safe to call on any iframe that starts muted.
+// Attaches a one-time load listener to bind the Stream SDK player and show overlay.
+// The SDK is initialized once on load (not inside the click handler) per Cloudflare's docs.
 function attachMuteOverlay(iframeEl) {
   iframeEl.addEventListener('load', function onLoad() {
     iframeEl.removeEventListener('load', onLoad);
-    showMuteOverlay(iframeEl);
+    try {
+      // Bind SDK player ONCE, outside any click handler
+      const player = Stream(iframeEl);
+      showMuteOverlay(iframeEl, player);
+    } catch (e) {
+      console.warn('Stream SDK unavailable:', e);
+      // Show overlay anyway with null player (tap just dismisses overlay)
+      showMuteOverlay(iframeEl, null);
+    }
   });
 }
 
