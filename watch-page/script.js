@@ -423,11 +423,35 @@ function showLive() {
   const liveInputId = eventData.live_input_id || eventData.liveinputid;
   
   if (liveInputId && streamEl) {
-    const embedUrl = `https://customer-r5vkm8rpzqtdt9cz.cloudflarestream.com/${liveInputId}/iframe?autoplay=true&muted=false`;
+    // Start muted to guarantee autoplay (browsers block unmuted autoplay without user gesture)
+    const embedUrl = `https://customer-r5vkm8rpzqtdt9cz.cloudflarestream.com/${liveInputId}/iframe?autoplay=true&muted=true`;
     
-    // Always set src when switching to live mode to ensure it loads
-    console.log('Setting iframe src to:', embedUrl);
-    streamEl.src = embedUrl;
+    // Only set src when switching to live mode (not on every poll)
+    if (streamEl.src !== embedUrl) {
+      console.log('Setting iframe src to:', embedUrl);
+      streamEl.src = embedUrl;
+      
+      // Use Stream Player SDK to attempt unmuting after playback starts
+      streamEl.addEventListener('load', function onIframeLoad() {
+        streamEl.removeEventListener('load', onIframeLoad);
+        try {
+          const player = Stream(streamEl);
+          player.addEventListener('playing', function onPlaying() {
+            player.removeEventListener('playing', onPlaying);
+            // Attempt to unmute; browser may block this without prior interaction
+            player.muted = false;
+            player.play().catch(() => {
+              // Browser blocked unmuted playback, stay muted (viewer can unmute via controls)
+              console.log('Browser blocked unmuted autoplay, staying muted');
+              player.muted = true;
+              player.play();
+            });
+          });
+        } catch (e) {
+          console.log('Stream SDK not available, staying muted:', e);
+        }
+      });
+    }
   } else if (!liveInputId) {
     console.error('No live_input_id found in eventData:', eventData);
   }
