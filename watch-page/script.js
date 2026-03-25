@@ -432,10 +432,7 @@ function showLive() {
       streamEl.src = embedUrl;
       
       // Show tap-to-unmute overlay once iframe loads
-      streamEl.addEventListener('load', function onIframeLoad() {
-        streamEl.removeEventListener('load', onIframeLoad);
-        showMuteOverlay(streamEl.parentElement, streamEl);
-      });
+      attachMuteOverlay(streamEl);
     }
   } else if (!liveInputId) {
     console.error('No live_input_id found in eventData:', eventData);
@@ -474,10 +471,16 @@ function showLive() {
   liveEl.classList.remove('hidden');
 }
 
-// Tap-to-unmute overlay — swaps iframe src from muted=true to muted=false on click.
-// Uses the browser's "user gesture unlocks autoplay" rule so no SDK needed.
-function showMuteOverlay(container, iframeEl) {
-  if (document.getElementById('mute-overlay')) return;
+// Tap-to-unmute overlay — uses Cloudflare Stream SDK to unmute without reloading.
+// Called by any playback function (showLive, showLastRecording, showSequentialPlayback, showReplay).
+// The iframe must have an id attribute for the SDK to bind.
+function showMuteOverlay(iframeEl) {
+  // Remove any existing overlay first (e.g. mode switch from LIVE → LAST_RECORDING)
+  const existing = document.getElementById('mute-overlay');
+  if (existing) existing.remove();
+
+  const container = iframeEl?.parentElement;
+  if (!container) return;
 
   const overlay = document.createElement('div');
   overlay.id = 'mute-overlay';
@@ -493,15 +496,30 @@ function showMuteOverlay(container, iframeEl) {
     </div>
   `;
 
-  container.style.position = 'relative';
   container.appendChild(overlay);
 
   overlay.addEventListener('click', () => {
-    // Swap muted=true → muted=false in the iframe src (user gesture allows unmuted autoplay)
-    if (iframeEl && iframeEl.src) {
-      iframeEl.src = iframeEl.src.replace('muted=true', 'muted=false');
+    // Use Stream SDK (loaded in index.html) for instant unmute — no iframe reload
+    try {
+      const player = Stream(iframeEl);
+      player.muted = false;
+    } catch (e) {
+      // SDK failed — fall back to swapping the iframe src
+      console.warn('Stream SDK unmute failed, reloading iframe:', e);
+      if (iframeEl.src) {
+        iframeEl.src = iframeEl.src.replace('muted=true', 'muted=false');
+      }
     }
     overlay.remove();
+  });
+}
+
+// Attaches a one-time load listener to show the mute overlay once the iframe is ready.
+// Safe to call on any iframe that starts muted.
+function attachMuteOverlay(iframeEl) {
+  iframeEl.addEventListener('load', function onLoad() {
+    iframeEl.removeEventListener('load', onLoad);
+    showMuteOverlay(iframeEl);
   });
 }
 
@@ -566,12 +584,14 @@ function showLastRecording() {
   }
   
   if (videoId) {
-    const embedUrl = `https://customer-r5vkm8rpzqtdt9cz.cloudflarestream.com/${videoId}/iframe?autoplay=true&muted=false`;
+    // Start muted to guarantee autoplay; overlay prompts user to unmute
+    const embedUrl = `https://customer-r5vkm8rpzqtdt9cz.cloudflarestream.com/${videoId}/iframe?autoplay=true&muted=true`;
     
     // Only set src if it's different (prevents reload on poll)
     if (streamEl.src !== embedUrl) {
       console.log('Setting last recording iframe src to:', embedUrl);
       streamEl.src = embedUrl;
+      attachMuteOverlay(streamEl);
     }
   } else {
     console.error('No recordings found in eventData:', eventData);
@@ -656,12 +676,18 @@ function showSequentialPlayback() {
   const videoId = allRecordings[currentRecordingIndex]?.uid;
   
   if (videoId) {
-    const embedUrl = `https://customer-r5vkm8rpzqtdt9cz.cloudflarestream.com/${videoId}/iframe?autoplay=true&muted=false`;
+    // Start muted to guarantee autoplay; overlay prompts user to unmute on first video
+    const embedUrl = `https://customer-r5vkm8rpzqtdt9cz.cloudflarestream.com/${videoId}/iframe?autoplay=true&muted=true`;
     
     // Only set src if it's different (prevents reload on poll)
     if (streamEl.src !== embedUrl) {
       console.log(`Setting sequential playback iframe src (${currentRecordingIndex + 1}/${allRecordings.length}):`, embedUrl);
       streamEl.src = embedUrl;
+      
+      // Only show overlay on the first video (user already interacted for subsequent ones)
+      if (currentRecordingIndex === 0) {
+        attachMuteOverlay(streamEl);
+      }
       
       // Set up event listener for when this recording ends
       setupSequentialAdvance(streamEl, allRecordings);
@@ -913,12 +939,14 @@ function showReplay() {
   const videoId = eventData.merged_video_id || (eventData.recordings[eventData.recordings.length - 1]?.uid);
   
   if (videoId) {
-    const embedUrl = `https://customer-r5vkm8rpzqtdt9cz.cloudflarestream.com/${videoId}/iframe?autoplay=true&muted=false`;
+    // Start muted to guarantee autoplay; overlay prompts user to unmute
+    const embedUrl = `https://customer-r5vkm8rpzqtdt9cz.cloudflarestream.com/${videoId}/iframe?autoplay=true&muted=true`;
     
     // Only set src if it's different (prevents reload on poll)
     if (streamEl.src !== embedUrl) {
       console.log('Setting replay iframe src to:', embedUrl);
       streamEl.src = embedUrl;
+      attachMuteOverlay(streamEl);
     }
   } else {
     console.error('No recordings found in eventData:', eventData);
