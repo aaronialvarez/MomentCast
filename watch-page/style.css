@@ -275,7 +275,7 @@ body::after {
   border-radius: var(--radius-lg);
   padding: 2.75rem 2rem;
   margin: 2rem auto;
-  max-width: 900px;
+  max-width: 800px;
 }
 
 /* Small label above the timer digits */
@@ -814,7 +814,7 @@ body::after {
    Responsive
    -------------------------------------------------------------------------- */
 
-@media (max-width: 900px) {
+@media (max-width: 800px) {
   /* Stack header into a wrapped layout on mobile */
   .mc-player-header {
     flex-wrap: wrap;
