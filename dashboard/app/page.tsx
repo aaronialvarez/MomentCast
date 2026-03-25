@@ -198,7 +198,7 @@ export default function DashboardHome() {
       // Upload to Supabase Storage (upsert to overwrite previous logo)
       const { error: uploadError } = await supabase.storage
         .from('logos')
-        .upload(storagePath, file, { upsert: true });
+        .upload(storagePath, file, { upsert: true, contentType: file.type });
 
       if (uploadError) {
         throw new Error(uploadError.message);
