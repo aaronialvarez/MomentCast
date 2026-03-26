@@ -133,6 +133,33 @@ function renderLogo(headerEl) {
   }
 }
 
+/**
+ * Show or hide the QR share block in the countdown section.
+ * Visible only in COUNTDOWN and WAITING modes (before the event goes live).
+ * QR data URL comes pre-generated from the API — no client-side work needed.
+ */
+function renderQrBlock(visible) {
+  const block = document.getElementById('qr-share-block');
+  if (!block) return;
+
+  if (!visible || !eventData?.qr_code_data_url) {
+    block.classList.add('hidden');
+    return;
+  }
+
+  const img = document.getElementById('qr-image');
+  const urlEl = document.getElementById('qr-url');
+
+  if (img && img.src !== eventData.qr_code_data_url) {
+    img.src = eventData.qr_code_data_url;
+  }
+  if (urlEl) {
+    urlEl.textContent = `go.momentcast.live/${slug}`;
+  }
+
+  block.classList.remove('hidden');
+}
+
 // Determine playback mode based on event state and 2-hour timeout
 function determinePlaybackMode() {
   if (!eventData) return 'WAITING';
@@ -336,6 +363,7 @@ function showCountdown() {
   }, 1000);
 
   updateCountdown(scheduledDate);
+  renderQrBlock(true); // Show QR code during countdown
   countdownEl.classList.remove('hidden');
 }
 
@@ -1005,6 +1033,9 @@ function showCountdownState(mode) {
       </div>
     `;
   }
+
+  // QR code only shown in WAITING state (before event goes live)
+  renderQrBlock(mode === 'WAITING');
 
   countdownEl.classList.remove('hidden');
 }

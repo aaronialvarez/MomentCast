@@ -1,5 +1,26 @@
 import { createClient } from '@supabase/supabase-js';
 import type { WorkerEnv, Event, User, CreateEventRequest, CreateEventResponse } from './types';
+import QRCode from 'qrcode-svg';
+
+/**
+ * Utility: Generate QR code as a base64 SVG data URL.
+ * Uses qrcode-svg (pure JS, no Canvas/DOM — safe for Cloudflare Workers).
+ * Called once at event creation; result is stored in Supabase and never regenerated.
+ */
+function generateQrDataUrl(url: string): string {
+  const qr = new QRCode({
+    content: url,
+    padding: 1,
+    width: 300,
+    height: 300,
+    color: '#000000',
+    background: '#ffffff',
+    ecl: 'M', // Medium error correction — good balance of density vs resilience
+  });
+  const svgString = qr.svg();
+  const base64 = btoa(svgString);
+  return `data:image/svg+xml;base64,${base64}`;
+}
 
 /**
  * Utility: Generate URL-safe slug from title
@@ -474,6 +495,10 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
       // Generate unique slug with time-window collision detection
       const slug = await getUniqueSlug(body.title, body.scheduledDate, supabase);
 
+      // Generate QR code for the watch page URL (once, stored forever)
+      const watchUrl = `https://go.momentcast.live/${slug}`;
+      const qrCodeDataUrl = generateQrDataUrl(watchUrl);
+
       // Create event
       const { data: event, error: createError } = await supabase
         .from('events')
@@ -487,6 +512,7 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
           rtmps_key: cfResult.rtmpsKey,
           tier: body.tier || 'standard',
           viewer_hour_limit: body.tier === 'premium' ? 15000 : 5000,
+          qr_code_data_url: qrCodeDataUrl, // base64 SVG for watch page sharing
         })
         .select()
         .single();
@@ -534,7 +560,7 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
 
       const { data: event, error } = await supabase
         .from('events')
-        .select('id, user_id, title, scheduled_date, status, stream_state, live_input_id, recordings, merged_video_id, viewer_hours_consumed, viewer_hour_limit, stream_started_manually_at, last_stream_activity')
+        .select('id, user_id, title, scheduled_date, status, stream_state, live_input_id, recordings, merged_video_id, viewer_hours_consumed, viewer_hour_limit, stream_started_manually_at, last_stream_activity, qr_code_data_url')
         .eq('slug', slug)
         .single();
 

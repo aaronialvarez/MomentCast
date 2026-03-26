@@ -889,6 +889,44 @@ body::after {
 }
 
 /* --------------------------------------------------------------------------
+   QR Share Block
+   Shown in COUNTDOWN and WAITING states so remote viewers can share
+   the watch URL before the event goes live. Hidden during LIVE and ENDED.
+   -------------------------------------------------------------------------- */
+
+.qr-share-block {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  margin-top: 2rem;
+  animation: mc-fadein 0.5s ease both;
+}
+
+.qr-label {
+  font-size: 0.625rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--text-3);
+  font-weight: 500;
+}
+
+.qr-image {
+  border-radius: var(--radius-sm);
+  background: #ffffff;
+  padding: 10px;
+  /* Subtle gold glow to match the warm cinematic theme */
+  box-shadow: 0 0 20px rgba(200, 169, 110, 0.08);
+}
+
+.qr-url {
+  font-size: 0.75rem;
+  color: var(--text-3);
+  letter-spacing: 0.06em;
+  font-weight: 400;
+}
+
+/* --------------------------------------------------------------------------
    Responsive
    -------------------------------------------------------------------------- */
 
