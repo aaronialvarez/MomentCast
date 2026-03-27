@@ -1180,7 +1180,14 @@ function applyCoverBackground(el) {
     <div class="mc-cover-bottom-fade"></div>
   `;
 
-  el.appendChild(wrap);
+  // Insert right after the countdown-timer card, so QR + powered-by sit on top of the photo
+  const timerCard = el.querySelector('.countdown-timer');
+  if (timerCard && timerCard.nextSibling) {
+    timerCard.parentNode.insertBefore(wrap, timerCard.nextSibling);
+  } else {
+    el.appendChild(wrap);
+  }
+
   el.classList.add('mc-cover-active');
 }
 

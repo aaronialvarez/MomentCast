@@ -291,12 +291,21 @@ body::after {
   -webkit-backdrop-filter: blur(8px);
 }
 
-/* Cover photo — block-level image that flows below the countdown content */
+/* Cover photo — sits below the countdown card.
+   QR block + powered-by flow on top of it via negative margin overlap. */
 .mc-cover-photo-wrap {
   position: relative;
   width: 100%;
-  margin-top: -2rem; /* pull up slightly so gradient overlaps the content edge */
+  margin-top: 0;
   pointer-events: none;
+  z-index: 0;
+}
+
+/* Pull the QR block and powered-by up so they overlap the photo */
+.mc-cover-active .qr-share-block,
+.mc-cover-active .mc-powered {
+  position: relative;
+  z-index: 2;
 }
 
 /* Top gradient — blends the photo's top edge into the solid-black section above */
