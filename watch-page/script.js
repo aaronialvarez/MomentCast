@@ -364,6 +364,7 @@ function showCountdown() {
 
   updateCountdown(scheduledDate);
   renderQrBlock(true); // Show QR code during countdown
+  applyCoverBackground(countdownEl); // Full-bleed cover photo behind countdown
   countdownEl.classList.remove('hidden');
 }
 
@@ -1037,6 +1038,13 @@ function showCountdownState(mode) {
   // QR code only shown in WAITING state (before event goes live)
   renderQrBlock(mode === 'WAITING');
 
+  // Cover photo only shown in WAITING and COUNTDOWN states
+  if (mode === 'WAITING') {
+    applyCoverBackground(countdownEl);
+  } else {
+    removeCoverBackground(countdownEl);
+  }
+
   countdownEl.classList.remove('hidden');
 }
 
@@ -1146,6 +1154,31 @@ function showExpired() {
   }
   
   countdownEl.classList.remove('hidden');
+}
+
+/**
+ * Apply the photographer's cover photo as a full-bleed background on the
+ * given state element. Uses a dark gradient overlay so text stays legible.
+ * No-op if no cover_image_url exists (existing dark background is preserved).
+ */
+function applyCoverBackground(el) {
+  if (!el || !eventData?.cover_image_url) return;
+  const url = eventData.cover_image_url;
+  el.style.backgroundImage = `linear-gradient(rgba(11,11,13,0.55), rgba(11,11,13,0.70)), url('${url}')`;
+  el.style.backgroundSize = 'cover';
+  el.style.backgroundPosition = 'center';
+  el.classList.add('mc-cover-active');
+}
+
+/**
+ * Remove cover photo background (used when transitioning to ENDED/EXPIRED states).
+ */
+function removeCoverBackground(el) {
+  if (!el) return;
+  el.style.backgroundImage = '';
+  el.style.backgroundSize = '';
+  el.style.backgroundPosition = '';
+  el.classList.remove('mc-cover-active');
 }
 
 // Start the app
