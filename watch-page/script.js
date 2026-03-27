@@ -1166,7 +1166,7 @@ function applyCoverBackground(el) {
   const url = eventData.cover_image_url;
   // Solid black on top fading to a darkened photo on the bottom half.
   // The photo is positioned at the bottom so faces/subjects aren't cropped by the card.
-  el.style.backgroundImage = `linear-gradient(to bottom, rgba(11,11,13,1) 0%, rgba(11,11,13,0.85) 35%, rgba(11,11,13,0.45) 60%, rgba(11,11,13,0.55) 100%), url('${url}')`;
+  el.style.backgroundImage = `linear-gradient(to bottom, rgba(11,11,13,1) 0%, rgba(11,11,13,1) 42%, rgba(11,11,13,0.65) 62%, rgba(11,11,13,0.35) 80%, rgba(11,11,13,0.45) 100%), url('${url}')`;
   el.style.backgroundSize = 'cover';
   el.style.backgroundPosition = 'bottom center';
   el.classList.add('mc-cover-active');
