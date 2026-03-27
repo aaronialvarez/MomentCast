@@ -1161,25 +1161,36 @@ function showExpired() {
  * given state element. Uses a dark gradient overlay so text stays legible.
  * No-op if no cover_image_url exists (existing dark background is preserved).
  */
+/**
+ * Inject the cover photo as a block-level image below the countdown content.
+ * The photo flows naturally after the card so the subject's head is never cropped.
+ * A gradient overlay blends the top edge into the solid-black countdown area.
+ */
 function applyCoverBackground(el) {
   if (!el || !eventData?.cover_image_url) return;
-  const url = eventData.cover_image_url;
-  // Solid black on top fading to a darkened photo on the bottom half.
-  // The photo is positioned at the bottom so faces/subjects aren't cropped by the card.
-  el.style.backgroundImage = `linear-gradient(to bottom, rgba(11,11,13,1) 0%, rgba(11,11,13,1) 42%, rgba(11,11,13,0.65) 62%, rgba(11,11,13,0.35) 80%, rgba(11,11,13,0.45) 100%), url('${url}')`;
-  el.style.backgroundSize = 'cover';
-  el.style.backgroundPosition = 'bottom center';
+
+  // Don't duplicate if already injected
+  if (el.querySelector('.mc-cover-photo-wrap')) return;
+
+  const wrap = document.createElement('div');
+  wrap.className = 'mc-cover-photo-wrap';
+  wrap.innerHTML = `
+    <div class="mc-cover-gradient"></div>
+    <img class="mc-cover-img" src="${eventData.cover_image_url}" alt="" />
+    <div class="mc-cover-bottom-fade"></div>
+  `;
+
+  el.appendChild(wrap);
   el.classList.add('mc-cover-active');
 }
 
 /**
- * Remove cover photo background (used when transitioning to ENDED/EXPIRED states).
+ * Remove cover photo element (used when transitioning to ENDED/EXPIRED states).
  */
 function removeCoverBackground(el) {
   if (!el) return;
-  el.style.backgroundImage = '';
-  el.style.backgroundSize = '';
-  el.style.backgroundPosition = '';
+  const wrap = el.querySelector('.mc-cover-photo-wrap');
+  if (wrap) wrap.remove();
   el.classList.remove('mc-cover-active');
 }
 

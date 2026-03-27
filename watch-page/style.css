@@ -263,18 +263,6 @@ body::after {
   transition: background-image 0.5s ease-in-out;
 }
 
-/* When a cover photo is active, add a subtle fixed-attachment parallax on desktop */
-#countdown.mc-cover-active {
-  background-attachment: fixed;
-}
-
-/* Disable fixed attachment on mobile (causes rendering issues on iOS) */
-@media (max-width: 800px) {
-  #countdown.mc-cover-active {
-    background-attachment: scroll;
-  }
-}
-
 #countdown .mc-center {
   max-width: 760px;
   text-align: center;
@@ -289,18 +277,57 @@ body::after {
 .countdown-timer {
   background: var(--surface);
   border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
+  padding: 2.75rem 2rem;
+  margin: 2rem auto;
+  max-width: 800px;
 }
 
-/* When cover photo is active, make the timer card transparent so it blends into the gradient */
+/* When cover photo is active, make the timer card semi-transparent */
 .mc-cover-active .countdown-timer {
   background: rgba(11, 11, 13, 0.5);
   border-color: rgba(255, 255, 255, 0.05);
   backdrop-filter: blur(8px);
   -webkit-backdrop-filter: blur(8px);
-  border-radius: var(--radius-lg);
-  padding: 2.75rem 2rem;
-  margin: 2rem auto;
-  max-width: 800px;
+}
+
+/* Cover photo — block-level image that flows below the countdown content */
+.mc-cover-photo-wrap {
+  position: relative;
+  width: 100%;
+  margin-top: -2rem; /* pull up slightly so gradient overlaps the content edge */
+  pointer-events: none;
+}
+
+/* Top gradient — blends the photo's top edge into the solid-black section above */
+.mc-cover-gradient {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  height: 120px;
+  background: linear-gradient(to bottom, rgba(11,11,13,1) 0%, rgba(11,11,13,0) 100%);
+  z-index: 1;
+}
+
+/* The actual cover image — full width, natural aspect ratio, no cropping */
+.mc-cover-img {
+  display: block;
+  width: 100%;
+  height: auto;
+  object-fit: cover;
+  max-height: 70vh;
+}
+
+/* Bottom fade — darkens the bottom edge back toward the page background */
+.mc-cover-bottom-fade {
+  position: absolute;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 80px;
+  background: linear-gradient(to top, rgba(11,11,13,1) 0%, rgba(11,11,13,0) 100%);
+  z-index: 1;
 }
 
 /* Small label above the timer digits */
