@@ -283,60 +283,73 @@ body::after {
   max-width: 800px;
 }
 
-/* When cover photo is active, make the timer card semi-transparent */
-.mc-cover-active .countdown-timer {
-  background: rgba(11, 11, 13, 0.5);
-  border-color: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
+/* --------------------------------------------------------------------------
+   Cover Photo System
+   Full-bleed photo between the countdown card and QR code.
+   Breaks out of .mc-center's max-width to fill viewport edge-to-edge.
+   -------------------------------------------------------------------------- */
+
+/* When cover is active, tighten the top content area */
+.mc-cover-active .mc-center {
+  padding-bottom: 0;
 }
 
-/* Cover photo — sits below the countdown card.
-   QR block + powered-by flow on top of it via negative margin overlap. */
+/* Make the timer card semi-transparent over the dark background */
+.mc-cover-active .countdown-timer {
+  background: rgba(11, 11, 13, 0.45);
+  border-color: rgba(255, 255, 255, 0.06);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+}
+
+/* The photo wrapper breaks out of .mc-center to go full-bleed */
 .mc-cover-photo-wrap {
   position: relative;
-  width: 100%;
-  margin-top: 0;
+  width: 100vw;
+  left: 50%;
+  transform: translateX(-50%);
+  margin-top: 1rem;
   pointer-events: none;
-  z-index: 0;
 }
 
-/* Pull the QR block and powered-by up so they overlap the photo */
-.mc-cover-active .qr-share-block,
-.mc-cover-active .mc-powered {
-  position: relative;
-  z-index: 2;
-}
-
-/* Top gradient — blends the photo's top edge into the solid-black section above */
-.mc-cover-gradient {
+/* Top gradient — blends the photo into the dark card area above */
+.mc-cover-gradient-top {
   position: absolute;
   top: 0;
   left: 0;
   right: 0;
-  height: 120px;
-  background: linear-gradient(to bottom, rgba(11,11,13,1) 0%, rgba(11,11,13,0) 100%);
+  height: 100px;
+  background: linear-gradient(to bottom, var(--bg) 0%, transparent 100%);
   z-index: 1;
 }
 
-/* The actual cover image — full width, natural aspect ratio, no cropping */
+/* The cover image — full bleed, capped height, shows from top down */
 .mc-cover-img {
   display: block;
   width: 100%;
   height: auto;
   object-fit: cover;
-  max-height: 70vh;
+  max-height: 65vh;
 }
 
-/* Bottom fade — darkens the bottom edge back toward the page background */
-.mc-cover-bottom-fade {
+/* Bottom gradient — fades photo back to page background */
+.mc-cover-gradient-bottom {
   position: absolute;
   bottom: 0;
   left: 0;
   right: 0;
-  height: 80px;
-  background: linear-gradient(to top, rgba(11,11,13,1) 0%, rgba(11,11,13,0) 100%);
+  height: 100px;
+  background: linear-gradient(to top, var(--bg) 0%, transparent 100%);
   z-index: 1;
+}
+
+/* Elements after the photo (date, QR, powered-by) layer on top */
+.mc-cover-active .scheduled-time,
+.mc-cover-active #scheduled-time,
+.mc-cover-active .qr-share-block,
+.mc-cover-active .mc-powered {
+  position: relative;
+  z-index: 2;
 }
 
 /* Small label above the timer digits */
@@ -355,9 +368,9 @@ body::after {
 */
 .timer-display {
   display: flex;
-  gap: 2rem;
+  gap: clamp(0.75rem, 3vw, 2rem);
   justify-content: center;
-  flex-wrap: wrap;
+  flex-wrap: nowrap;
 }
 
 .timer-unit {
@@ -369,9 +382,10 @@ body::after {
 }
 
 /* Large serif countdown digits — IDs #days, #hours, #minutes, #seconds */
+/* Countdown digits — auto-scale to always fit one line */
 .timer-value {
   font-family: var(--font-display);
-  font-size: clamp(3rem, 9vw, 5.5rem);
+  font-size: clamp(2rem, 8vw, 5.5rem);
   font-weight: 300;
   line-height: 1;
   color: var(--text-1);
@@ -379,7 +393,7 @@ body::after {
   display: block;
   border-bottom: 1px solid var(--border);
   padding-bottom: 0.5rem;
-  min-width: 80px;
+  min-width: 0;
   text-align: center;
 }
 

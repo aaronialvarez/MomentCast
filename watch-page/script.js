@@ -1166,6 +1166,11 @@ function showExpired() {
  * The photo flows naturally after the card so the subject's head is never cropped.
  * A gradient overlay blends the top edge into the solid-black countdown area.
  */
+/**
+ * Inject a full-bleed cover photo between the countdown card and the QR/footer.
+ * The photo breaks out of .mc-center's max-width to go edge-to-edge.
+ * QR, date, and powered-by sit on top of the photo via z-index layering.
+ */
 function applyCoverBackground(el) {
   if (!el || !eventData?.cover_image_url) return;
 
@@ -1175,17 +1180,18 @@ function applyCoverBackground(el) {
   const wrap = document.createElement('div');
   wrap.className = 'mc-cover-photo-wrap';
   wrap.innerHTML = `
-    <div class="mc-cover-gradient"></div>
+    <div class="mc-cover-gradient-top"></div>
     <img class="mc-cover-img" src="${eventData.cover_image_url}" alt="" />
-    <div class="mc-cover-bottom-fade"></div>
+    <div class="mc-cover-gradient-bottom"></div>
   `;
 
-  // Insert right after the countdown-timer card, so QR + powered-by sit on top of the photo
-  const timerCard = el.querySelector('.countdown-timer');
+  // Insert into .mc-center, right after the countdown-timer card
+  const center = el.querySelector('.mc-center');
+  const timerCard = center?.querySelector('.countdown-timer');
   if (timerCard && timerCard.nextSibling) {
-    timerCard.parentNode.insertBefore(wrap, timerCard.nextSibling);
-  } else {
-    el.appendChild(wrap);
+    center.insertBefore(wrap, timerCard.nextSibling);
+  } else if (center) {
+    center.appendChild(wrap);
   }
 
   el.classList.add('mc-cover-active');
