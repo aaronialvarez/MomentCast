@@ -289,6 +289,14 @@ body::after {
 .countdown-timer {
   background: var(--surface);
   border: 1px solid var(--border);
+}
+
+/* When cover photo is active, make the timer card transparent so it blends into the gradient */
+.mc-cover-active .countdown-timer {
+  background: rgba(11, 11, 13, 0.5);
+  border-color: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
   border-radius: var(--radius-lg);
   padding: 2.75rem 2rem;
   margin: 2rem auto;
