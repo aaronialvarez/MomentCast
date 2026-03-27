@@ -256,6 +256,23 @@ body::after {
 
 #countdown {
   flex-direction: column;
+  background-color: var(--bg); /* fallback when no cover photo */
+  background-size: cover;
+  background-position: center;
+  background-repeat: no-repeat;
+  transition: background-image 0.5s ease-in-out;
+}
+
+/* When a cover photo is active, add a subtle fixed-attachment parallax on desktop */
+#countdown.mc-cover-active {
+  background-attachment: fixed;
+}
+
+/* Disable fixed attachment on mobile (causes rendering issues on iOS) */
+@media (max-width: 800px) {
+  #countdown.mc-cover-active {
+    background-attachment: scroll;
+  }
 }
 
 #countdown .mc-center {
