@@ -560,7 +560,7 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
 
       const { data: event, error } = await supabase
         .from('events')
-        .select('id, user_id, title, scheduled_date, status, stream_state, live_input_id, recordings, merged_video_id, viewer_hours_consumed, viewer_hour_limit, stream_started_manually_at, last_stream_activity, qr_code_data_url')
+        .select('id, user_id, title, scheduled_date, status, stream_state, live_input_id, recordings, merged_video_id, viewer_hours_consumed, viewer_hour_limit, stream_started_manually_at, last_stream_activity, qr_code_data_url, cover_image_url')
         .eq('slug', slug)
         .single();
 
@@ -1035,6 +1035,68 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
       }
 
       return new Response(JSON.stringify(updated), {
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // PATCH /api/events/:slug/cover - Update cover image URL (authenticated)
+    if (pathname.match(/^\/api\/events\/[a-z0-9-]+\/cover$/) && method === 'PATCH') {
+      const token = extractToken(request.headers.get('authorization'));
+      if (!token) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const userId = await verifyJWT(token, env);
+      if (!userId) {
+        return new Response(JSON.stringify({ error: 'Invalid token' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const slug = pathname.split('/')[3];
+      const body = await request.json() as any;
+      const { coverImageUrl } = body;
+
+      if (!coverImageUrl) {
+        return new Response(JSON.stringify({ error: 'coverImageUrl is required' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Verify ownership
+      const { data: event, error: getError } = await supabase
+        .from('events')
+        .select('id, user_id')
+        .eq('slug', slug)
+        .single();
+
+      if (getError || !event || event.user_id !== userId) {
+        return new Response(JSON.stringify({ error: 'Event not found' }), {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const { error: updateError } = await supabase
+        .from('events')
+        .update({ cover_image_url: coverImageUrl })
+        .eq('id', event.id);
+
+      if (updateError) {
+        console.error('Cover update error:', updateError);
+        return new Response(JSON.stringify({ error: 'Failed to update cover' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      return new Response(JSON.stringify({ success: true, coverImageUrl }), {
+        status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }

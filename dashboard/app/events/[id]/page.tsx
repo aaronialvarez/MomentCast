@@ -50,6 +50,11 @@ export default function EventDetailPage() {
   const [newDate, setNewDate] = useState('');
   const [rescheduling, setRescheduling] = useState(false);
   const [rescheduleError, setRescheduleError] = useState<string | null>(null);
+  const [coverFile, setCoverFile] = useState<File | null>(null);
+  const [coverPreview, setCoverPreview] = useState<string | null>(null);
+  const [uploadingCover, setUploadingCover] = useState(false);
+  const [coverError, setCoverError] = useState<string | null>(null);
+  const [coverSuccess, setCoverSuccess] = useState(false);
 
   useEffect(() => {
     async function loadEvent() {
@@ -222,6 +227,79 @@ export default function EventDetailPage() {
     }
   }
 
+  async function handleCoverUpload() {
+    if (!coverFile || !event) return;
+
+    setUploadingCover(true);
+    setCoverError(null);
+    setCoverSuccess(false);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.push('/login');
+        return;
+      }
+
+      // Upload to Supabase Storage: covers/{userId}/{slug}.jpg
+      const filePath = `${session.user.id}/${event.slug}.${coverFile.name.split('.').pop()}`;
+      const { error: uploadError } = await supabase.storage
+        .from('covers')
+        .upload(filePath, coverFile, {
+          contentType: coverFile.type,
+          upsert: true,
+        });
+
+      if (uploadError) {
+        throw new Error(uploadError.message);
+      }
+
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from('covers')
+        .getPublicUrl(filePath);
+
+      const publicUrl = urlData.publicUrl;
+
+      // Save URL to event via API
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_WORKER_API_URL}/api/events/${event.slug}/cover`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ coverImageUrl: publicUrl }),
+        }
+      );
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to save cover photo');
+      }
+
+      setCoverSuccess(true);
+      setCoverFile(null);
+
+      // Reload event data to reflect change
+      const { data: eventData } = await supabase
+        .from('events')
+        .select('*')
+        .eq('id', event.id)
+        .single();
+
+      if (eventData) {
+        setEvent(eventData);
+      }
+    } catch (err) {
+      console.error('Cover upload error:', err);
+      setCoverError(err instanceof Error ? err.message : 'Upload failed');
+    } finally {
+      setUploadingCover(false);
+    }
+  }
+
   async function handleReschedule() {
     if (!event || !newDate) return;
     
@@ -356,8 +434,79 @@ export default function EventDetailPage() {
           </div>
         )}
 
-        {/* Watch URL */}
-        <div className="bg-gray-800 rounded-lg p-6 mb-6"></div>
+        {/* Cover Photo */}
+        <div className="bg-gray-800 rounded-lg p-6 mb-6">
+          <h2 className="text-xl font-semibold mb-2">Cover Photo</h2>
+          <p className="text-gray-400 text-sm mb-4">
+            Shown behind the countdown on your watch page. Max 2MB. JPG, PNG, or WebP.
+          </p>
+
+          {/* Current cover preview */}
+          {(event as any).cover_image_url && !coverPreview && (
+            <div className="mb-4">
+              <img
+                src={(event as any).cover_image_url}
+                alt="Current cover"
+                className="w-full max-h-48 object-cover rounded-lg border border-gray-700"
+              />
+              <p className="text-green-400 text-xs mt-2">✓ Cover photo is live on your watch page</p>
+            </div>
+          )}
+
+          {/* New file preview */}
+          {coverPreview && (
+            <div className="mb-4">
+              <img
+                src={coverPreview}
+                alt="Cover preview"
+                className="w-full max-h-48 object-cover rounded-lg border border-gray-600"
+              />
+              <p className="text-gray-400 text-xs mt-2">Preview (not saved yet)</p>
+            </div>
+          )}
+
+          <div className="flex items-center gap-3">
+            <label className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg font-medium cursor-pointer transition-colors text-sm">
+              {(event as any).cover_image_url ? 'Replace Photo' : 'Choose Photo'}
+              <input
+                type="file"
+                accept="image/jpeg,image/png,image/webp"
+                className="hidden"
+                onChange={(e) => {
+                  const file = e.target.files?.[0];
+                  if (!file) return;
+
+                  if (file.size > 2 * 1024 * 1024) {
+                    setCoverError('File must be under 2MB');
+                    return;
+                  }
+
+                  setCoverFile(file);
+                  setCoverError(null);
+                  setCoverSuccess(false);
+                  setCoverPreview(URL.createObjectURL(file));
+                }}
+              />
+            </label>
+
+            {coverFile && (
+              <button
+                onClick={handleCoverUpload}
+                disabled={uploadingCover}
+                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg font-medium transition-colors text-sm"
+              >
+                {uploadingCover ? 'Uploading...' : 'Save Cover Photo'}
+              </button>
+            )}
+          </div>
+
+          {coverError && (
+            <p className="text-red-400 text-sm mt-3">{coverError}</p>
+          )}
+          {coverSuccess && (
+            <p className="text-green-400 text-sm mt-3">✓ Cover photo saved successfully</p>
+          )}
+        </div>
 
         {/* Watch URL */}
         <div className="bg-gray-800 rounded-lg p-6 mb-6">
