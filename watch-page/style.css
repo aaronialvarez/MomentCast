@@ -257,10 +257,9 @@ body::after {
 
 #countdown {
   flex-direction: column;
-  background-color: var(--bg); /* fallback when no cover photo */
-  background-size: cover;
-  background-position: center;
-  background-repeat: no-repeat;
+  align-items: center;
+  justify-content: flex-start; /* top-align content instead of vertical centering */
+  background-color: var(--bg);
   transition: background-image 0.5s ease-in-out;
 }
 
@@ -276,7 +275,7 @@ body::after {
   are only present during COUNTDOWN mode.
 */
 .countdown-timer {
-  background: var(--surface-2);
+  background: #222226;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 2.75rem 2rem;  /* ← internal breathing room inside the card */
@@ -321,6 +320,15 @@ body::after {
   z-index: 1;
 }
 
+/* The cover image — always shows completely (all 9 quadrants), never cropped */
+.mc-cover-bg-img {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
+  display: block;
+}
+
 /* Ensure #countdown can anchor the positioned photo */
 .mc-cover-active {
   position: relative;
@@ -330,7 +338,15 @@ body::after {
 .mc-cover-active .mc-center {
   position: relative;
   z-index: 2;
-  padding-bottom: 2rem;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Push powered-by to the bottom of the viewport */
+.mc-cover-active .mc-powered {
+  margin-top: auto;
+  padding-bottom: 1.5rem;
 }
 
 /* Semi-transparent card when cover photo is present */
