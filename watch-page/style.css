@@ -201,7 +201,7 @@ body::after {
 .mc-center {
   width: 100%;
   max-width: 680px;
-  padding: 2.5rem 1.5rem;
+  padding: 1.5rem 1.5rem; /* ← TOP/BOTTOM gap | LEFT/RIGHT gap for the whole content area */
   animation: mc-fadein 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
@@ -213,7 +213,7 @@ body::after {
   text-transform: uppercase;
   color: var(--gold);
   font-weight: 500;
-  margin-bottom: 1.25rem;
+  margin-bottom: 1.25rem; /* ← gap below "UPCOMING EVENT", above the title */
 }
 
 /* Large serif event title on the countdown page */
@@ -278,8 +278,8 @@ body::after {
   background: var(--surface);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 2.75rem 2rem;
-  margin: 2rem auto;
+  padding: 2.75rem 2rem;  /* ← internal breathing room inside the card */
+  margin: 1.5rem auto;  /* ← gap ABOVE the card (below title) and BELOW the card (above QR/date) */
   max-width: 800px;
 }
 
@@ -345,7 +345,7 @@ body::after {
   text-transform: uppercase;
   color: var(--text-3);
   font-weight: 500;
-  margin-bottom: 2.25rem;
+  margin-bottom: 1.25rem; /* ← gap below "EVENT STARTS IN", above the timer digits */
 }
 
 /*
@@ -399,7 +399,7 @@ body::after {
 #scheduled-time {
   font-size: 0.8125rem;
   color: var(--text-2);
-  margin-top: 2rem;
+  margin-top: 1.25rem;   /* ← gap above the date, below the timer digits */
   letter-spacing: 0.04em;
   line-height: 1.5;
 }
@@ -960,7 +960,7 @@ body::after {
   flex-direction: column;
   align-items: center;
   gap: 0.5rem;
-  margin-top: 2rem;
+  margin-top: 5rem;   /* gap above the QR block, below the timer/scheduled time */
   animation: mc-fadein 0.5s ease both;
 }
 
@@ -1036,7 +1036,7 @@ body::after {
   }
 
   .countdown-timer {
-    padding: 2rem 1.25rem;
+    padding: 2rem 1.25rem;    /* ← mobile card internal padding (tighter than desktop) */
     border-radius: var(--radius);
   }
 
@@ -1050,7 +1050,7 @@ body::after {
   }
 
   .mc-center {
-    padding: 2rem 1.25rem;
+    padding: 2rem 1.25rem;    /* ← mobile outer padding (tighter than desktop) */
   }
 }
 
