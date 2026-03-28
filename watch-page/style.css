@@ -275,7 +275,7 @@ body::after {
   are only present during COUNTDOWN mode.
 */
 .countdown-timer {
-  background: var(--surface);
+  background: var(--surface-2);
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
   padding: 2.75rem 2rem;  /* ← internal breathing room inside the card */
@@ -970,7 +970,7 @@ body::after {
   font-size: 0.625rem;
   letter-spacing: 0.25em;
   text-transform: uppercase;
-  color: var(--text-3);
+  color: var(--text-2);
   font-weight: 500;
 }
 
@@ -984,7 +984,7 @@ body::after {
 
 .qr-url {
   font-size: 0.75rem;
-  color: var(--text-3);
+  color: var(--text-2);
   letter-spacing: 0.06em;
   font-weight: 400;
 }
