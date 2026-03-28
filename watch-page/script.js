@@ -1157,53 +1157,33 @@ function showExpired() {
 }
 
 /**
- * Apply the photographer's cover photo as a full-bleed background on the
- * given state element. Uses a dark gradient overlay so text stays legible.
- * No-op if no cover_image_url exists (existing dark background is preserved).
- */
-/**
- * Inject the cover photo as a block-level image below the countdown content.
- * The photo flows naturally after the card so the subject's head is never cropped.
- * A gradient overlay blends the top edge into the solid-black countdown area.
- */
-/**
- * Inject a full-bleed cover photo between the countdown card and the QR/footer.
- * The photo breaks out of .mc-center's max-width to go edge-to-edge.
- * QR, date, and powered-by sit on top of the photo via z-index layering.
+ * Inject an absolutely-positioned cover photo into #countdown.
+ * Covers the bottom ~55vh of the viewport. A ::before gradient (in CSS)
+ * fades the top edge into the solid-black area above.
+ *
+ * object-fit:cover + object-position:top center (in CSS) ensures the
+ * subject's head/face is preserved regardless of portrait vs landscape input.
+ *
+ * No-op when cover_image_url is absent (existing dark background preserved).
  */
 function applyCoverBackground(el) {
   if (!el || !eventData?.cover_image_url) return;
+  if (el.querySelector('.mc-cover-bg')) return;
 
-  // Don't duplicate if already injected
-  if (el.querySelector('.mc-cover-photo-wrap')) return;
-
-  const wrap = document.createElement('div');
-  wrap.className = 'mc-cover-photo-wrap';
-  wrap.innerHTML = `
-    <div class="mc-cover-gradient-top"></div>
-    <img class="mc-cover-img" src="${eventData.cover_image_url}" alt="" />
-    <div class="mc-cover-gradient-bottom"></div>
-  `;
-
-  // Insert into .mc-center, right after the countdown-timer card
-  const center = el.querySelector('.mc-center');
-  const timerCard = center?.querySelector('.countdown-timer');
-  if (timerCard && timerCard.nextSibling) {
-    center.insertBefore(wrap, timerCard.nextSibling);
-  } else if (center) {
-    center.appendChild(wrap);
-  }
-
+  const div = document.createElement('div');
+  div.className = 'mc-cover-bg';
+  div.style.backgroundImage = `url('${eventData.cover_image_url}')`;
+  el.insertBefore(div, el.firstChild);
   el.classList.add('mc-cover-active');
 }
 
 /**
- * Remove cover photo element (used when transitioning to ENDED/EXPIRED states).
+ * Remove cover photo (used when transitioning to ENDED/EXPIRED states).
  */
 function removeCoverBackground(el) {
   if (!el) return;
-  const wrap = el.querySelector('.mc-cover-photo-wrap');
-  if (wrap) wrap.remove();
+  const bg = el.querySelector('.mc-cover-bg');
+  if (bg) bg.remove();
   el.classList.remove('mc-cover-active');
 }
 
