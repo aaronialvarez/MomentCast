@@ -257,7 +257,7 @@ body::after {
 #countdown {
   flex-direction: column;
   background-color: var(--bg); /* fallback when no cover photo */
-  background-size: contain;
+  background-size: cover;
   background-position: center;
   background-repeat: no-repeat;
   transition: background-image 0.5s ease-in-out;
@@ -297,7 +297,7 @@ body::after {
   left: 0;
   right: 0;
   height: 70vh;   /* ← increase this to show more of the photo. Try 65vh or 70vh */
-  background-size: cover;
+  background-size: contain;
   background-position: top center;
   background-repeat: no-repeat;
   z-index: 0;
