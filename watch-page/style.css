@@ -233,6 +233,7 @@ body::after {
   font-size: 0.6875rem;
   color: var(--text-3);
   letter-spacing: 0.08em;
+  margin-top: 1rem;
 }
 
 .mc-powered strong {
@@ -293,13 +294,14 @@ body::after {
 
 .mc-cover-bg {
   position: absolute;
+  top: 45%;      /* start below the card area */
   bottom: 0;
   left: 0;
   right: 0;
-  height: 70vh;   /* ← increase this to show more of the photo. Try 65vh or 70vh */
-  background-size: contain;
-  background-position: top center;
-  background-repeat: no-repeat;
+  display: flex;
+  align-items: flex-start; /* image aligns to top of container */
+  justify-content: center;
+  overflow: hidden;
   z-index: 0;
   pointer-events: none;
 }
@@ -328,6 +330,7 @@ body::after {
 .mc-cover-active .mc-center {
   position: relative;
   z-index: 2;
+  padding-bottom: 2rem;
 }
 
 /* Semi-transparent card when cover photo is present */
@@ -1038,7 +1041,8 @@ body::after {
   }
 
   .countdown-timer {
-    padding: 2rem 1.25rem;    /* ← mobile card internal padding (tighter than desktop) */
+    padding: 1.5rem 1.25rem;    /* ← mobile card internal padding (tighter than desktop) */
+    margin: 1rem auto;
     border-radius: var(--radius);
   }
 
@@ -1052,7 +1056,7 @@ body::after {
   }
 
   .mc-center {
-    padding: 2rem 1.25rem;    /* ← mobile outer padding (tighter than desktop) */
+    padding: 1rem 1.25rem 2rem 1.25rem;    /* ← mobile outer padding (tighter than desktop) */
   }
 }
 
