@@ -257,7 +257,7 @@ body::after {
 #countdown {
   flex-direction: column;
   background-color: var(--bg); /* fallback when no cover photo */
-  background-size: cover;
+  background-size: contain;
   background-position: center;
   background-repeat: no-repeat;
   transition: background-image 0.5s ease-in-out;
@@ -962,7 +962,7 @@ body::after {
   gap: 0.5rem;
   margin-top: 2rem;       
   position: relative;
-  top: 8rem;              /* ← adjust this to push QR down without moving the photo */
+  top: 7rem;              /* ← adjust this to push QR down without moving the photo */
   animation: mc-fadein 0.5s ease both;
 }
 
