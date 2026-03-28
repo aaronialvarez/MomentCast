@@ -201,7 +201,7 @@ body::after {
 .mc-center {
   width: 100%;
   max-width: 680px;
-  padding: 1.5rem 1.5rem; /* ← TOP/BOTTOM gap | LEFT/RIGHT gap for the whole content area */
+  padding: 1rem 1rem; /* ← TOP/BOTTOM gap | LEFT/RIGHT gap for the whole content area */
   animation: mc-fadein 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
@@ -962,7 +962,7 @@ body::after {
   gap: 0.5rem;
   margin-top: 2rem;       
   position: relative;
-  top: 6rem;              /* ← adjust this to push QR down without moving the photo */
+  top: 8rem;              /* ← adjust this to push QR down without moving the photo */
   animation: mc-fadein 0.5s ease both;
 }
 
