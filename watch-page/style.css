@@ -960,7 +960,7 @@ body::after {
   flex-direction: column;
   align-items: center;
   gap: 0.5rem;
-  margin-top: 5rem;   /* gap above the QR block, below the timer/scheduled time */
+  margin-top: 20rem;   /* gap above the QR block, below the timer/scheduled time */
   animation: mc-fadein 0.5s ease both;
 }
 
