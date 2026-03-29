@@ -8,28 +8,23 @@
    -------------------------------------------------------------------------- */
 
 :root {
-  --bg:           #0b0b0d;
-  --surface:      #131315;
-  --surface-2:    #1b1b1e;
-  --border:       rgba(255, 255, 255, 0.07);
-  --border-2:     rgba(255, 255, 255, 0.04);
-
-  --text-1:       #ede9e3;
-  --text-2:       rgba(237, 233, 227, 0.52);
-  --text-3:       rgba(237, 233, 227, 0.28);
-
-  --gold:         #c8a96e;
-  --gold-muted:   rgba(200, 169, 110, 0.12);
-
-  --live-red:     #e54b4b;
-  --live-glow:    rgba(229, 75, 75, 0.45);
-
-  --radius-sm:    8px;
-  --radius:       14px;
-  --radius-lg:    20px;
-
+  --bg: #0b0b0d;
+  --surface: #131315;
+  --surface-2: #1b1b1e;
+  --border: rgba(255, 255, 255, 0.07);
+  --border-2: rgba(255, 255, 255, 0.04);
+  --text-1: #ede9e3;
+  --text-2: rgba(237, 233, 227, 0.52);
+  --text-3: rgba(237, 233, 227, 0.28);
+  --gold: #c8a96e;
+  --gold-muted: rgba(200, 169, 110, 0.12);
+  --live-red: #e54b4b;
+  --live-glow: rgba(229, 75, 75, 0.45);
+  --radius-sm: 8px;
+  --radius: 14px;
+  --radius-lg: 20px;
   --font-display: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
-  --font-body:    'DM Sans', system-ui, -apple-system, sans-serif;
+  --font-body: 'DM Sans', system-ui, -apple-system, sans-serif;
 }
 
 /* --------------------------------------------------------------------------
@@ -52,8 +47,11 @@ body {
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
   /* Warm radial highlight at top — subtle brand warmth */
-  background-image:
-    radial-gradient(ellipse 80% 60% at 50% -10%, rgba(200, 169, 110, 0.04) 0%, transparent 70%);
+  background-image: radial-gradient(
+    ellipse 80% 60% at 50% -10%,
+    rgba(200, 169, 110, 0.04) 0%,
+    transparent 70%
+  );
 }
 
 /* Fine grain texture overlay — adds depth without competing with content */
@@ -94,37 +92,57 @@ body::after {
    -------------------------------------------------------------------------- */
 
 @keyframes mc-fadein {
-  from { opacity: 0; transform: translateY(14px); }
-  to   { opacity: 1; transform: translateY(0);    }
+  from {
+    opacity: 0;
+    transform: translateY(14px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
 
 @keyframes mc-float {
-  0%, 60%, 100% { transform: translateY(0);    opacity: 0.25; }
-  30%            { transform: translateY(-9px); opacity: 1;    }
+  0%, 60%, 100% {
+    transform: translateY(0);
+    opacity: 0.25;
+  }
+  30% {
+    transform: translateY(-9px);
+    opacity: 1;
+  }
 }
 
 @keyframes mc-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes badge-live {
   0%, 100% {
-    box-shadow: 0 0 0 2px rgba(229, 75, 75, 0),
-                0 0 8px var(--live-glow),
-                0 0 18px var(--live-glow);
+    box-shadow:
+      0 0 0 2px rgba(229, 75, 75, 0),
+      0 0 8px var(--live-glow),
+      0 0 18px var(--live-glow);
     opacity: 1;
   }
   50% {
-    box-shadow: 0 0 0 3px rgba(229, 75, 75, 0.15),
-                0 0 4px rgba(229, 75, 75, 0.3),
-                0 0 8px rgba(229, 75, 75, 0.2);
+    box-shadow:
+      0 0 0 3px rgba(229, 75, 75, 0.15),
+      0 0 4px rgba(229, 75, 75, 0.3),
+      0 0 8px rgba(229, 75, 75, 0.2);
     opacity: 0.7;
   }
 }
 
 @keyframes badge-pulse {
-  0%, 100% { opacity: 1; }
-  50%       { opacity: 0.4; }
+  0%, 100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
 }
 
 /* --------------------------------------------------------------------------
@@ -153,9 +171,15 @@ body::after {
   animation: mc-float 1.5s ease-in-out infinite;
 }
 
-.mc-dot:nth-child(1) { animation-delay: 0s; }
-.mc-dot:nth-child(2) { animation-delay: 0.18s; }
-.mc-dot:nth-child(3) { animation-delay: 0.36s; }
+.mc-dot:nth-child(1) {
+  animation-delay: 0s;
+}
+.mc-dot:nth-child(2) {
+  animation-delay: 0.18s;
+}
+.mc-dot:nth-child(3) {
+  animation-delay: 0.36s;
+}
 
 .mc-loading-text {
   font-size: 0.6875rem;
@@ -201,7 +225,7 @@ body::after {
 .mc-center {
   width: 100%;
   max-width: 680px;
-  padding: 1rem 1rem; /* ← TOP/BOTTOM gap | LEFT/RIGHT gap for the whole content area */
+  padding: 1rem 1rem; /* TOP/BOTTOM | LEFT/RIGHT */
   animation: mc-fadein 0.65s cubic-bezier(0.22, 1, 0.36, 1) both;
 }
 
@@ -213,7 +237,7 @@ body::after {
   text-transform: uppercase;
   color: var(--gold);
   font-weight: 500;
-  margin-bottom: 1.25rem; /* ← gap below "UPCOMING EVENT", above the title */
+  margin-bottom: 1.25rem; /* gap below "UPCOMING EVENT" */
 }
 
 /* Large serif event title on the countdown page */
@@ -258,12 +282,12 @@ body::after {
 #countdown {
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start; /* top-align content instead of vertical centering */
+  justify-content: flex-start; /* top-align content */
   background-color: var(--bg);
   transition: background-image 0.5s ease-in-out;
   position: relative;
-  min-height: 100vh;          /* page at least viewport tall */
-  padding-bottom: 2rem;       /* breathing room below the image/card */
+  min-height: 100vh;  /* page at least viewport tall */
+  padding-bottom: 2rem;
 }
 
 #countdown .mc-center {
@@ -271,46 +295,55 @@ body::after {
   text-align: center;
 }
 
-/*
-  IMPORTANT: script.js replaces the innerHTML of .countdown-timer for
-  WAITING / ENDED / EXPIRED modes. The class name must stay exactly
-  'countdown-timer'. Inner elements (timer-display, scheduled-time, etc.)
-  are only present during COUNTDOWN mode.
-*/
+/* IMPORTANT: script.js replaces the innerHTML of .countdown-timer for
+   WAITING / ENDED / EXPIRED modes. Class name must stay exactly
+   "countdown-timer". */
 .countdown-timer {
   background: #222226;
   border: 1px solid var(--border);
   border-radius: var(--radius-lg);
-  padding: 2.75rem 2rem;  /* ← internal breathing room inside the card */
-  margin: 1.5rem auto;  /* ← gap ABOVE the card (below title) and BELOW the card (above QR/date) */
+  padding: 2.75rem 2rem;
+  margin: 1.5rem auto;
   max-width: 800px;
 }
 
 /* --------------------------------------------------------------------------
-Cover Photo System
-Goal: always show the full cover image (all 9 quadrants) on any screen size.
-We render the image inside a square "stage" that scales with viewport width,
-using letterboxing (black bars) as needed. The countdown floats above.
--------------------------------------------------------------------------- */
+   Cover Photo System
+   Goal: always show the full cover image (all 9 quadrants) on any screen
+   size. The image lives in a centered square and acts as a background layer
+   under the countdown and QR content.
+   -------------------------------------------------------------------------- */
 
 /* Ensure #countdown can anchor the positioned photo */
 .mc-cover-active {
   position: relative;
 }
 
-/* Square stage pinned near the top of the countdown state */
+/* Background layer filling the countdown state */
 .mc-cover-bg {
-  position: relative;
-  width: 100%;
-  max-width: 900px;            /* desktop max width for the square */
-  aspect-ratio: 1 / 1;         /* always a square stage */
-  margin: 3.5rem auto 2rem;    /* space from top and below the image */
-  background-color: #000;      /* letterbox bars */
+  position: absolute;
+  inset: 0;
+  z-index: 0;                  /* behind .mc-center content */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
   overflow: hidden;
-  z-index: 0;
+  background-color: #000;      /* letterbox bars */
 }
 
-/* Gradient overlay — optional cinematic fade; keep or tweak as needed */
+/* Cover image — always fully visible, never cropped */
+.mc-cover-bg-img {
+  width: 100%;
+  height: 100%;
+  max-width: min(90vmin, 900px);   /* square driven by smaller viewport side */
+  max-height: min(90vmin, 900px);
+  object-fit: contain;             /* show all 9 quadrants */
+  object-position: center center;
+  display: block;
+}
+
+/* Gradient overlay — cinematic fade from the top */
 .mc-cover-bg::before {
   content: '';
   position: absolute;
@@ -324,18 +357,6 @@ using letterboxing (black bars) as needed. The countdown floats above.
   );
   z-index: 1;
   pointer-events: none;
-}
-
-/* The cover image — fully visible inside the square, never cropped */
-.mc-cover-bg-img {
-  position: absolute;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  object-fit: contain;          /* key: show entire image with bars if needed */
-  object-position: center center;
-  display: block;
-  z-index: 0;
 }
 
 /* All content layers above the photo stage */
@@ -365,76 +386,20 @@ using letterboxing (black bars) as needed. The countdown floats above.
   margin-top: auto;
 }
 
-/* Gradient overlay — fades photo into the solid-black upper section */
-.mc-cover-bg::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    to bottom,
-    var(--bg) 0%,
-    rgba(11, 11, 13, 0.7) 30%,
-    rgba(11, 11, 13, 0.35) 60%,
-    rgba(11, 11, 13, 0.5) 100%
-  );
-  z-index: 1;
-}
+/* --------------------------------------------------------------------------
+   Countdown Elements
+   -------------------------------------------------------------------------- */
 
-/* The cover image — fills full width, shows from top down */
-.mc-cover-bg-img {
-  width: 100%;
-  height: auto;
-  min-height: 100%;
-  object-fit: cover;
-  object-position: top center;
-  display: block;
-}
-
-/* Ensure #countdown can anchor the positioned photo */
-.mc-cover-active {
-  position: relative;
-}
-
-/* All content layers above the positioned photo */
-.mc-cover-active .mc-center {
-  position: relative;
-  z-index: 2;
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-  margin: 0 auto;
-  align-items: center;
-}
-
-/* Push powered-by to the bottom */
-.mc-cover-active .mc-powered {
-  margin-top: auto;
-}
-
-/* Slightly lighter card when cover photo is present, with blur */
-.mc-cover-active .countdown-timer {
-  background: rgba(40, 40, 46, 0.85);
-  border-color: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  position: relative;
-  z-index: 3;
-}
-
-/* Small label above the timer digits */
 .mc-countdown-label {
   font-size: 0.625rem;
   letter-spacing: 0.28em;
   text-transform: uppercase;
   color: var(--text-3);
   font-weight: 500;
-  margin-bottom: 1.25rem; /* ← gap below "EVENT STARTS IN", above the timer digits */
+  margin-bottom: 1.25rem; /* gap below "EVENT STARTS IN" */
 }
 
-/*
-  Four-unit timer row.
-  script.js hides daysEl.parentElement (.timer-unit) when countdown hits zero.
-*/
+/* Four-unit timer row */
 .timer-display {
   display: flex;
   gap: clamp(0.75rem, 3vw, 2rem);
@@ -450,8 +415,7 @@ using letterboxing (black bars) as needed. The countdown floats above.
   min-width: 64px;
 }
 
-/* Large serif countdown digits — IDs #days, #hours, #minutes, #seconds */
-/* Countdown digits — auto-scale to always fit one line */
+/* Countdown digits — auto-scale to fit one line */
 .timer-value {
   font-family: var(--font-display);
   font-size: clamp(2rem, 8vw, 5.5rem);
@@ -474,23 +438,17 @@ using letterboxing (black bars) as needed. The countdown floats above.
   font-weight: 500;
 }
 
-/*
-  #scheduled-time — set by showCountdown().
-  Also injected as <p class="scheduled-time"> by showCountdownState().
-*/
+/* #scheduled-time — set by showCountdown() / showCountdownState() */
 .scheduled-time,
 #scheduled-time {
   font-size: 0.8125rem;
   color: var(--text-2);
-  margin-top: 1.25rem;   /* ← gap above the date, below the timer digits */
+  margin-top: 1.25rem;
   letter-spacing: 0.04em;
   line-height: 1.5;
 }
 
-/*
-  Status message block — injected by showCountdownState() for
-  WAITING / ENDED / EXPIRED modes.
-*/
+/* Status message block for WAITING / ENDED / EXPIRED */
 .status-message {
   padding: 1.5rem 0 0.5rem;
 }
@@ -517,7 +475,7 @@ using letterboxing (black bars) as needed. The countdown floats above.
 
 #live,
 #replay {
-  /* Override the centered flex from .state — player fills the viewport */
+  /* Override centered flex from .state — player fills the viewport */
   align-items: stretch;
   justify-content: stretch;
   padding: 0;
@@ -541,14 +499,10 @@ using letterboxing (black bars) as needed. The countdown floats above.
   border-bottom: 1px solid var(--border);
   flex-shrink: 0;
   min-height: 56px;
-  overflow: hidden;        /* prevent children from causing horizontal scroll */
+  overflow: hidden; /* prevent horizontal scroll */
 }
 
-/*
-  Column wrapper for title + date subtitle.
-  Owns flex:1 so the badge stays pinned to the right.
-  min-width:0 allows text truncation to work inside a flex child.
-*/
+/* Column wrapper for title + date subtitle */
 .mc-player-header-text {
   display: flex;
   flex-direction: column;
@@ -557,7 +511,7 @@ using letterboxing (black bars) as needed. The countdown floats above.
   min-width: 0;
 }
 
-/* Event title — set by script.js via #live-title / #replay-title */
+/* Event title */
 .mc-player-title {
   font-family: var(--font-display);
   font-size: clamp(1rem, 2.5vw, 1.5rem);
@@ -571,10 +525,7 @@ using letterboxing (black bars) as needed. The countdown floats above.
   text-overflow: ellipsis;
 }
 
-/*
-  Event date subtitle — injected by setEventDateSubtitle() in script.js.
-  Uses stream_started_manually_at, falls back to scheduled_date.
-*/
+/* Event date subtitle */
 .mc-event-date {
   font-size: 0.6875rem;
   letter-spacing: 0.12em;
@@ -594,12 +545,7 @@ using letterboxing (black bars) as needed. The countdown floats above.
   justify-content: flex-start;
 }
 
-/*
-  16:9 aspect ratio wrapper.
-  IMPORTANT: must carry both .video-container and .relative because
-  showLive() calls liveEl.querySelector('.relative') to find this element
-  and may replace its innerHTML when recreating the iframe.
-*/
+/* 16:9 aspect ratio wrapper */
 .video-container {
   position: relative;
   width: 100%;
@@ -633,8 +579,6 @@ using letterboxing (black bars) as needed. The countdown floats above.
 
 /* --------------------------------------------------------------------------
    Badges
-   updateStatusBadge() queries .ended-badge on the replay page and swaps
-   className among all four variants — all must be styled.
    -------------------------------------------------------------------------- */
 
 .live-badge,
@@ -698,27 +642,23 @@ using letterboxing (black bars) as needed. The countdown floats above.
 
 /* --------------------------------------------------------------------------
    Presented-by Logo
-   Injected by renderLogo() inside .mc-player-header.
-   Fit-to-height with width clamping — handles square, wide, and tall logos
-   at any resolution without distortion or overflow.
    -------------------------------------------------------------------------- */
 
 .mc-presented-by {
   display: flex;
   align-items: center;
   gap: 0.5rem;
-  flex-shrink: 1;          /* allow shrinking when header is tight */
-  min-width: 0;            /* let flex item shrink below content size */
-  overflow: hidden;        /* clip if logo is still too wide */
+  flex-shrink: 1;
+  min-width: 0;
+  overflow: hidden;
   padding-left: 0.75rem;
-  /* Height is the primary constraint; width is governed by flex layout */
   height: 44px;
 }
 
 .mc-presented-logo {
-  height: 100%;            /* fill container height — gives SVGs with width="100%" a concrete reference */
-  width: auto;             /* scale width from aspect ratio */
-  max-width: 100%;         /* never exceed container width */
+  height: 100%;
+  width: auto;
+  max-width: 100%;
   object-fit: contain;
   display: block;
 }
@@ -736,7 +676,6 @@ using letterboxing (black bars) as needed. The countdown floats above.
    Spinners
    -------------------------------------------------------------------------- */
 
-/* Base spinner — white, used in dark overlays */
 .mc-spinner {
   width: 40px;
   height: 40px;
@@ -747,7 +686,7 @@ using letterboxing (black bars) as needed. The countdown floats above.
   animation: mc-spin 0.85s linear infinite;
 }
 
-/* Gold variant — used inside the live container processing overlay */
+/* Gold variant */
 .mc-spinner--gold {
   border-color: rgba(200, 169, 110, 0.15);
   border-top-color: var(--gold);
@@ -755,7 +694,7 @@ using letterboxing (black bars) as needed. The countdown floats above.
   height: 52px;
 }
 
-/* Legacy .spinner — kept for any older markup references */
+/* Legacy .spinner */
 .spinner {
   border: 2px solid rgba(200, 169, 110, 0.15);
   border-top-color: var(--gold);
@@ -768,11 +707,8 @@ using letterboxing (black bars) as needed. The countdown floats above.
 
 /* --------------------------------------------------------------------------
    Dynamically Injected Elements
-   All elements below are created at runtime by script.js.
-   No Tailwind utility classes are used — all styles are defined here.
    -------------------------------------------------------------------------- */
 
-/* "Event starting soon..." shown when the countdown reaches zero */
 .mc-starting-message {
   font-size: 1.25rem;
   font-weight: 700;
@@ -781,7 +717,7 @@ using letterboxing (black bars) as needed. The countdown floats above.
   color: var(--text-1);
 }
 
-/* Processing overlay — semi-transparent layer over the video container */
+/* Processing overlay */
 .mc-processing-overlay {
   position: absolute;
   inset: 0;
@@ -792,19 +728,16 @@ using letterboxing (black bars) as needed. The countdown floats above.
   z-index: 10;
 }
 
-/* Darker variant used inside the live container while recording finalizes */
 .mc-processing-overlay--dark {
   background: #111113;
   border-radius: var(--radius);
   z-index: 20;
 }
 
-/* Unmute hint — non-blocking toast anchored to bottom of the video.
-   Doesn't cover the player controls so the user can tap directly on them.
-   Auto-dismisses after 4s or on any click. */
+/* Unmute hint */
 .mc-unmute-hint {
   position: absolute;
-  bottom: 52px;           /* sit above the Cloudflare player control bar */
+  bottom: 52px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 5;
@@ -823,7 +756,7 @@ using letterboxing (black bars) as needed. The countdown floats above.
   font-weight: 500;
   letter-spacing: 0.02em;
   white-space: nowrap;
-  pointer-events: none;     /* let clicks pass through to the player */
+  pointer-events: none;
   animation: mc-unmute-fadein 0.3s ease both;
 }
 
@@ -834,8 +767,14 @@ using letterboxing (black bars) as needed. The countdown floats above.
 }
 
 @keyframes mc-unmute-fadein {
-  from { opacity: 0; transform: translateX(-50%) translateY(8px); }
-  to   { opacity: 1; transform: translateX(-50%) translateY(0);   }
+  from {
+    opacity: 0;
+    transform: translateX(-50%) translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
 }
 
 .mc-processing-inner {
@@ -862,8 +801,7 @@ using letterboxing (black bars) as needed. The countdown floats above.
   margin-top: 0.5rem;
 }
 
-/* Waiting banner — shown between ceremony and reception while stream is paused */
-/* Sits below the video player as a compact inline strip */
+/* Waiting banner — between ceremony and reception */
 .mc-waiting-banner {
   display: flex;
   align-items: center;
@@ -871,8 +809,8 @@ using letterboxing (black bars) as needed. The countdown floats above.
   gap: 0.625rem;
   padding: 0.75rem 1.5rem;
   background: var(--surface-2);
-  border-top: 1px solid var(--border);      /* was border-bottom — now faces the player above it */
-  border-radius: 0 0 var(--radius-sm) var(--radius-sm); /* soft bottom corners only */
+  border-top: 1px solid var(--border);
+  border-radius: 0 0 var(--radius-sm) var(--radius-sm);
   color: var(--text-2);
   font-size: 0.8125rem;
   font-weight: 500;
@@ -880,7 +818,6 @@ using letterboxing (black bars) as needed. The countdown floats above.
   width: 100%;
 }
 
-/* Pulsing gold dot inside the waiting banner */
 .mc-waiting-dot {
   display: inline-block;
   width: 8px;
@@ -891,7 +828,7 @@ using letterboxing (black bars) as needed. The countdown floats above.
   animation: badge-pulse 2.5s ease-in-out infinite;
 }
 
-/* Progress banner — "Video X of Y · Auto-advancing" shown during sequential replay */
+/* Progress banner — sequential replay */
 .mc-progress-banner {
   padding: 0.5rem 1.5rem;
   background: var(--surface);
@@ -904,7 +841,7 @@ using letterboxing (black bars) as needed. The countdown floats above.
   text-align: center;
 }
 
-/* Completion overlay — shown when all sequential recordings finish */
+/* Completion overlay */
 .mc-completion-overlay {
   position: absolute;
   inset: 0;
@@ -951,7 +888,7 @@ using letterboxing (black bars) as needed. The countdown floats above.
   opacity: 0.88;
 }
 
-/* Viewer limit screen — full page shown when event hits its viewing cap */
+/* Viewer limit screen */
 .mc-limit-screen {
   align-items: center;
   justify-content: center;
@@ -1009,10 +946,7 @@ using letterboxing (black bars) as needed. The countdown floats above.
   font-weight: 500;
 }
 
-/*
-  Expired block — legacy fallback inside showExpired().
-  Primary handler is showCountdownState('EXPIRED') but this is kept for safety.
-*/
+/* Expired block — legacy fallback inside showExpired() */
 .mc-expired-block {
   text-align: center;
   padding: 1.5rem 0;
@@ -1034,8 +968,6 @@ using letterboxing (black bars) as needed. The countdown floats above.
 
 /* --------------------------------------------------------------------------
    QR Share Block
-   Shown in COUNTDOWN and WAITING states so remote viewers can share
-   the watch URL before the event goes live. Hidden during LIVE and ENDED.
    -------------------------------------------------------------------------- */
 
 .qr-share-block {
@@ -1043,9 +975,9 @@ using letterboxing (black bars) as needed. The countdown floats above.
   flex-direction: column;
   align-items: center;
   gap: 0.5rem;
-  margin-top: 2rem;       
+  margin-top: 2rem;
   position: relative;
-  top: 7rem;              /* ← adjust this to push QR down without moving the photo */
+  top: 7rem; /* adjust to push QR down without moving the photo */
   animation: mc-fadein 0.5s ease both;
 }
 
@@ -1061,7 +993,6 @@ using letterboxing (black bars) as needed. The countdown floats above.
   border-radius: var(--radius-sm);
   background: #ffffff;
   padding: 10px;
-  /* Subtle gold glow to match the warm cinematic theme */
   box-shadow: 0 0 20px rgba(200, 169, 110, 0.08);
 }
 
@@ -1096,7 +1027,6 @@ using letterboxing (black bars) as needed. The countdown floats above.
     font-size: 1.125rem;
   }
 
-  /* Progress banner: full-width row inside header-text */
   .mc-progress-banner {
     padding: 0.375rem 0;
     border-bottom: none;
@@ -1121,7 +1051,7 @@ using letterboxing (black bars) as needed. The countdown floats above.
   }
 
   .countdown-timer {
-    padding: 1.5rem 1.25rem;    /* ← mobile card internal padding (tighter than desktop) */
+    padding: 1.5rem 1.25rem;
     margin: 1rem auto;
     border-radius: var(--radius);
   }
@@ -1136,12 +1066,11 @@ using letterboxing (black bars) as needed. The countdown floats above.
   }
 
   .mc-center {
-    padding: 1rem 1.25rem 2rem 1.25rem;    /* ← mobile outer padding (tighter than desktop) */
+    padding: 1rem 1.25rem 2rem 1.25rem;
   }
 }
 
 @media (max-width: 479px) {
-  /* Logo container: mobile dimensions */
   .mc-presented-by {
     height: 28px;
     max-width: 140px;
@@ -1159,7 +1088,7 @@ using letterboxing (black bars) as needed. The countdown floats above.
   }
 }
 
-/* Large screens — give the header and footer a bit more breathing room */
+/* Large screens — more breathing room */
 @media (min-width: 1280px) {
   .mc-player-header {
     padding: 1rem 2rem;
