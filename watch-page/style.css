@@ -325,7 +325,7 @@ body::after {
   left: 0;
   right: 0;
   bottom: 0;
-  top: 260px;              /* offset: photo begins under the card */
+  top: 200px;              /* offset: photo begins under the card */
   z-index: 0;              /* behind .mc-center content */
   display: flex;
   align-items: center;
