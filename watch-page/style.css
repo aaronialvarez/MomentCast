@@ -293,9 +293,11 @@ body::after {
 
 .mc-cover-bg {
   position: absolute;
-  top: 45%;      /* start below the card area */
+  top: 45%;
+  bottom: 0;
   left: 0;
   right: 0;
+  overflow: hidden;
   z-index: 0;
   pointer-events: none;
 }
@@ -315,10 +317,12 @@ body::after {
   z-index: 1;
 }
 
-/* The cover image — scales to full width, natural height, never cropped */
+/* The cover image — shows all 9 quadrants, never cropped */
 .mc-cover-bg-img {
   width: 100%;
-  height: auto;
+  height: 100%;
+  object-fit: contain;
+  object-position: center;
   display: block;
 }
 
@@ -331,6 +335,14 @@ body::after {
 .mc-cover-active .mc-center {
   position: relative;
   z-index: 2;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Push powered-by to the bottom */
+.mc-cover-active .mc-powered {
+  margin-top: auto;
 }
 
 /* Slightly lighter card when cover photo is present, with blur */
