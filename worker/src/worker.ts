@@ -1039,6 +1039,76 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
       });
     }
 
+    // PATCH /api/events/:slug/title - Update event title (authenticated, pre-stream only)
+    if (pathname.match(/^\/api\/events\/[a-z0-9-]+\/title$/) && method === 'PATCH') {
+      const token = extractToken(request.headers.get('authorization'));
+      if (!token) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const userId = await verifyJWT(token, env);
+      if (!userId) {
+        return new Response(JSON.stringify({ error: 'Invalid token' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const slug = pathname.split('/')[3];
+      const body = await request.json() as any;
+      const { title } = body;
+
+      if (!title || typeof title !== 'string' || title.trim().length === 0) {
+        return new Response(JSON.stringify({ error: 'Title is required' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Verify ownership and check that streaming hasn't started
+      const { data: event, error: getError } = await supabase
+        .from('events')
+        .select('id, user_id, status, stream_credentials_revealed')
+        .eq('slug', slug)
+        .single();
+
+      if (getError || !event || event.user_id !== userId) {
+        return new Response(JSON.stringify({ error: 'Event not found' }), {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Block title changes once streaming has started or event has ended
+      if (event.stream_credentials_revealed || event.status === 'ended') {
+        return new Response(JSON.stringify({ error: 'Title cannot be changed after streaming has started' }), {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const { error: updateError } = await supabase
+        .from('events')
+        .update({ title: title.trim() })
+        .eq('id', event.id);
+
+      if (updateError) {
+        console.error('Title update error:', updateError);
+        return new Response(JSON.stringify({ error: 'Failed to update title' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      return new Response(JSON.stringify({ success: true, title: title.trim() }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // PATCH /api/events/:slug/cover - Update cover image URL (authenticated)
     if (pathname.match(/^\/api\/events\/[a-z0-9-]+\/cover$/) && method === 'PATCH') {
       const token = extractToken(request.headers.get('authorization'));

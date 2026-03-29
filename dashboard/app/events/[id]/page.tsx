@@ -56,6 +56,11 @@ export default function EventDetailPage() {
   const [coverError, setCoverError] = useState<string | null>(null);
   const [coverSuccess, setCoverSuccess] = useState(false);
   const [deletingCover, setDeletingCover] = useState(false);
+  // Title editing state — only available before streaming starts
+  const [editingTitle, setEditingTitle] = useState(false);
+  const [editedTitle, setEditedTitle] = useState('');
+  const [savingTitle, setSavingTitle] = useState(false);
+  const [titleError, setTitleError] = useState<string | null>(null);
 
   useEffect(() => {
     async function loadEvent() {
@@ -449,6 +454,57 @@ export default function EventDetailPage() {
     }
   }
 
+  /** Save updated event title via API (only allowed before streaming starts) */
+  async function handleTitleSave() {
+    if (!event || !editedTitle.trim()) return;
+
+    setSavingTitle(true);
+    setTitleError(null);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.push('/login');
+        return;
+      }
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_WORKER_API_URL}/api/events/${event.slug}/title`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ title: editedTitle.trim() }),
+        }
+      );
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to update title');
+      }
+
+      // Reload event data to reflect change
+      const { data: eventData } = await supabase
+        .from('events')
+        .select('*')
+        .eq('id', event.id)
+        .single();
+
+      if (eventData) {
+        setEvent(eventData);
+      }
+
+      setEditingTitle(false);
+    } catch (err) {
+      console.error('Title save error:', err);
+      setTitleError(err instanceof Error ? err.message : 'Failed to update title');
+    } finally {
+      setSavingTitle(false);
+    }
+  }
+
   // Track loaded cover image dimensions for the 1:1 crop overlay
   const [coverDimensions, setCoverDimensions] = useState<{ width: number; height: number } | null>(null);
 
@@ -542,7 +598,55 @@ export default function EventDetailPage() {
           >
             ← Back to Dashboard
           </button>
-          <h1 className="text-3xl font-bold">{event.title}</h1>
+          {/* Event title — editable before streaming starts */}
+          {editingTitle ? (
+            <div className="flex items-center gap-3">
+              <input
+                type="text"
+                value={editedTitle}
+                onChange={(e) => setEditedTitle(e.target.value)}
+                maxLength={100}
+                autoFocus
+                className="text-3xl font-bold bg-white/10 border border-white/30 rounded-lg px-3 py-1 text-white w-full max-w-lg focus:outline-none focus:border-white/60"
+                onKeyDown={(e) => {
+                  if (e.key === 'Enter') handleTitleSave();
+                  if (e.key === 'Escape') { setEditingTitle(false); setTitleError(null); }
+                }}
+              />
+              <button
+                onClick={handleTitleSave}
+                disabled={savingTitle || !editedTitle.trim()}
+                className="px-4 py-2 bg-white/20 hover:bg-white/30 disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
+              >
+                {savingTitle ? 'Saving...' : 'Save'}
+              </button>
+              <button
+                onClick={() => { setEditingTitle(false); setTitleError(null); }}
+                className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg text-sm font-medium transition-colors"
+              >
+                Cancel
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-3">
+              <h1 className="text-3xl font-bold">{event.title}</h1>
+              {/* Edit button — only show before streaming has started */}
+              {!event.stream_credentials_revealed && event.status !== 'ended' && (
+                <button
+                  onClick={() => { setEditedTitle(event.title); setEditingTitle(true); setTitleError(null); }}
+                  className="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
+                  title="Edit title"
+                >
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                  </svg>
+                </button>
+              )}
+            </div>
+          )}
+          {titleError && (
+            <p className="text-red-200 text-sm mt-1">{titleError}</p>
+          )}
           <p className="text-white/80 mt-2">
             {new Date(event.scheduled_date).toLocaleDateString('en-US', {
               weekday: 'long',
