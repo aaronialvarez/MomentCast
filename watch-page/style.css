@@ -382,7 +382,7 @@ body::after {
 
 /* Slightly lighter card when cover photo is present, with blur */
 .mc-cover-active .countdown-timer {
-  background: rgba(40, 40, 46, 0.9);
+  background: rgba(20, 20, 23, 0.9);
   border-color: rgba(255, 255, 255, 0.12);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
@@ -427,7 +427,7 @@ body::after {
 /* Countdown digits — auto-scale to fit one line */
 .timer-value {
   font-family: var(--font-display);
-  font-size: clamp(2rem, 8vw, 5.5rem);
+  font-size: clamp(3rem, 8vw, 5.5rem);
   font-weight: 300;
   line-height: 1;
   color: var(--text-1);
