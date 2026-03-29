@@ -449,6 +449,62 @@ export default function EventDetailPage() {
     }
   }
 
+  // Track loaded cover image dimensions for the 1:1 crop overlay
+  const [coverDimensions, setCoverDimensions] = useState<{ width: number; height: number } | null>(null);
+
+  /**
+   * CoverPreviewWithCrop — shows the full image at its natural aspect ratio
+   * with semi-transparent dark overlays on the non-square edges.
+   * Landscape photos get side bars; portrait photos get top/bottom bars.
+   * This previews the 1:1 crop region that the watch page actually displays.
+   */
+  function CoverPreviewWithCrop({ src, borderColor = 'border-gray-700' }: { src: string; borderColor?: string }) {
+    const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
+
+    // Determine overlay bar sizes as percentages
+    let topBar = '0%', bottomBar = '0%', leftBar = '0%', rightBar = '0%';
+    if (dims) {
+      if (dims.w > dims.h) {
+        // Landscape: side bars, square height = 100%, square width = (h/w)*100%
+        const barWidth = ((dims.w - dims.h) / dims.w / 2) * 100;
+        leftBar = `${barWidth}%`;
+        rightBar = `${barWidth}%`;
+      } else if (dims.h > dims.w) {
+        // Portrait: top/bottom bars, square width = 100%, square height = (w/h)*100%
+        const barHeight = ((dims.h - dims.w) / dims.h / 2) * 100;
+        topBar = `${barHeight}%`;
+        bottomBar = `${barHeight}%`;
+      }
+      // Square: no bars needed
+    }
+
+    return (
+      <div className={`relative w-96 max-w-full rounded-lg ${borderColor} border overflow-hidden`}>
+        <img
+          src={src}
+          alt="Cover preview"
+          className="w-full h-auto block"
+          onLoad={(e) => {
+            const img = e.currentTarget;
+            setDims({ w: img.naturalWidth, h: img.naturalHeight });
+          }}
+        />
+        {dims && (
+          <>
+            {/* Top bar (portrait photos) */}
+            <div className="absolute top-0 left-0 right-0 pointer-events-none" style={{ height: topBar, background: 'rgba(0,0,0,0.6)' }} />
+            {/* Bottom bar (portrait photos) */}
+            <div className="absolute bottom-0 left-0 right-0 pointer-events-none" style={{ height: bottomBar, background: 'rgba(0,0,0,0.6)' }} />
+            {/* Left bar (landscape photos) */}
+            <div className="absolute top-0 left-0 bottom-0 pointer-events-none" style={{ width: leftBar, background: 'rgba(0,0,0,0.6)' }} />
+            {/* Right bar (landscape photos) */}
+            <div className="absolute top-0 right-0 bottom-0 pointer-events-none" style={{ width: rightBar, background: 'rgba(0,0,0,0.6)' }} />
+          </>
+        )}
+      </div>
+    );
+  }
+
   if (loading) {
     return (
       <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
@@ -537,30 +593,18 @@ export default function EventDetailPage() {
             Shown behind the countdown on your watch page. Max 2MB. JPG, PNG, or WebP.
           </p>
 
-          {/* Current cover preview — 1:1 square with letterboxing to match watch page display */}
+          {/* Current cover preview — full image with 1:1 crop overlay to match watch page */}
           {(event as any).cover_image_url && !coverPreview && (
             <div className="mb-4">
-              <div className="w-64 aspect-square bg-black rounded-lg border border-gray-700 flex items-center justify-center overflow-hidden">
-                <img
-                  src={(event as any).cover_image_url}
-                  alt="Current cover"
-                  className="max-w-full max-h-full object-contain"
-                />
-              </div>
+              <CoverPreviewWithCrop src={(event as any).cover_image_url} borderColor="border-gray-700" />
               <p className="text-green-400 text-xs mt-2">✓ Cover photo is live on your watch page</p>
             </div>
           )}
 
-          {/* New file preview — 1:1 square with letterboxing to match watch page display */}
+          {/* New file preview — full image with 1:1 crop overlay to match watch page */}
           {coverPreview && (
             <div className="mb-4">
-              <div className="w-64 aspect-square bg-black rounded-lg border border-gray-600 flex items-center justify-center overflow-hidden">
-                <img
-                  src={coverPreview}
-                  alt="Cover preview"
-                  className="max-w-full max-h-full object-contain"
-                />
-              </div>
+              <CoverPreviewWithCrop src={coverPreview} borderColor="border-gray-600" />
               <p className="text-gray-400 text-xs mt-2">Preview (not saved yet)</p>
             </div>
           )}
