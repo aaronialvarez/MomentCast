@@ -291,15 +291,81 @@ body::after {
    Handles any aspect ratio via object-fit:cover + object-position:top center.
    -------------------------------------------------------------------------- */
 
+/* --------------------------------------------------------------------------
+Cover Photo System
+Goal: always show the full cover image (all 9 quadrants) on any screen size.
+The image preserves its aspect ratio, scales down to fit, and can extend the
+page vertically so the user can scroll if needed.
+-------------------------------------------------------------------------- */
+
+.mc-cover-active {
+  /* anchor the background block to #countdown without affecting other states */
+  position: relative;
+}
+
+/* Background area lives behind the countdown content */
 .mc-cover-bg {
   position: absolute;
-  top: 40%;
-  bottom: 0;
-  left: 0;
-  right: 0;
-  overflow: hidden;
+  inset: 0;                 /* fill the entire countdown state */
   z-index: 0;
   pointer-events: none;
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+}
+
+/* Gradient overlay — you can keep or tweak this */
+.mc-cover-bg::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    to bottom,
+    var(--bg) 0%,
+    rgba(11, 11, 13, 0.7) 30%,
+    rgba(11, 11, 13, 0.35) 60%,
+    rgba(11, 11, 13, 0.5) 100%
+  );
+  z-index: 1;
+}
+
+/* The cover image — always fully visible, never cropped */
+.mc-cover-bg-img {
+  position: relative;
+  z-index: 0;
+  width: 100%;
+  height: auto;
+  max-height: 100%;
+  object-fit: contain;      /* key change: no cropping, full image shown */
+  object-position: center center;
+  display: block;
+  margin: 0 auto;
+}
+
+/* All content layers above the positioned photo */
+.mc-cover-active .mc-center {
+  position: relative;
+  z-index: 2;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  margin: 0 auto;
+  align-items: center;
+}
+
+/* Push powered-by to the bottom */
+.mc-cover-active .mc-powered {
+  margin-top: auto;
+}
+
+/* Slightly lighter card when cover photo is present, with blur */
+.mc-cover-active .countdown-timer {
+  background: rgba(40, 40, 46, 0.85);
+  border-color: rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  position: relative;
+  z-index: 3;
 }
 
 /* Gradient overlay — fades photo into the solid-black upper section */
