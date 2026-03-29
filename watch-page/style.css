@@ -324,15 +324,11 @@ body::after {
   position: absolute;
   left: 0;
   right: 0;
-  bottom: 0;
-  top: 200px;              /* offset: photo begins under the card */
-  z-index: 0;              /* behind .mc-center content */
-  display: flex;
-  align-items: center;
-  justify-content: center;
+  top: 200px;
+  z-index: 0;
   pointer-events: none;
   overflow: hidden;
-  background-color: #000;  /* letterbox bars */
+  background-color: #000;
 }
 
 /* Cover image — always fully visible, never cropped */
