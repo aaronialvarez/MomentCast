@@ -1035,7 +1035,7 @@ body::after {
   /* Logo container: tablet dimensions */
   .mc-presented-by {
     height: 36px;
-    max-width: 200px;
+    max-width: 250px;
     margin-left: auto;
     padding-left: 0;
   }
