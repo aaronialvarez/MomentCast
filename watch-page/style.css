@@ -352,9 +352,9 @@ body::after {
   background: linear-gradient(
     to bottom,
     var(--bg) 0%,               /* pure page background at very top */
-    rgba(11, 11, 13, 0.85) 10%,
+    rgba(11, 11, 13, 0.99) 10%,
     rgba(11, 11, 13, 0.45) 55%,
-    rgba(11, 11, 13, 0.10) 100%
+    rgba(11, 11, 13, 0.20) 100%
   );
   z-index: 1;
   pointer-events: none;
