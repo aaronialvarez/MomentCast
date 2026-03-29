@@ -338,10 +338,8 @@ body::after {
 /* Cover image — always fully visible, never cropped */
 .mc-cover-bg-img {
   width: 100%;
-  height: 100%;
-  max-width: min(90vmin, 900px);   /* square driven by smaller viewport side */
-  max-height: min(90vmin, 900px);
-  object-fit: contain;             /* show all 9 quadrants */
+  aspect-ratio: 1 / 1;
+  object-fit: cover;               /* crops non-square photos to center square */
   object-position: center center;
   display: block;
 }
