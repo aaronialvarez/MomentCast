@@ -293,7 +293,7 @@ body::after {
 
 .mc-cover-bg {
   position: absolute;
-  top: 45%;
+  top: 40%;
   bottom: 0;
   left: 0;
   right: 0;
@@ -317,12 +317,13 @@ body::after {
   z-index: 1;
 }
 
-/* The cover image — shows all 9 quadrants, never cropped */
+/* The cover image — fills full width, shows from top down */
 .mc-cover-bg-img {
   width: 100%;
-  height: 100%;
-  object-fit: contain;
-  object-position: center;
+  height: auto;
+  min-height: 100%;
+  object-fit: cover;
+  object-position: top center;
   display: block;
 }
 
@@ -353,6 +354,8 @@ body::after {
   border-color: rgba(255, 255, 255, 0.1);
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
+  position: relative;
+  z-index: 3;
 }
 
 /* Small label above the timer digits */
