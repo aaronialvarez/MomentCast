@@ -1059,9 +1059,11 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
 
       const slug = pathname.split('/')[3];
       const body = await request.json() as any;
+      // coverImageUrl can be a string (set/replace) or null (delete).
+      // Only reject if the key is completely missing from the payload.
       const { coverImageUrl } = body;
 
-      if (!coverImageUrl) {
+      if (!('coverImageUrl' in body)) {
         return new Response(JSON.stringify({ error: 'coverImageUrl is required' }), {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },

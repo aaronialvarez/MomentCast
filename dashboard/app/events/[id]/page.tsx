@@ -55,6 +55,7 @@ export default function EventDetailPage() {
   const [uploadingCover, setUploadingCover] = useState(false);
   const [coverError, setCoverError] = useState<string | null>(null);
   const [coverSuccess, setCoverSuccess] = useState(false);
+  const [deletingCover, setDeletingCover] = useState(false);
 
   useEffect(() => {
     async function loadEvent() {
@@ -233,6 +234,7 @@ export default function EventDetailPage() {
     setUploadingCover(true);
     setCoverError(null);
     setCoverSuccess(false);
+    console.log('[CoverUpload] Starting upload:', coverFile.name, coverFile.type, `${(coverFile.size / 1024).toFixed(1)}KB`);
 
     try {
       const { data: { session } } = await supabase.auth.getSession();
@@ -241,8 +243,21 @@ export default function EventDetailPage() {
         return;
       }
 
-      // Upload to Supabase Storage: covers/{userId}/{slug}.jpg
-      const filePath = `${session.user.id}/${event.slug}.${coverFile.name.split('.').pop()}`;
+      // Upload to Supabase Storage: covers/{userId}/{slug}
+      // Fixed path (no extension) ensures every upload overwrites the same file,
+      // eliminating orphans when switching between jpg/png/webp.
+      // Supabase serves the correct Content-Type from the contentType option below.
+      const filePath = `${session.user.id}/${event.slug}`;
+      console.log('[CoverUpload] Storage path:', filePath);
+
+      // Clean up any legacy extension-based files (one-time orphan removal).
+      // Safe to call even if files don't exist; Supabase won't error.
+      const legacyPaths = ['jpg', 'jpeg', 'png', 'webp'].map(
+        ext => `${session.user.id}/${event.slug}.${ext}`
+      );
+      console.log('[CoverUpload] Cleaning legacy paths:', legacyPaths);
+      await supabase.storage.from('covers').remove(legacyPaths);
+
       const { error: uploadError } = await supabase.storage
         .from('covers')
         .upload(filePath, coverFile, {
@@ -253,13 +268,16 @@ export default function EventDetailPage() {
       if (uploadError) {
         throw new Error(uploadError.message);
       }
+      console.log('[CoverUpload] Storage upload succeeded');
 
-      // Get public URL
+      // Get public URL and append cache-busting param so browser/CDN
+      // treats each replacement as a new resource (the underlying path is identical)
       const { data: urlData } = supabase.storage
         .from('covers')
         .getPublicUrl(filePath);
 
-      const publicUrl = urlData.publicUrl;
+      const publicUrl = `${urlData.publicUrl}?t=${Date.now()}`;
+      console.log('[CoverUpload] Public URL (cache-busted):', publicUrl);
 
       // Save URL to event via API
       const response = await fetch(
@@ -281,6 +299,7 @@ export default function EventDetailPage() {
 
       setCoverSuccess(true);
       setCoverFile(null);
+      console.log('[CoverUpload] API save succeeded, reloading event data...');
 
       // Reload event data to reflect change
       const { data: eventData } = await supabase
@@ -290,13 +309,90 @@ export default function EventDetailPage() {
         .single();
 
       if (eventData) {
+        console.log('[CoverUpload] Event reloaded, cover_image_url:', (eventData as any).cover_image_url);
         setEvent(eventData);
       }
     } catch (err) {
-      console.error('Cover upload error:', err);
+      console.error('[CoverUpload] Error:', err);
       setCoverError(err instanceof Error ? err.message : 'Upload failed');
     } finally {
       setUploadingCover(false);
+    }
+  }
+
+  /** Delete the cover photo from Supabase Storage and null out the DB field */
+  async function handleCoverDelete() {
+    if (!event) return;
+
+    setDeletingCover(true);
+    setCoverError(null);
+    setCoverSuccess(false);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.push('/login');
+        return;
+      }
+
+      // Remove file from Supabase Storage (fixed path, no extension)
+      const filePath = `${session.user.id}/${event.slug}`;
+      console.log('[CoverDelete] Removing storage file:', filePath);
+
+      // Remove the current file plus any legacy extension-based orphans
+      const allPaths = [
+        filePath,
+        ...['jpg', 'jpeg', 'png', 'webp'].map(ext => `${filePath}.${ext}`)
+      ];
+      const { error: removeError } = await supabase.storage
+        .from('covers')
+        .remove(allPaths);
+
+      if (removeError) {
+        console.error('[CoverDelete] Storage remove error:', removeError);
+        // Continue anyway; the file may already be gone
+      }
+
+      // Null out the URL in the database via API
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_WORKER_API_URL}/api/events/${event.slug}/cover`,
+        {
+          method: 'PATCH',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+          body: JSON.stringify({ coverImageUrl: null }),
+        }
+      );
+
+      if (!response.ok) {
+        const data = await response.json();
+        throw new Error(data.error || 'Failed to remove cover photo');
+      }
+
+      console.log('[CoverDelete] API nulled cover_image_url, reloading event...');
+
+      // Clear local preview state
+      setCoverPreview(null);
+      setCoverFile(null);
+
+      // Reload event data to reflect change
+      const { data: eventData } = await supabase
+        .from('events')
+        .select('*')
+        .eq('id', event.id)
+        .single();
+
+      if (eventData) {
+        console.log('[CoverDelete] Event reloaded, cover_image_url:', (eventData as any).cover_image_url);
+        setEvent(eventData);
+      }
+    } catch (err) {
+      console.error('[CoverDelete] Error:', err);
+      setCoverError(err instanceof Error ? err.message : 'Failed to remove cover photo');
+    } finally {
+      setDeletingCover(false);
     }
   }
 
@@ -496,6 +592,17 @@ export default function EventDetailPage() {
                 className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg font-medium transition-colors text-sm"
               >
                 {uploadingCover ? 'Uploading...' : 'Save Cover Photo'}
+              </button>
+            )}
+
+            {/* Remove button: only show when a cover exists and no new file is staged */}
+            {(event as any).cover_image_url && !coverFile && (
+              <button
+                onClick={handleCoverDelete}
+                disabled={deletingCover}
+                className="px-4 py-2 bg-red-600/20 hover:bg-red-600/40 text-red-400 hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-medium transition-colors text-sm"
+              >
+                {deletingCover ? 'Removing...' : 'Remove'}
               </button>
             )}
           </div>
