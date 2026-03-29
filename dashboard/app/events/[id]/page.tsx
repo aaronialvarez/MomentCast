@@ -537,26 +537,30 @@ export default function EventDetailPage() {
             Shown behind the countdown on your watch page. Max 2MB. JPG, PNG, or WebP.
           </p>
 
-          {/* Current cover preview */}
+          {/* Current cover preview — 1:1 square with letterboxing to match watch page display */}
           {(event as any).cover_image_url && !coverPreview && (
             <div className="mb-4">
-              <img
-                src={(event as any).cover_image_url}
-                alt="Current cover"
-                className="w-full max-h-48 object-cover rounded-lg border border-gray-700"
-              />
+              <div className="w-64 aspect-square bg-black rounded-lg border border-gray-700 flex items-center justify-center overflow-hidden">
+                <img
+                  src={(event as any).cover_image_url}
+                  alt="Current cover"
+                  className="max-w-full max-h-full object-contain"
+                />
+              </div>
               <p className="text-green-400 text-xs mt-2">✓ Cover photo is live on your watch page</p>
             </div>
           )}
 
-          {/* New file preview */}
+          {/* New file preview — 1:1 square with letterboxing to match watch page display */}
           {coverPreview && (
             <div className="mb-4">
-              <img
-                src={coverPreview}
-                alt="Cover preview"
-                className="w-full max-h-48 object-cover rounded-lg border border-gray-600"
-              />
+              <div className="w-64 aspect-square bg-black rounded-lg border border-gray-600 flex items-center justify-center overflow-hidden">
+                <img
+                  src={coverPreview}
+                  alt="Cover preview"
+                  className="max-w-full max-h-full object-contain"
+                />
+              </div>
               <p className="text-gray-400 text-xs mt-2">Preview (not saved yet)</p>
             </div>
           )}
