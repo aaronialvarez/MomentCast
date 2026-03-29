@@ -1172,7 +1172,7 @@ function applyCoverBackground(el) {
 
   const div = document.createElement('div');
   div.className = 'mc-cover-bg';
-  div.style.backgroundImage = `url('${eventData.cover_image_url}')`;
+  div.innerHTML = `<img class="mc-cover-bg-img" src="${eventData.cover_image_url}" alt="" />`;
   el.insertBefore(div, el.firstChild);
   el.classList.add('mc-cover-active');
 }

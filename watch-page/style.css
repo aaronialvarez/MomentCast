@@ -338,6 +338,8 @@ body::after {
   min-height: 100vh;
   display: flex;
   flex-direction: column;
+  margin: 0 auto;
+  align-items: center;
 }
 
 /* Push powered-by to the bottom */
