@@ -361,7 +361,7 @@ body::after {
     linear-gradient(
       to bottom,
       transparent 0%,
-      rgba(11, 11, 13, 0.20) 100%
+      rgba(11, 11, 13, 0.40) 100%
     );
   z-index: 1;
   pointer-events: none;
