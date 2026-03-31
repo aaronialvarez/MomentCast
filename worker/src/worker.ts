@@ -1347,7 +1347,7 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
           }, 0);
         }
         
-        viewerHours = Math.ceil(viewerMinutes / 60);
+        viewerHours = Math.round((viewerMinutes / 60) * 10) / 10;
       }
 
       const limitWarning = viewerHours >= event.viewer_hour_limit

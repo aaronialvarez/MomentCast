@@ -977,12 +977,12 @@ export default function EventDetailPage() {
               <p className="text-gray-400 text-sm">Viewer Hours</p>
               {analytics ? (
                 <p>
-                  <span className="font-semibold">{analytics.viewerHoursUsed.toLocaleString()}</span>
+                  <span className="font-semibold">{analytics.viewerHoursUsed.toFixed(1)}</span>
                   {' of '}
                   <span className="font-semibold">{analytics.viewerHoursLimit.toLocaleString()}</span>
                   {' used'}
                   <span className="text-gray-400 text-xs ml-2">
-                    ({(analytics.viewerHoursLimit - analytics.viewerHoursUsed).toLocaleString()} left)
+                    ({(analytics.viewerHoursLimit - analytics.viewerHoursUsed).toFixed(1)} left)
                   </span>
                 </p>
               ) : (
