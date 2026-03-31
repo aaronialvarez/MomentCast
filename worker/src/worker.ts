@@ -413,14 +413,55 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
               console.error('Error deleting Live Input:', err);
             }
           } else {
-            // Within 24-hour window - just update stream state, keep status as 'ready'
+            // Within 24-hour window - fetch new recordings, merge with existing, keep status 'ready'
+            let newRecordings: any[] = [];
+            try {
+              const recordingsResponse = await fetch(
+                `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/stream/live_inputs/${liveInputId}/videos`,
+                {
+                  headers: {
+                    'Authorization': `Bearer ${env.CLOUDFLARE_STREAM_API_TOKEN}`,
+                  },
+                }
+              );
+              
+              const recordingsData = await recordingsResponse.json() as any;
+              
+              if (recordingsData.success && recordingsData.result) {
+                newRecordings = recordingsData.result.map((video: any) => ({
+                  uid: video.uid,
+                  status: video.status?.state,
+                  duration: video.duration,
+                  created: video.created,
+                  thumbnail: video.thumbnail
+                }));
+                console.log(`✅ Fetched ${newRecordings.length} recordings on mid-session disconnect`);
+              }
+            } catch (err) {
+              console.error('Error fetching recordings on disconnect:', err);
+            }
+
+            // Merge: fetch existing recordings, deduplicate by uid, then save
+            const { data: currentEvent } = await supabase
+              .from('events')
+              .select('recordings')
+              .eq('id', event.id)
+              .single();
+            
+            const existingRecordings: any[] = currentEvent?.recordings || [];
+            const existingUids = new Set(existingRecordings.map((r: any) => r.uid));
+            const merged = [
+              ...existingRecordings,
+              ...newRecordings.filter((r: any) => !existingUids.has(r.uid))
+            ];
+
             const { error: updateError } = await supabase
               .from('events')
               .update({
                 status: 'ready',
                 stream_state: 'disconnected',
+                recordings: merged,
                 last_stream_activity: new Date().toISOString()
-                // Note: status stays 'ready', NOT 'ended'
               })
               .eq('id', event.id);
             
@@ -428,7 +469,7 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
               console.error('Error updating event on disconnect:', updateError);
             } else {
               const timeLeft = Math.round((expiresAt.getTime() - now.getTime()) / (1000 * 60));
-              console.log(`✅ Event ${event.slug} disconnected (${timeLeft} minutes left in 24h window, can reconnect)`);
+              console.log(`✅ Event ${event.slug} disconnected (${timeLeft} min left, ${merged.length} recordings saved, can reconnect)`);
             }
           }
         } else {
@@ -1232,7 +1273,7 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
       // Get event
       const { data: event, error: getError } = await supabase
         .from('events')
-        .select('id, user_id, live_input_id, viewer_hours_consumed, viewer_hour_limit')
+        .select('id, user_id, live_input_id, recordings, viewer_hours_consumed, viewer_hour_limit')
         .eq('slug', slug)
         .single();
 
@@ -1243,62 +1284,71 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
         );
       }
 
-      // Fetch analytics from Cloudflare using GraphQL API
-      const today = new Date();
-      const ninetyDaysAgo = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000);
-      
-      const graphqlQuery = {
-        query: `
-          query StreamAnalytics($accountTag: String!, $startDate: String!, $endDate: String!, $creator: String!) {
-            viewer {
-              accounts(filter: { accountTag: $accountTag }) {
-                streamMinutesViewedAdaptiveGroups(
-                  filter: { 
-                    date_geq: $startDate, 
-                    date_lt: $endDate,
-                    creator: $creator
-                  }
-                ) {
-                  sum {
-                    minutesViewed
+      // Extract recording UIDs from stored recordings jsonb
+      const recordingUids: string[] = (event.recordings || [])
+        .map((r: any) => r.uid)
+        .filter(Boolean);
+
+      // No recordings = no viewer hours possible, skip the API call
+      let viewerHours = 0;
+
+      if (recordingUids.length > 0) {
+        const today = new Date();
+        const ninetyDaysAgo = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000);
+        
+        const graphqlQuery = {
+          query: `
+            query StreamAnalytics($accountTag: String!, $startDate: String!, $endDate: String!, $uids: [String!]!) {
+              viewer {
+                accounts(filter: { accountTag: $accountTag }) {
+                  streamMinutesViewedAdaptiveGroups(
+                    filter: { 
+                      date_geq: $startDate, 
+                      date_lt: $endDate,
+                      uid_in: $uids
+                    }
+                  ) {
+                    sum {
+                      minutesViewed
+                    }
                   }
                 }
               }
             }
+          `,
+          variables: {
+            accountTag: env.CLOUDFLARE_ACCOUNT_ID,
+            startDate: ninetyDaysAgo.toISOString().split('T')[0],
+            endDate: today.toISOString().split('T')[0],
+            uids: recordingUids
           }
-        `,
-        variables: {
-          accountTag: env.CLOUDFLARE_ACCOUNT_ID,
-          startDate: ninetyDaysAgo.toISOString().split('T')[0],
-          endDate: today.toISOString().split('T')[0],
-          creator: event.live_input_id
-        }
-      };
+        };
 
-      const analyticsResponse = await fetch(
-        'https://api.cloudflare.com/client/v4/graphql',
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${env.CLOUDFLARE_STREAM_API_TOKEN}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify(graphqlQuery)
-        }
-      );
+        const analyticsResponse = await fetch(
+          'https://api.cloudflare.com/client/v4/graphql',
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${env.CLOUDFLARE_STREAM_API_TOKEN}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(graphqlQuery)
+          }
+        );
 
-      const analyticsData = await analyticsResponse.json() as any;
-      
-      // Extract minutes viewed from GraphQL response
-      let viewerMinutes = 0;
-      const groups = analyticsData.data?.viewer?.accounts?.[0]?.streamMinutesViewedAdaptiveGroups;
-      if (groups && groups.length > 0) {
-        viewerMinutes = groups.reduce((total: number, group: any) => {
-          return total + (group.sum?.minutesViewed || 0);
-        }, 0);
+        const analyticsData = await analyticsResponse.json() as any;
+        
+        // Sum minutesViewed across all recording UIDs
+        let viewerMinutes = 0;
+        const groups = analyticsData.data?.viewer?.accounts?.[0]?.streamMinutesViewedAdaptiveGroups;
+        if (groups && groups.length > 0) {
+          viewerMinutes = groups.reduce((total: number, group: any) => {
+            return total + (group.sum?.minutesViewed || 0);
+          }, 0);
+        }
+        
+        viewerHours = Math.ceil(viewerMinutes / 60);
       }
-      
-      const viewerHours = Math.ceil(viewerMinutes / 60);
 
       const limitWarning = viewerHours >= event.viewer_hour_limit
         ? 'limit-exceeded'
@@ -1309,8 +1359,6 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
       return new Response(
         JSON.stringify({
           viewerHoursUsed: viewerHours,
-          concurrentViewers: analyticsData.result?.data?.[0]?.concurrentViewersMax || 0,
-          totalViews: analyticsData.result?.data?.[0]?.views || 0,
           limitWarning,
         }),
         {
