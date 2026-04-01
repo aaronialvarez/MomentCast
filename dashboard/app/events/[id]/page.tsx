@@ -1032,6 +1032,7 @@ export default function EventDetailPage() {
                 type="datetime-local"
                 value={newDateTime}
                 onChange={(e) => setNewDateTime(e.target.value)}
+                step={900} // 15-minute increments
                 className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded text-white"
               />
             </div>

@@ -136,6 +136,7 @@ export default function CreateEventPage() {
               value={scheduledDateTime}
               onChange={(e) => setScheduledDateTime(e.target.value)}
               min={minDateTime}
+              step={900} // 15-minute increments
               className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-purple-500 text-white"
               required
             />
