@@ -95,6 +95,50 @@ function extractToken(authHeader: string | null): string | null {
 }
 
 /**
+ * Utility: Convert a naive datetime + IANA timezone to UTC ISO string.
+ * Example: ("2026-04-04T16:00", "America/Los_Angeles") → "2026-04-04T23:00:00.000Z"
+ * Uses Intl API (fully supported in Cloudflare Workers) to resolve DST-aware offsets.
+ */
+function localDateTimeToUTC(naiveDatetime: string, timezone: string): string {
+  // Parse the naive datetime components
+  const [datePart, timePart] = naiveDatetime.split('T');
+  const [year, month, day] = datePart.split('-').map(Number);
+  const [hours, minutes] = timePart.split(':').map(Number);
+
+  // Create a Date object in UTC, then use Intl to find the offset for the target timezone.
+  // Strategy: format the same instant in both UTC and the target tz, then compute the delta.
+  const guessUtc = new Date(Date.UTC(year, month - 1, day, hours, minutes, 0));
+
+  // Get the target timezone's local representation of this UTC instant
+  const formatter = new Intl.DateTimeFormat('en-US', {
+    timeZone: timezone,
+    year: 'numeric', month: '2-digit', day: '2-digit',
+    hour: '2-digit', minute: '2-digit', second: '2-digit',
+    hour12: false,
+  });
+  const parts = formatter.formatToParts(guessUtc);
+  const getPart = (type: string) => parseInt(parts.find(p => p.type === type)?.value || '0');
+  
+  const localYear = getPart('year');
+  const localMonth = getPart('month');
+  const localDay = getPart('day');
+  let localHour = getPart('hour');
+  if (localHour === 24) localHour = 0; // Intl may return 24 for midnight
+  const localMinute = getPart('minute');
+
+  // Build a UTC timestamp from what the tz formatter thinks the local time is
+  const localAsUtc = new Date(Date.UTC(localYear, localMonth - 1, localDay, localHour, localMinute, 0));
+
+  // The offset (in ms) is the difference: local representation - UTC instant
+  const offsetMs = localAsUtc.getTime() - guessUtc.getTime();
+
+  // The actual UTC time = naive local time - offset
+  const actualUtc = new Date(guessUtc.getTime() - offsetMs);
+
+  return actualUtc.toISOString();
+}
+
+/**
  * Utility: Verify JWT and extract user ID
  */
 async function verifyJWT(token: string, env: WorkerEnv): Promise<string | null> {
@@ -634,13 +678,20 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
 
       const body = await request.json() as CreateEventRequest;
 
-      // Validate input
-      if (!body.title || !body.scheduledDate) {
+      // Validate input — now requires scheduledDateTime + timezone
+      if (!body.title || !body.scheduledDateTime) {
         return new Response(
-          JSON.stringify({ error: 'Missing required fields: title, scheduledDate' }),
+          JSON.stringify({ error: 'Missing required fields: title, scheduledDateTime' }),
           { status: 400, headers: corsHeaders }
         );
       }
+
+      // Default timezone to Pacific if not provided (backward compat)
+      const eventTimezone = body.timezone || 'America/Los_Angeles';
+
+      // Convert photographer's local datetime to UTC for storage
+      // e.g. "2026-04-04T16:00" + "America/Los_Angeles" → "2026-04-04T23:00:00.000Z"
+      const scheduledDateUtc = localDateTimeToUTC(body.scheduledDateTime, eventTimezone);
 
       // Check user credits
       const { data: user, error: userError } = await supabase
@@ -666,20 +717,21 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
       }
 
       // Generate unique slug with time-window collision detection
-      const slug = await getUniqueSlug(body.title, body.scheduledDate, supabase);
+      const slug = await getUniqueSlug(body.title, scheduledDateUtc, supabase);
 
       // Generate QR code for the watch page URL (once, stored forever)
       const watchUrl = `https://go.momentcast.live/${slug}`;
       const qrCodeDataUrl = generateQrDataUrl(watchUrl);
 
-      // Create event
+      // Create event — scheduled_date stores UTC, timezone stores the event's local tz
       const { data: event, error: createError } = await supabase
         .from('events')
         .insert({
           user_id: userId,
           slug,
           title: body.title,
-          scheduled_date: body.scheduledDate,
+          scheduled_date: scheduledDateUtc,
+          timezone: eventTimezone,  // Stored so watch page can display in correct tz
           live_input_id: cfResult.liveInputId,
           rtmps_url: cfResult.rtmpsUrl,
           rtmps_key: cfResult.rtmpsKey,
@@ -733,7 +785,7 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
 
       const { data: event, error } = await supabase
         .from('events')
-        .select('id, user_id, title, scheduled_date, status, stream_state, live_input_id, recordings, merged_video_id, viewer_hours_consumed, viewer_hour_limit, stream_started_manually_at, last_stream_activity, qr_code_data_url, cover_image_url')
+        .select('id, user_id, title, scheduled_date, timezone, status, stream_state, live_input_id, recordings, merged_video_id, viewer_hours_consumed, viewer_hour_limit, stream_started_manually_at, last_stream_activity, qr_code_data_url, cover_image_url')
         .eq('slug', slug)
         .single();
 
@@ -1060,22 +1112,27 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
 
       const slug = pathname.split('/')[3];
       const body = await request.json() as any;
-      const { newDate } = body;
+      const { newDateTime, timezone: newTimezone } = body;
 
-      if (!newDate) {
-        return new Response(JSON.stringify({ error: 'New date is required' }), {
+      // Accept either new format (newDateTime + timezone) or legacy (newDate)
+      if (!newDateTime && !body.newDate) {
+        return new Response(JSON.stringify({ error: 'New date/time is required' }), {
           status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
 
-      // Validate date format (YYYY-MM-DD)
-      const dateRegex = /^\d{4}-\d{2}-\d{2}$/;
-      if (!dateRegex.test(newDate)) {
-        return new Response(JSON.stringify({ error: 'Invalid date format. Use YYYY-MM-DD' }), {
-          status: 400,
-          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-        });
+      // Convert to UTC if new format, otherwise treat as legacy date string
+      let scheduledDateUtc: string;
+      let eventTimezone: string | undefined;
+
+      if (newDateTime) {
+        // New format: "2026-04-04T16:00" + "America/Los_Angeles"
+        eventTimezone = newTimezone || 'America/Los_Angeles';
+        scheduledDateUtc = localDateTimeToUTC(newDateTime, eventTimezone);
+      } else {
+        // Legacy format: "2026-04-04" (backward compat)
+        scheduledDateUtc = body.newDate;
       }
 
       // Get event
@@ -1111,13 +1168,18 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
         });
       }
 
-      // Update the scheduled date
+      // Update the scheduled date (and timezone if provided)
+      const updateFields: any = { 
+        scheduled_date: scheduledDateUtc,
+        updated_at: new Date().toISOString()
+      };
+      if (eventTimezone) {
+        updateFields.timezone = eventTimezone;
+      }
+
       const { data: updatedEvent, error: updateError } = await supabase
         .from('events')
-        .update({ 
-          scheduled_date: newDate,
-          updated_at: new Date().toISOString()
-        })
+        .update(updateFields)
         .eq('id', event.id)
         .select()
         .single();
@@ -1130,7 +1192,7 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
         });
       }
 
-      console.log(`✅ Event ${slug} rescheduled from ${event.scheduled_date} to ${newDate}`);
+      console.log(`✅ Event ${slug} rescheduled from ${event.scheduled_date} to ${scheduledDateUtc}`);
 
       return new Response(JSON.stringify({ 
         success: true,

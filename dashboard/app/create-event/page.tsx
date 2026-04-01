@@ -13,17 +13,37 @@ export default function CreateEventPage() {
     )
   );
 
-  // Block only past dates (not past times on today)
-  const [minDate] = useState(() => {
+  // Common US timezones (covers continental US + Hawaii)
+  // Expandable later for national rollout
+  const timezoneOptions = [
+    { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
+    { value: 'America/Denver', label: 'Mountain Time (MT)' },
+    { value: 'America/Chicago', label: 'Central Time (CT)' },
+    { value: 'America/New_York', label: 'Eastern Time (ET)' },
+    { value: 'Pacific/Honolulu', label: 'Hawaii Time (HT)' },
+    { value: 'America/Anchorage', label: 'Alaska Time (AKT)' },
+  ];
+
+  // Default to photographer's browser timezone, fallback to Pacific
+  const [timezone, setTimezone] = useState(() => {
+    const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
+    const isSupported = timezoneOptions.some(tz => tz.value === browserTz);
+    return isSupported ? browserTz : 'America/Los_Angeles';
+  });
+
+  // Minimum datetime: now (prevents past event creation)
+  const [minDateTime] = useState(() => {
     const now = new Date();
     const year = now.getFullYear();
     const month = String(now.getMonth() + 1).padStart(2, '0');
     const day = String(now.getDate()).padStart(2, '0');
-    return `${year}-${month}-${day}`;
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
   });
 
   const [title, setTitle] = useState('');
-  const [scheduledDate, setScheduledDate] = useState('');
+  const [scheduledDateTime, setScheduledDateTime] = useState('');
   const [tier, setTier] = useState<'standard' | 'premium'>('standard');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -44,9 +64,6 @@ export default function CreateEventPage() {
       console.log('Creating event...');
       console.log('API URL:', process.env.NEXT_PUBLIC_WORKER_API_URL);
 
-      // Convert date to midnight UTC (not local timezone)
-      const eventDate = new Date(scheduledDate + 'T00:00:00Z');
-
       const response = await fetch(`${process.env.NEXT_PUBLIC_WORKER_API_URL}/api/events`, {
         method: 'POST',
         headers: {
@@ -55,7 +72,8 @@ export default function CreateEventPage() {
         },
         body: JSON.stringify({
           title,
-          scheduledDate: scheduledDate,
+          scheduledDateTime,  // e.g. "2026-04-04T16:00"
+          timezone,           // e.g. "America/Los_Angeles"
           tier,
         }),
       });
@@ -108,21 +126,42 @@ export default function CreateEventPage() {
             </p>
           </div>
 
-          {/* Scheduled Date Field */}
+          {/* Scheduled Date & Time Field */}
           <div className="mb-6">
             <label className="block text-sm font-medium mb-2">
-              Event Date
+              Event Date and Time
             </label>
             <input
-              type="date"
-              value={scheduledDate}
-              onChange={(e) => setScheduledDate(e.target.value)}
-              min={minDate}
+              type="datetime-local"
+              value={scheduledDateTime}
+              onChange={(e) => setScheduledDateTime(e.target.value)}
+              min={minDateTime}
               className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-purple-500 text-white"
               required
             />
             <p className="text-gray-400 text-sm mt-1">
-              Share the watch page with guests anytime. You'll start streaming on this date.
+              When should viewers expect the stream to start?
+            </p>
+          </div>
+
+          {/* Timezone Selector */}
+          <div className="mb-6">
+            <label className="block text-sm font-medium mb-2">
+              Event Timezone
+            </label>
+            <select
+              value={timezone}
+              onChange={(e) => setTimezone(e.target.value)}
+              className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-purple-500 text-white"
+            >
+              {timezoneOptions.map((tz) => (
+                <option key={tz.value} value={tz.value}>
+                  {tz.label}
+                </option>
+              ))}
+            </select>
+            <p className="text-gray-400 text-sm mt-1">
+              The event's local timezone (used for the viewer countdown)
             </p>
           </div>
 
