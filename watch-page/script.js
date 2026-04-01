@@ -160,6 +160,15 @@ function renderQrBlock(visible) {
   block.classList.remove('hidden');
 }
 
+function getEventDate() {
+  const raw = eventData.stream_started_manually_at || eventData.scheduled_date;
+  if (!raw) return null;
+  const tz = getEventTimezone();
+  return new Date(raw).toLocaleDateString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: tz
+  });
+}
+
 // Determine playback mode based on event state and 2-hour timeout
 function determinePlaybackMode() {
   if (!eventData) return 'WAITING';
@@ -344,12 +353,16 @@ function showCountdown() {
   titleEl.textContent = eventData.title;
   
   const scheduledDate = new Date(eventData.scheduled_date);
-  scheduledTimeEl.textContent = scheduledDate.toLocaleDateString('en-US', {
+  const tz = getEventTimezone();
+  scheduledTimeEl.textContent = scheduledDate.toLocaleString('en-US', {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
     day: 'numeric',
-    timeZone: 'UTC'
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZoneName: 'short',
+    timeZone: tz
   });
 
   // Clear existing interval
@@ -998,8 +1011,10 @@ function showCountdownState(mode) {
   titleEl.textContent = eventData.title;
 
   const scheduledDate = new Date(eventData.scheduled_date);
-  const heldOn = scheduledDate.toLocaleDateString('en-US', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC'
+  const tz = getEventTimezone();
+  const heldOn = scheduledDate.toLocaleString('en-US', {
+    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric',
+    hour: 'numeric', minute: '2-digit', timeZoneName: 'short', timeZone: tz
   });
 
   // Message config per mode
@@ -1133,12 +1148,16 @@ function showExpired() {
   titleEl.textContent = eventData.title;
   
   const scheduledDate = new Date(eventData.scheduled_date);
-  scheduledTimeEl.textContent = `Held on ${scheduledDate.toLocaleDateString('en-US', {
+  const tz = getEventTimezone();
+  scheduledTimeEl.textContent = `Held on ${scheduledDate.toLocaleString('en-US', {
     weekday: 'long',
     year: 'numeric',
     month: 'long',
     day: 'numeric',
-    timeZone: 'UTC'
+    hour: 'numeric',
+    minute: '2-digit',
+    timeZoneName: 'short',
+    timeZone: tz
   })}`;
   
   // Note: showExpired() is a legacy fallback — showCountdownState('EXPIRED') is the
