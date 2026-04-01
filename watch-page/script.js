@@ -169,6 +169,12 @@ function getEventDate() {
   });
 }
 
+// Returns the IANA timezone stored on this event (e.g. "America/Los_Angeles").
+// Falls back to America/Los_Angeles for events created before the timezone migration.
+function getEventTimezone() {
+  return eventData?.timezone || 'America/Los_Angeles';
+}
+
 // Determine playback mode based on event state and 2-hour timeout
 function determinePlaybackMode() {
   if (!eventData) return 'WAITING';
