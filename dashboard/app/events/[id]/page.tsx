@@ -72,6 +72,16 @@ export default function EventDetailPage() {
     { value: 'Pacific/Honolulu', label: 'Hawaii Time (HT)' },
     { value: 'America/Anchorage', label: 'Alaska Time (AKT)' },
   ];
+  // Minimum datetime for rescheduling: now (prevents past dates)
+  const minRescheduleDateTime = (() => {
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const hours = String(now.getHours()).padStart(2, '0');
+    const minutes = String(now.getMinutes()).padStart(2, '0');
+    return `${year}-${month}-${day}T${hours}:${minutes}`;
+  })();
 
   useEffect(() => {
     async function loadEvent() {
@@ -1032,6 +1042,7 @@ export default function EventDetailPage() {
                 type="datetime-local"
                 value={newDateTime}
                 onChange={(e) => setNewDateTime(e.target.value)}
+                min={minRescheduleDateTime}
                 step={900} // 15-minute increments
                 className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded text-white"
               />
