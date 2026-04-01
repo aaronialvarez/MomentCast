@@ -51,7 +51,8 @@ export interface CreditTransaction {
 
 export interface CreateEventRequest {
   title: string;
-  scheduledDate: string;
+  scheduledDateTime: string;  // Naive local datetime, e.g. "2026-04-04T16:00"
+  timezone?: string;          // IANA timezone, e.g. "America/Los_Angeles"
   tier?: 'standard' | 'premium';
 }
 

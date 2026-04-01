@@ -681,7 +681,7 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
       // Validate input — now requires scheduledDateTime + timezone
       if (!body.title || !body.scheduledDateTime) {
         return new Response(
-          JSON.stringify({ error: 'Missing required fields: title, scheduledDateTime' }),
+          JSON.stringify({ error: 'Missing required fields: title, scheduledDateTime' }), // timezone is optional (defaults to Pacific)
           { status: 400, headers: corsHeaders }
         );
       }

@@ -20,6 +20,7 @@ interface Event {
   stream_credentials_revealed: boolean;
   stream_started_manually_at?: string;
   can_be_rescheduled: boolean;
+  timezone?: string;
 }
 
 export default function EventDetailPage() {
@@ -47,7 +48,8 @@ export default function EventDetailPage() {
   } | null>(null);
   const [timeRemaining, setTimeRemaining] = useState<string | null>(null);
   const [showRescheduleModal, setShowRescheduleModal] = useState(false);
-  const [newDate, setNewDate] = useState('');
+  const [newDateTime, setNewDateTime] = useState('');
+  const [newTimezone, setNewTimezone] = useState('');
   const [rescheduling, setRescheduling] = useState(false);
   const [rescheduleError, setRescheduleError] = useState<string | null>(null);
   const [coverFile, setCoverFile] = useState<File | null>(null);
@@ -61,6 +63,15 @@ export default function EventDetailPage() {
   const [editedTitle, setEditedTitle] = useState('');
   const [savingTitle, setSavingTitle] = useState(false);
   const [titleError, setTitleError] = useState<string | null>(null);
+  // Same timezone list as create-event page
+  const timezoneOptions = [
+    { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
+    { value: 'America/Denver', label: 'Mountain Time (MT)' },
+    { value: 'America/Chicago', label: 'Central Time (CT)' },
+    { value: 'America/New_York', label: 'Eastern Time (ET)' },
+    { value: 'Pacific/Honolulu', label: 'Hawaii Time (HT)' },
+    { value: 'America/Anchorage', label: 'Alaska Time (AKT)' },
+  ];
 
   useEffect(() => {
     async function loadEvent() {
@@ -402,7 +413,7 @@ export default function EventDetailPage() {
   }
 
   async function handleReschedule() {
-    if (!event || !newDate) return;
+    if (!event || !newDateTime) return;
     
     setRescheduling(true);
     setRescheduleError(null);
@@ -423,7 +434,10 @@ export default function EventDetailPage() {
             'Authorization': `Bearer ${session.access_token}`,
             'Content-Type': 'application/json',
           },
-          body: JSON.stringify({ newDate }),
+          body: JSON.stringify({
+            newDateTime,                                          // e.g. "2026-04-05T16:00"
+            timezone: newTimezone || event.timezone || 'America/Los_Angeles',  // IANA timezone
+          }),
         }
       );
 
@@ -443,7 +457,8 @@ export default function EventDetailPage() {
       if (eventData) {
         setEvent(eventData);
         setShowRescheduleModal(false);
-        setNewDate('');
+        setNewDateTime('');
+        setNewTimezone('');
       }
 
     } catch (err) {
@@ -648,12 +663,15 @@ export default function EventDetailPage() {
             <p className="text-red-200 text-sm mt-1">{titleError}</p>
           )}
           <p className="text-white/80 mt-2">
-            {new Date(event.scheduled_date).toLocaleDateString('en-US', {
+            {new Date(event.scheduled_date).toLocaleString('en-US', {
               weekday: 'long',
               month: 'long',
               day: 'numeric',
               year: 'numeric',
-              timeZone: 'UTC'
+              hour: 'numeric',
+              minute: '2-digit',
+              timeZoneName: 'short',
+              timeZone: event.timezone || 'America/Los_Angeles'
             })}
           </p>
         </div>
@@ -867,12 +885,15 @@ export default function EventDetailPage() {
                 <p className="text-gray-400 text-sm mt-3 text-center">
                   Streaming will be available on{' '}
                   <span className="font-medium text-white">
-                    {new Date(event.scheduled_date).toLocaleDateString('en-US', {
+                    {new Date(event.scheduled_date).toLocaleString('en-US', {
                       weekday: 'long',
                       month: 'long',
                       day: 'numeric',
                       year: 'numeric',
-                      timeZone: 'UTC'
+                      hour: 'numeric',
+                      minute: '2-digit',
+                      timeZoneName: 'short',
+                      timeZone: event.timezone || 'America/Los_Angeles'
                     })}
                   </span>
                 </p>
@@ -997,7 +1018,7 @@ export default function EventDetailPage() {
       {showRescheduleModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
           <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full">
-            <h3 className="text-xl font-semibold mb-4">Change Event Date</h3>
+            <h3 className="text-xl font-semibold mb-4">Change Event Date & Time</h3>
             
             {rescheduleError && (
               <div className="bg-red-900 text-red-100 p-3 rounded-lg mb-4 text-sm">
@@ -1006,13 +1027,28 @@ export default function EventDetailPage() {
             )}
             
             <div className="mb-4">
-              <label className="block text-sm font-medium mb-2">New Event Date</label>
+              <label className="block text-sm font-medium mb-2">New Event Date and Time</label>
               <input
-                type="date"
-                value={newDate}
-                onChange={(e) => setNewDate(e.target.value)}
+                type="datetime-local"
+                value={newDateTime}
+                onChange={(e) => setNewDateTime(e.target.value)}
                 className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded text-white"
               />
+            </div>
+
+            <div className="mb-4">
+              <label className="block text-sm font-medium mb-2">Timezone</label>
+              <select
+                value={newTimezone || event.timezone || 'America/Los_Angeles'}
+                onChange={(e) => setNewTimezone(e.target.value)}
+                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+              >
+                {timezoneOptions.map((tz) => (
+                  <option key={tz.value} value={tz.value}>
+                    {tz.label}
+                  </option>
+                ))}
+              </select>
             </div>
             
             <div className="bg-blue-900/30 border border-blue-700 rounded-lg p-3 mb-4">
@@ -1026,7 +1062,8 @@ export default function EventDetailPage() {
               <button
                 onClick={() => {
                   setShowRescheduleModal(false);
-                  setNewDate('');
+                  setNewDateTime('');
+                  setNewTimezone('');
                   setRescheduleError(null);
                 }}
                 className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded font-medium"
@@ -1036,10 +1073,10 @@ export default function EventDetailPage() {
               </button>
               <button
                 onClick={handleReschedule}
-                disabled={!newDate || rescheduling}
+                disabled={!newDateTime || rescheduling}
                 className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded font-medium"
               >
-                {rescheduling ? 'Updating...' : 'Change Date'}
+                {rescheduling ? 'Updating...' : 'Update Schedule'}
               </button>
             </div>
           </div>
