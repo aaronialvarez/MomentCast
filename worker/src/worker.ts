@@ -168,6 +168,138 @@ async function createCloudflareStreamLiveInput(
 }
 
 /**
+ * Utility: Sync viewer_hours_consumed for all active events
+ * Queries Cloudflare Stream GraphQL API for minutesViewed per recording UID,
+ * then writes the totals (as hours, 1 decimal) back to each event row.
+ */
+async function syncViewerHours(env: WorkerEnv, supabase: any): Promise<void> {
+  // Fetch events that could have viewable recordings
+  const { data: events, error } = await supabase
+    .from('events')
+    .select('id, slug, recordings, viewer_hours_consumed')
+    .in('status', ['live', 'ready', 'ended'])
+    .not('recordings', 'is', null);
+
+  if (error) {
+    console.error('syncViewerHours: failed to fetch events:', error);
+    return;
+  }
+
+  if (!events || events.length === 0) {
+    console.log('syncViewerHours: no events with recordings found');
+    return;
+  }
+
+  // Build a map: recording UID → event ID (so we can attribute minutes back)
+  const uidToEventId = new Map<string, string>();
+  const eventMinutes = new Map<string, number>(); // event ID → total minutes
+
+  for (const event of events) {
+    const raw = event.recordings || [];
+    const recs: any[] = typeof raw === 'string' ? JSON.parse(raw) : raw;
+    const uids = recs.map((r: any) => r.uid).filter(Boolean);
+
+    for (const uid of uids) {
+      uidToEventId.set(uid, event.id);
+    }
+    eventMinutes.set(event.id, 0);
+  }
+
+  const allUids = Array.from(uidToEventId.keys());
+  if (allUids.length === 0) {
+    console.log('syncViewerHours: no recording UIDs found across events');
+    return;
+  }
+
+  // Query Cloudflare GraphQL for minutesViewed, grouped by UID
+  const today = new Date();
+  const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
+
+  const graphqlQuery = {
+    query: `
+      query SyncViewerHours($accountTag: String!, $startDate: String!, $endDate: String!, $uids: [String!]!) {
+        viewer {
+          accounts(filter: { accountTag: $accountTag }) {
+            streamMinutesViewedAdaptiveGroups(
+              filter: {
+                date_geq: $startDate,
+                date_lt: $endDate,
+                uid_in: $uids
+              }
+              limit: 100
+            ) {
+              sum {
+                minutesViewed
+              }
+              dimensions {
+                uid
+              }
+            }
+          }
+        }
+      }
+    `,
+    variables: {
+      accountTag: env.CLOUDFLARE_ACCOUNT_ID,
+      startDate: thirtyDaysAgo.toISOString().split('T')[0],
+      endDate: today.toISOString().split('T')[0],
+      uids: allUids
+    }
+  };
+
+  try {
+    const response = await fetch('https://api.cloudflare.com/client/v4/graphql', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${env.CLOUDFLARE_STREAM_API_TOKEN}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(graphqlQuery)
+    });
+
+    const data = await response.json() as any;
+    const groups = data.data?.viewer?.accounts?.[0]?.streamMinutesViewedAdaptiveGroups;
+
+    if (groups && groups.length > 0) {
+      for (const group of groups) {
+        const uid = group.dimensions?.uid;
+        const minutes = group.sum?.minutesViewed || 0;
+        if (uid && uidToEventId.has(uid)) {
+          const eventId = uidToEventId.get(uid)!;
+          eventMinutes.set(eventId, (eventMinutes.get(eventId) || 0) + minutes);
+        }
+      }
+    }
+
+    // Write back to each event (only if value actually changed)
+    let updatedCount = 0;
+    for (const event of events) {
+      const totalMinutes = eventMinutes.get(event.id) || 0;
+      const hours = Math.round((totalMinutes / 60) * 10) / 10;
+      const currentHours = event.viewer_hours_consumed || 0;
+
+      if (hours !== currentHours) {
+        const { error: updateError } = await supabase
+          .from('events')
+          .update({ viewer_hours_consumed: hours })
+          .eq('id', event.id);
+
+        if (updateError) {
+          console.error(`syncViewerHours: failed to update ${event.slug}:`, updateError);
+        } else {
+          console.log(`📊 ${event.slug}: ${currentHours}h → ${hours}h`);
+          updatedCount++;
+        }
+      }
+    }
+
+    console.log(`syncViewerHours: checked ${events.length} events, updated ${updatedCount}`);
+  } catch (err) {
+    console.error('syncViewerHours: GraphQL request failed:', err);
+  }
+}
+
+/**
  * Main Router
  */
 async function handleRequest(request: Request, env: WorkerEnv): Promise<Response> {
@@ -1285,7 +1417,12 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
       }
 
       // Extract recording UIDs from stored recordings jsonb
-      const recordingUids: string[] = (event.recordings || [])
+      // Guard: parse if Supabase returns a JSON string instead of a parsed array
+      const rawRecordings = event.recordings || [];
+      const parsedRecordings: any[] = typeof rawRecordings === 'string'
+        ? JSON.parse(rawRecordings)
+        : rawRecordings;
+      const recordingUids: string[] = parsedRecordings
         .map((r: any) => r.uid)
         .filter(Boolean);
 
@@ -1294,7 +1431,7 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
 
       if (recordingUids.length > 0) {
         const today = new Date();
-        const ninetyDaysAgo = new Date(today.getTime() - 90 * 24 * 60 * 60 * 1000);
+        const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
         
         const graphqlQuery = {
           query: `
@@ -1307,6 +1444,7 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
                       date_lt: $endDate,
                       uid_in: $uids
                     }
+                    limit: 100
                   ) {
                     sum {
                       minutesViewed
@@ -1318,7 +1456,7 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
           `,
           variables: {
             accountTag: env.CLOUDFLARE_ACCOUNT_ID,
-            startDate: ninetyDaysAgo.toISOString().split('T')[0],
+            startDate: thirtyDaysAgo.toISOString().split('T')[0],
             endDate: today.toISOString().split('T')[0],
             uids: recordingUids
           }
@@ -1337,7 +1475,7 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
         );
 
         const analyticsData = await analyticsResponse.json() as any;
-        
+            
         // Sum minutesViewed across all recording UIDs
         let viewerMinutes = 0;
         const groups = analyticsData.data?.viewer?.accounts?.[0]?.streamMinutesViewedAdaptiveGroups;
@@ -1395,50 +1533,59 @@ export default {
   fetch: handleRequest,
   
   async scheduled(event: any, env: WorkerEnv, ctx: any) {
-    console.log('🧹 Running daily cleanup of expired Live Inputs...');
-    
     const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
-    
-    // Find all ended events that still have live_input_id
-    const { data: expiredEvents } = await supabase
-      .from('events')
-      .select('id, slug, live_input_id, stream_started_manually_at')
-      .eq('status', 'ended')
-      .not('live_input_id', 'is', null);
-    
-    if (!expiredEvents || expiredEvents.length === 0) {
-      console.log('✅ No expired Live Inputs to clean up');
-      return;
-    }
-    
-    console.log(`Found ${expiredEvents.length} ended events with Live Inputs`);
-    
-    for (const event of expiredEvents) {
-      try {
-        const deleteResponse = await fetch(
-          `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/stream/live_inputs/${event.live_input_id}`,
-          {
-            method: 'DELETE',
-            headers: {
-              'Authorization': `Bearer ${env.CLOUDFLARE_STREAM_API_TOKEN}`,
-            },
-          }
-        );
-        
-        const deleteResult = await deleteResponse.json() as any;
-        
-        if (deleteResult.success) {
-          console.log(`🗑️ Deleted Live Input for ended event: ${event.slug}`);
-        } else if (deleteResult.errors?.[0]?.code === 10009) {
-          console.log(`ℹ️ Live Input already deleted for: ${event.slug}`);
-        } else {
-          console.error(`Failed to delete Live Input for ${event.slug}:`, deleteResult.errors);
-        }
-      } catch (err) {
-        console.error(`Error deleting Live Input for ${event.slug}:`, err);
+
+    // Route based on which cron trigger fired
+    if (event.cron === '0 3 * * *') {
+      // === Daily cleanup of expired Live Inputs ===
+      console.log('🧹 Running daily cleanup of expired Live Inputs...');
+
+      const { data: expiredEvents } = await supabase
+        .from('events')
+        .select('id, slug, live_input_id, stream_started_manually_at')
+        .eq('status', 'ended')
+        .not('live_input_id', 'is', null);
+
+      if (!expiredEvents || expiredEvents.length === 0) {
+        console.log('✅ No expired Live Inputs to clean up');
+        return;
       }
+
+      console.log(`Found ${expiredEvents.length} ended events with Live Inputs`);
+
+      for (const evt of expiredEvents) {
+        try {
+          const deleteResponse = await fetch(
+            `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/stream/live_inputs/${evt.live_input_id}`,
+            {
+              method: 'DELETE',
+              headers: {
+                'Authorization': `Bearer ${env.CLOUDFLARE_STREAM_API_TOKEN}`,
+              },
+            }
+          );
+
+          const deleteResult = await deleteResponse.json() as any;
+
+          if (deleteResult.success) {
+            console.log(`🗑️ Deleted Live Input for ended event: ${evt.slug}`);
+          } else if (deleteResult.errors?.[0]?.code === 10009) {
+            console.log(`ℹ️ Live Input already deleted for: ${evt.slug}`);
+          } else {
+            console.error(`Failed to delete Live Input for ${evt.slug}:`, deleteResult.errors);
+          }
+        } catch (err) {
+          console.error(`Error deleting Live Input for ${evt.slug}:`, err);
+        }
+      }
+
+      console.log('✅ Daily cleanup completed');
+
+    } else if (event.cron === '*/10 * * * *') {
+      // === Sync viewer hours from Cloudflare Stream analytics ===
+      console.log('📊 Running viewer-hours sync...');
+      await syncViewerHours(env, supabase);
+      console.log('✅ Viewer-hours sync completed');
     }
-    
-    console.log('✅ Daily cleanup completed');
   }
 } as ExportedHandler<WorkerEnv>;

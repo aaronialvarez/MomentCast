@@ -22,4 +22,4 @@ persist = true
 head_sampling_rate = 1
 
 [triggers]
-crons = ["0 3 * * *"]  # Run at 3 AM UTC daily
+crons = ["0 3 * * *", "*/10 * * * *"]  # Daily cleanup at 3 AM UTC + viewer-hours sync every 10 min
