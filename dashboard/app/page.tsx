@@ -20,6 +20,16 @@ interface Event {
   stream_state: 'inactive' | 'active' | 'paused' | 'finalized';
 }
 
+interface CreditTransaction {
+  id: string;
+  amount: number;
+  type: string;
+  event_id: string | null;
+  created_at: string;
+  // Joined from events table
+  events?: { title: string; slug: string } | null;
+}
+
 export default function DashboardHome() {
   const router = useRouter();
   const [supabase] = useState(() =>
@@ -43,6 +53,13 @@ export default function DashboardHome() {
   const [logoError, setLogoError] = useState<string | null>(null);
 
   const ENDED_EVENTS_PER_PAGE = 20; // Change to 20 in production
+  // Credit history state
+  const [creditHistory, setCreditHistory] = useState<CreditTransaction[]>([]);
+  const [showCreditHistory, setShowCreditHistory] = useState(false);
+
+  // Cancelled events state
+  const [cancelledEvents, setCancelledEvents] = useState<Event[]>([]);
+  const [showCancelled, setShowCancelled] = useState(false);
 
   useEffect(() => {
     async function loadDashboard() {
@@ -163,6 +180,52 @@ export default function DashboardHome() {
     setEndedEvents(prev => [...prev, ...(moreEndedEvents || [])]);
     setEndedPage(prev => prev + 1);
     setLoadingMoreEnded(false);
+  }
+
+  async function loadCreditHistory() {
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) return;
+
+      const { data, error } = await supabase
+        .from('credit_transactions')
+        .select('id, amount, type, event_id, created_at, events(title, slug)')
+        .eq('user_id', authUser.id)
+        .order('created_at', { ascending: false })
+        .limit(50);
+
+      if (error) {
+        console.error('Credit history fetch error:', error);
+        return;
+      }
+
+      setCreditHistory(data || []);
+    } catch (err) {
+      console.error('Credit history error:', err);
+    }
+  }
+
+  async function loadCancelledEvents() {
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) return;
+
+      const { data, error } = await supabase
+        .from('events')
+        .select('id, slug, title, scheduled_date, status, stream_state')
+        .eq('user_id', authUser.id)
+        .eq('status', 'cancelled')
+        .order('scheduled_date', { ascending: false });
+
+      if (error) {
+        console.error('Cancelled events fetch error:', error);
+        return;
+      }
+
+      setCancelledEvents(data || []);
+    } catch (err) {
+      console.error('Cancelled events error:', err);
+    }
   }
 
   // Upload logo to Supabase Storage, save public URL to users table
