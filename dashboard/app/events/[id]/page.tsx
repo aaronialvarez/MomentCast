@@ -882,7 +882,20 @@ export default function EventDetailPage() {
         </div>
 
         {/* Streaming Details */}
-        {event.status === 'ended' ? (
+        {event.status === 'cancelled' ? (
+          // Event cancelled - show cancellation notice
+          <div className="bg-gray-800 rounded-lg p-6 mb-6">
+            <div className="bg-red-900/20 border border-red-800/50 rounded-lg p-6 text-center">
+              <h2 className="text-xl font-semibold text-red-400 mb-2">Event Cancelled</h2>
+              <p className="text-gray-400 mb-1">
+                This event was cancelled and the credit was returned to your balance.
+              </p>
+              <p className="text-gray-500 text-sm">
+                The watch page link is no longer active.
+              </p>
+            </div>
+          </div>
+        ) : event.status === 'ended' ? (
           // Event ended - show completion message instead of credentials
           <div className="bg-gray-800 rounded-lg p-6 mb-6">
             <h2 className="text-xl font-semibold mb-4">Event Completed</h2>
@@ -957,7 +970,7 @@ export default function EventDetailPage() {
                   Start Streaming
                 </button>
                 <p className="text-gray-400 text-sm mt-3 text-center">
-                  Streaming will be available on{' '}
+                  Streaming will be available 2 hours before{' '}
                   <span className="font-medium text-white">
                     {new Date(event.scheduled_date).toLocaleString('en-US', {
                       weekday: 'long',
