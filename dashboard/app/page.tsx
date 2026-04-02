@@ -199,7 +199,7 @@ export default function DashboardHome() {
         return;
       }
 
-      setCreditHistory(data || []);
+      setCreditHistory((data as CreditTransaction[]) || []);
     } catch (err) {
       console.error('Credit history error:', err);
     }
