@@ -1202,8 +1202,140 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
     }
+    
+    // POST /api/events/:slug/cancel - Cancel event and refund credit (authenticated, pre-stream only)
+    if (pathname.match(/^\/api\/events\/[a-z0-9-]+\/cancel$/) && method === 'POST') {
+      const token = extractToken(request.headers.get('authorization'));
+      if (!token) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
 
-    // PATCH /api/events/:slug/status - Update event status (authenticated)
+      const userId = await verifyJWT(token, env);
+      if (!userId) {
+        return new Response(JSON.stringify({ error: 'Invalid token' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const slug = pathname.split('/')[3];
+
+      // Get event
+      const { data: event, error: getError } = await supabase
+        .from('events')
+        .select('*')
+        .eq('slug', slug)
+        .eq('user_id', userId)
+        .single();
+
+      if (getError || !event) {
+        return new Response(JSON.stringify({ error: 'Event not found' }), {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Guard: only allow cancellation if streaming hasn't started
+      if (event.stream_credentials_revealed) {
+        return new Response(JSON.stringify({ 
+          error: 'Cannot cancel after streaming credentials have been revealed' 
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Guard: don't cancel already-cancelled or ended events
+      if (event.status === 'cancelled' || event.status === 'ended') {
+        return new Response(JSON.stringify({ 
+          error: `Event is already ${event.status}` 
+        }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // 1. Delete the Cloudflare Live Input (free up dashboard clutter)
+      if (event.live_input_id) {
+        try {
+          const deleteResponse = await fetch(
+            `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/stream/live_inputs/${event.live_input_id}`,
+            {
+              method: 'DELETE',
+              headers: {
+                'Authorization': `Bearer ${env.CLOUDFLARE_STREAM_API_TOKEN}`,
+              },
+            }
+          );
+          const deleteResult = await deleteResponse.json() as any;
+          if (deleteResult.success) {
+            console.log(`🗑️ Deleted Live Input for cancelled event: ${slug}`);
+          } else {
+            console.error(`Failed to delete Live Input for ${slug}:`, deleteResult.errors);
+          }
+        } catch (err) {
+          console.error(`Error deleting Live Input for ${slug}:`, err);
+          // Continue with cancellation even if CF delete fails
+        }
+      }
+
+      // 2. Update event status to cancelled
+      const { error: updateError } = await supabase
+        .from('events')
+        .update({
+          status: 'cancelled',
+          stream_state: 'inactive',
+          live_input_id: null,  // Clear since we deleted it
+          updated_at: new Date().toISOString(),
+        })
+        .eq('id', event.id);
+
+      if (updateError) {
+        console.error('Error cancelling event:', updateError);
+        return new Response(JSON.stringify({ error: 'Failed to cancel event' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // 3. Refund credit(s) to user balance
+      const creditsToRefund = event.tier === 'premium' ? 2 : 1;
+
+      const { data: user } = await supabase
+        .from('users')
+        .select('credits')
+        .eq('id', userId)
+        .single();
+
+      if (user) {
+        await supabase
+          .from('users')
+          .update({ credits: user.credits + creditsToRefund })
+          .eq('id', userId);
+      }
+
+      // 4. Log the refund transaction
+      await supabase.from('credit_transactions').insert({
+        user_id: userId,
+        amount: creditsToRefund,
+        type: 'event_cancelled',
+        event_id: event.id,
+      });
+
+      console.log(`✅ Event ${slug} cancelled, ${creditsToRefund} credit(s) refunded to user ${userId}`);
+
+      return new Response(JSON.stringify({ 
+        success: true,
+        creditsRefunded: creditsToRefund,
+        message: `Event cancelled. ${creditsToRefund} credit(s) returned to your balance.`
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
 
     // PATCH /api/events/:slug/status - Update event status (authenticated)
     if (pathname.match(/^\/api\/events\/[a-z0-9-]+\/status$/) && method === 'PATCH') {

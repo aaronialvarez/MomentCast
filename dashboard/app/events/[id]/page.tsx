@@ -63,6 +63,10 @@ export default function EventDetailPage() {
   const [editedTitle, setEditedTitle] = useState('');
   const [savingTitle, setSavingTitle] = useState(false);
   const [titleError, setTitleError] = useState<string | null>(null);
+  // Cancel event state
+  const [showCancelModal, setShowCancelModal] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
+  const [cancelError, setCancelError] = useState<string | null>(null);
   // Same timezone list as create-event page
   const timezoneOptions = [
     { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
@@ -479,6 +483,48 @@ export default function EventDetailPage() {
     }
   }
 
+  async function handleCancelEvent() {
+    if (!event) return;
+    
+    setCancelling(true);
+    setCancelError(null);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      
+      if (!session) {
+        router.push('/login');
+        return;
+      }
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_WORKER_API_URL}/api/events/${event.slug}/cancel`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to cancel event');
+      }
+
+      // Redirect to dashboard after successful cancellation
+      router.push('/');
+
+    } catch (err) {
+      console.error('Cancel event error:', err);
+      setCancelError(err instanceof Error ? err.message : 'Failed to cancel event');
+    } finally {
+      setCancelling(false);
+    }
+  }
+
   /** Save updated event title via API (only allowed before streaming starts) */
   async function handleTitleSave() {
     if (!event || !editedTitle.trim()) return;
@@ -704,17 +750,32 @@ export default function EventDetailPage() {
         </div>
 
         {/* Change Date Button - Only show if event can be rescheduled */}
-        {event.can_be_rescheduled && event.status !== 'ended' && (
-          <div className="mb-6">
-            <button
-              onClick={() => setShowRescheduleModal(true)}
-              className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg font-medium transition-colors"
-            >
-              Change Event Date
-            </button>
-            <p className="text-gray-400 text-xs mt-2">
-              ℹ️ You can change the date before starting the stream
-            </p>
+        {event.can_be_rescheduled && event.status !== 'ended' && event.status !== 'cancelled' && (
+          <div className="mb-6 flex items-start gap-4">
+            <div>
+              <button
+                onClick={() => setShowRescheduleModal(true)}
+                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg font-medium transition-colors"
+              >
+                Change Event Date & Time
+              </button>
+              <p className="text-gray-400 text-xs mt-2">
+                ℹ️ You can change the date and time before starting the stream
+              </p>
+            </div>
+            {!event.stream_credentials_revealed && (
+              <div>
+                <button
+                  onClick={() => setShowCancelModal(true)}
+                  className="px-4 py-2 bg-red-900/50 hover:bg-red-900 text-red-200 border border-red-800 rounded-lg font-medium transition-colors"
+                >
+                  Cancel Event
+                </button>
+                <p className="text-gray-400 text-xs mt-2">
+                  Credit will be returned to your balance
+                </p>
+              </div>
+            )}
           </div>
         )}
 
@@ -1089,6 +1150,56 @@ export default function EventDetailPage() {
                 className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded font-medium"
               >
                 {rescheduling ? 'Updating...' : 'Update Schedule'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+      {/* Cancel Event Modal */}
+      {showCancelModal && (
+        <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
+          <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full">
+            <h3 className="text-xl font-semibold mb-4 text-red-400">Cancel Event</h3>
+            
+            {cancelError && (
+              <div className="bg-red-900 text-red-100 p-3 rounded-lg mb-4 text-sm">
+                {cancelError}
+              </div>
+            )}
+            
+            <p className="text-gray-300 mb-4">
+              Are you sure you want to cancel <span className="font-semibold text-white">{event.title}</span>?
+            </p>
+
+            <div className="bg-gray-700/50 rounded-lg p-3 mb-4 space-y-1">
+              <p className="text-sm text-green-300">
+                ✓ {event.tier === 'premium' ? '2 credits' : '1 credit'} will be returned to your balance
+              </p>
+              <p className="text-sm text-gray-400">
+                ✓ The watch page link will stop working
+              </p>
+              <p className="text-sm text-gray-400">
+                ✓ This cannot be undone
+              </p>
+            </div>
+            
+            <div className="flex gap-3">
+              <button
+                onClick={() => {
+                  setShowCancelModal(false);
+                  setCancelError(null);
+                }}
+                className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded font-medium"
+                disabled={cancelling}
+              >
+                Keep Event
+              </button>
+              <button
+                onClick={handleCancelEvent}
+                disabled={cancelling}
+                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded font-medium"
+              >
+                {cancelling ? 'Cancelling...' : 'Yes, Cancel Event'}
               </button>
             </div>
           </div>
