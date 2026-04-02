@@ -18,6 +18,7 @@ interface Event {
   scheduled_date: string;
   status: 'scheduled' | 'live' | 'ended' | 'cancelled' | 'ready';
   stream_state: 'inactive' | 'active' | 'paused' | 'finalized';
+  timezone?: string;
 }
 
 interface CreditTransaction {
@@ -96,7 +97,7 @@ export default function DashboardHome() {
         
         const { data: activeEvents, error: activeError } = await supabase
           .from('events')
-          .select('id, slug, title, scheduled_date, status, stream_state')
+          .select('id, slug, title, scheduled_date, status, stream_state, timezone')
           .eq('user_id', authUser.id)
           .in('status', ['live', 'ready', 'scheduled'])
           .order('scheduled_date', { ascending: true });
@@ -158,7 +159,7 @@ export default function DashboardHome() {
     
     const { data: moreEndedEvents, error } = await supabase
       .from('events')
-      .select('id, slug, title, scheduled_date, status, stream_state')
+      .select('id, slug, title, scheduled_date, status, stream_state, timezone')
       .eq('user_id', targetUserId)
       .eq('status', 'ended')
       .order('scheduled_date', { ascending: false })
@@ -213,7 +214,7 @@ export default function DashboardHome() {
 
       const { data, error } = await supabase
         .from('events')
-        .select('id, slug, title, scheduled_date, status, stream_state')
+        .select('id, slug, title, scheduled_date, status, stream_state, timezone')
         .eq('user_id', authUser.id)
         .eq('status', 'cancelled')
         .order('scheduled_date', { ascending: false });
@@ -407,6 +408,63 @@ export default function DashboardHome() {
           </div>
         </div>
 
+        {/* Credit History Toggle */}
+        <div className="mb-8 -mt-4">
+          <button
+            onClick={() => {
+              if (!showCreditHistory) loadCreditHistory();
+              setShowCreditHistory(!showCreditHistory);
+            }}
+            className="text-sm text-purple-400 hover:text-purple-300 transition-colors"
+          >
+            {showCreditHistory ? '▾ Hide credit history' : '▸ View credit history'}
+          </button>
+
+          {showCreditHistory && (
+            <div className="mt-3 bg-gray-800 rounded-lg overflow-hidden">
+              {creditHistory.length === 0 ? (
+                <p className="text-gray-500 text-sm p-4">No transactions yet.</p>
+              ) : (
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="border-b border-gray-700">
+                      <th className="text-left text-gray-400 font-medium px-4 py-3">Date</th>
+                      <th className="text-left text-gray-400 font-medium px-4 py-3">Type</th>
+                      <th className="text-left text-gray-400 font-medium px-4 py-3">Event</th>
+                      <th className="text-right text-gray-400 font-medium px-4 py-3">Credits</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {creditHistory.map((tx) => (
+                      <tr key={tx.id} className="border-b border-gray-700/50">
+                        <td className="px-4 py-3 text-gray-400">
+                          {new Date(tx.created_at).toLocaleDateString('en-US', {
+                            month: 'short', day: 'numeric', year: 'numeric'
+                          })}
+                        </td>
+                        <td className="px-4 py-3">
+                          {tx.type === 'event_created' && 'Event created'}
+                          {tx.type === 'event_cancelled' && 'Event cancelled'}
+                          {tx.type === 'purchase' && 'Purchase'}
+                          {tx.type === 'refund' && 'Refund'}
+                        </td>
+                        <td className="px-4 py-3 text-gray-400">
+                          {tx.events?.title || '—'}
+                        </td>
+                        <td className={`px-4 py-3 text-right font-medium ${
+                          tx.amount > 0 ? 'text-green-400' : 'text-red-400'
+                        }`}>
+                          {tx.amount > 0 ? '+' : ''}{tx.amount}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              )}
+            </div>
+          )}
+        </div>
+
         {/* Logo Upload Section */}
         <div className="bg-gray-800 rounded-lg p-6 mb-8">
           <div className="flex justify-between items-start">
@@ -503,12 +561,15 @@ export default function DashboardHome() {
                         <div>
                           <h3 className="text-xl font-semibold">{event.title}</h3>
                           <p className="text-gray-400 text-sm mt-1">
-                            {new Date(event.scheduled_date).toLocaleDateString('en-US', {
+                            {new Date(event.scheduled_date).toLocaleString('en-US', {
                               weekday: 'long',
                               year: 'numeric',
                               month: 'long',
                               day: 'numeric',
-                              timeZone: 'UTC'
+                              hour: 'numeric',
+                              minute: '2-digit',
+                              timeZoneName: 'short',
+                              timeZone: (event as any).timezone || 'America/Los_Angeles'
                             })}
                           </p>
                           <p className="text-gray-500 text-xs mt-2">
@@ -554,12 +615,15 @@ export default function DashboardHome() {
                           <div>
                             <h3 className="text-xl font-semibold text-gray-300">{event.title}</h3>
                             <p className="text-gray-500 text-sm mt-1">
-                              {new Date(event.scheduled_date).toLocaleDateString('en-US', {
+                              {new Date(event.scheduled_date).toLocaleString('en-US', {
                                 weekday: 'long',
                                 year: 'numeric',
                                 month: 'long',
                                 day: 'numeric',
-                                timeZone: 'UTC'
+                                hour: 'numeric',
+                                minute: '2-digit',
+                                timeZoneName: 'short',
+                                timeZone: (event as any).timezone || 'America/Los_Angeles'
                               })}
                             </p>
                             <p className="text-gray-600 text-xs mt-2">
@@ -594,6 +658,55 @@ export default function DashboardHome() {
               )}
             </>
           )}
+          {/* Cancelled Events Toggle */}
+          <div className="mt-8">
+            <button
+              onClick={() => {
+                if (!showCancelled) loadCancelledEvents();
+                setShowCancelled(!showCancelled);
+              }}
+              className="text-sm text-gray-500 hover:text-gray-400 transition-colors"
+            >
+              {showCancelled ? '▾ Hide cancelled events' : '▸ Show cancelled events'}
+            </button>
+
+            {showCancelled && cancelledEvents.length > 0 && (
+              <div className="grid gap-4 mt-3">
+                {cancelledEvents.map((event) => (
+                  <div
+                    key={event.id}
+                    className="bg-gray-800/30 rounded-lg p-6 cursor-pointer hover:bg-gray-700/30 transition-colors opacity-60"
+                    onClick={() => router.push(`/events/${event.id}`)}
+                  >
+                    <div className="flex justify-between items-start">
+                      <div>
+                        <h3 className="text-xl font-semibold text-gray-400 line-through">{event.title}</h3>
+                        <p className="text-gray-600 text-sm mt-1">
+                          {new Date(event.scheduled_date).toLocaleString('en-US', {
+                            weekday: 'long',
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                            hour: 'numeric',
+                            minute: '2-digit',
+                            timeZoneName: 'short',
+                            timeZone: event.timezone || 'America/Los_Angeles'
+                          })}
+                        </p>
+                      </div>
+                      <span className="px-3 py-1 rounded-full text-sm font-medium bg-red-900/30 text-red-400">
+                        CANCELLED
+                      </span>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+
+            {showCancelled && cancelledEvents.length === 0 && (
+              <p className="text-gray-600 text-sm mt-3">No cancelled events.</p>
+            )}
+          </div>
         </div>
       </div>
     </div>
