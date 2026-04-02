@@ -202,10 +202,13 @@ export default function EventDetailPage() {
     setTimeout(() => setCopied(null), 2000);
   }
 
-  function isEventToday(scheduledDate: string): boolean {
-    const today = new Date();
-    const todayLocal = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
-    return scheduledDate === todayLocal;
+  // Allow streaming starting 2 hours before the scheduled time.
+  // Gives photographers a setup window without opening access days early.
+  function canStartStreaming(scheduledDate: string): boolean {
+    const scheduled = new Date(scheduledDate).getTime();
+    const now = Date.now();
+    const twoHoursBefore = scheduled - (2 * 60 * 60 * 1000);
+    return now >= twoHoursBefore;
   }
 
   async function handleStartStreaming() {
@@ -918,7 +921,7 @@ export default function EventDetailPage() {
           <div className="bg-gray-800 rounded-lg p-6 mb-6">
             <h2 className="text-xl font-semibold mb-4">Start Streaming</h2>
             
-            {isEventToday(event.scheduled_date) ? (
+            {canStartStreaming(event.scheduled_date) ? (
               <>
                 <p className="text-gray-400 mb-6">
                   Ready to go live? Click below to start your 24-hour streaming window and get your streaming credentials.
