@@ -787,7 +787,7 @@ export default function EventDetailPage() {
           <div className="bg-gray-800 rounded-lg p-6 mb-6">
             <h2 className="text-xl font-semibold mb-2">Cover Photo</h2>
             <p className="text-gray-400 text-sm mb-4">
-              Shown behind the countdown on your watch page. Max 2MB. JPG, PNG, or WebP.
+              Shown behind the countdown on your watch page. Max 5MB. JPG, PNG, or WebP.
             </p>
 
             {/* Current cover preview — full image with 1:1 crop overlay to match watch page */}
@@ -817,8 +817,8 @@ export default function EventDetailPage() {
                     const file = e.target.files?.[0];
                     if (!file) return;
 
-                    if (file.size > 2 * 1024 * 1024) {
-                      setCoverError('File must be under 2MB');
+                    if (file.size > 5 * 1024 * 1024) {
+                      setCoverError('File must be under 5MB');
                       return;
                     }
 
