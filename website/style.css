@@ -181,7 +181,7 @@ ul { list-style: none; }
   max-width: 1120px;
   margin: 0 auto;
   padding: 0 24px;
-  height: 64px;
+  height: 80px;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -189,7 +189,7 @@ ul { list-style: none; }
 }
 
 .mc-nav-logo-img {
-  height: 28px;
+  height: 60px;
   width: auto;
 }
 
