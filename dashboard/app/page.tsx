@@ -200,7 +200,7 @@ export default function DashboardHome() {
       }
 
       // Fix — cast through unknown first
-      setCreditHistory(data || []);
+      setCreditHistory((data as unknown as CreditTransaction[]) || []);
     } catch (err) {
       console.error('Credit history error:', err);
     }
