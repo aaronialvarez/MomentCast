@@ -782,82 +782,84 @@ export default function EventDetailPage() {
           </div>
         )}
 
-        {/* Cover Photo */}
-        <div className="bg-gray-800 rounded-lg p-6 mb-6">
-          <h2 className="text-xl font-semibold mb-2">Cover Photo</h2>
-          <p className="text-gray-400 text-sm mb-4">
-            Shown behind the countdown on your watch page. Max 2MB. JPG, PNG, or WebP.
-          </p>
+        {/* Cover Photo - hidden for cancelled events */}
+        {event.status !== 'cancelled' && (
+          <div className="bg-gray-800 rounded-lg p-6 mb-6">
+            <h2 className="text-xl font-semibold mb-2">Cover Photo</h2>
+            <p className="text-gray-400 text-sm mb-4">
+              Shown behind the countdown on your watch page. Max 2MB. JPG, PNG, or WebP.
+            </p>
 
-          {/* Current cover preview — full image with 1:1 crop overlay to match watch page */}
-          {(event as any).cover_image_url && !coverPreview && (
-            <div className="mb-4">
-              <CoverPreviewWithCrop src={(event as any).cover_image_url} borderColor="border-gray-700" />
-              <p className="text-green-400 text-xs mt-2">✓ Cover photo is live on your watch page</p>
-            </div>
-          )}
-
-          {/* New file preview — full image with 1:1 crop overlay to match watch page */}
-          {coverPreview && (
-            <div className="mb-4">
-              <CoverPreviewWithCrop src={coverPreview} borderColor="border-gray-600" />
-              <p className="text-gray-400 text-xs mt-2">Preview (not saved yet)</p>
-            </div>
-          )}
-
-          <div className="flex items-center gap-3">
-            <label className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg font-medium cursor-pointer transition-colors text-sm">
-              {(event as any).cover_image_url ? 'Replace Photo' : 'Choose Photo'}
-              <input
-                type="file"
-                accept="image/jpeg,image/png,image/webp"
-                className="hidden"
-                onChange={(e) => {
-                  const file = e.target.files?.[0];
-                  if (!file) return;
-
-                  if (file.size > 2 * 1024 * 1024) {
-                    setCoverError('File must be under 2MB');
-                    return;
-                  }
-
-                  setCoverFile(file);
-                  setCoverError(null);
-                  setCoverSuccess(false);
-                  setCoverPreview(URL.createObjectURL(file));
-                }}
-              />
-            </label>
-
-            {coverFile && (
-              <button
-                onClick={handleCoverUpload}
-                disabled={uploadingCover}
-                className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg font-medium transition-colors text-sm"
-              >
-                {uploadingCover ? 'Uploading...' : 'Save Cover Photo'}
-              </button>
+            {/* Current cover preview — full image with 1:1 crop overlay to match watch page */}
+            {(event as any).cover_image_url && !coverPreview && (
+              <div className="mb-4">
+                <CoverPreviewWithCrop src={(event as any).cover_image_url} borderColor="border-gray-700" />
+                <p className="text-green-400 text-xs mt-2">✓ Cover photo is live on your watch page</p>
+              </div>
             )}
 
-            {/* Remove button: only show when a cover exists and no new file is staged */}
-            {(event as any).cover_image_url && !coverFile && (
-              <button
-                onClick={handleCoverDelete}
-                disabled={deletingCover}
-                className="px-4 py-2 bg-red-600/20 hover:bg-red-600/40 text-red-400 hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-medium transition-colors text-sm"
-              >
-                {deletingCover ? 'Removing...' : 'Remove'}
-              </button>
+            {/* New file preview — full image with 1:1 crop overlay to match watch page */}
+            {coverPreview && (
+              <div className="mb-4">
+                <CoverPreviewWithCrop src={coverPreview} borderColor="border-gray-600" />
+                <p className="text-gray-400 text-xs mt-2">Preview (not saved yet)</p>
+              </div>
+            )}
+
+            <div className="flex items-center gap-3">
+              <label className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg font-medium cursor-pointer transition-colors text-sm">
+                {(event as any).cover_image_url ? 'Replace Photo' : 'Choose Photo'}
+                <input
+                  type="file"
+                  accept="image/jpeg,image/png,image/webp"
+                  className="hidden"
+                  onChange={(e) => {
+                    const file = e.target.files?.[0];
+                    if (!file) return;
+
+                    if (file.size > 2 * 1024 * 1024) {
+                      setCoverError('File must be under 2MB');
+                      return;
+                    }
+
+                    setCoverFile(file);
+                    setCoverError(null);
+                    setCoverSuccess(false);
+                    setCoverPreview(URL.createObjectURL(file));
+                  }}
+                />
+              </label>
+
+              {coverFile && (
+                <button
+                  onClick={handleCoverUpload}
+                  disabled={uploadingCover}
+                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg font-medium transition-colors text-sm"
+                >
+                  {uploadingCover ? 'Uploading...' : 'Save Cover Photo'}
+                </button>
+              )}
+
+              {/* Remove button: only show when a cover exists and no new file is staged */}
+              {(event as any).cover_image_url && !coverFile && (
+                <button
+                  onClick={handleCoverDelete}
+                  disabled={deletingCover}
+                  className="px-4 py-2 bg-red-600/20 hover:bg-red-600/40 text-red-400 hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-medium transition-colors text-sm"
+                >
+                  {deletingCover ? 'Removing...' : 'Remove'}
+                </button>
+              )}
+            </div>
+
+            {coverError && (
+              <p className="text-red-400 text-sm mt-3">{coverError}</p>
+            )}
+            {coverSuccess && (
+              <p className="text-green-400 text-sm mt-3">✓ Cover photo saved successfully</p>
             )}
           </div>
-
-          {coverError && (
-            <p className="text-red-400 text-sm mt-3">{coverError}</p>
-          )}
-          {coverSuccess && (
-            <p className="text-green-400 text-sm mt-3">✓ Cover photo saved successfully</p>
-          )}
-        </div>
+        )}
 
         {/* Watch URL */}
         <div className="bg-gray-800 rounded-lg p-6 mb-6">
