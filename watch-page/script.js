@@ -199,6 +199,11 @@ function determinePlaybackMode() {
   if (isLive) {
     return 'LIVE';
   }
+
+  // Cancelled events show the same message as ended (no recording available)
+  if (eventData.status === 'cancelled') {
+    return 'ENDED';
+  }
   
   if (isEnded) {
     // Check if event ended more than 30 days ago
