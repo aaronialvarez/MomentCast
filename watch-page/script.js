@@ -10,6 +10,7 @@ let countdownInterval = null;
 let pollInterval = null;
 let currentRecordingIndex = 0;
 let playbackMode = null; // 'LIVE', 'LAST_RECORDING', 'SEQUENTIAL', 'WAITING'
+let liveSessionId = 0;   // Incremented each time we enter LIVE mode to force iframe reload
 
 // Initialize
 async function init() {
@@ -327,6 +328,7 @@ function updateUI() {
     
     switch (newMode) {
       case 'LIVE':
+        liveSessionId++; // Force iframe reload on each LIVE transition
         showLive();
         break;
       case 'PROCESSING':
@@ -477,7 +479,8 @@ function showLive() {
   
   if (liveInputId && streamEl) {
     // Start muted to guarantee autoplay (browsers block unmuted autoplay without user gesture)
-    const embedUrl = `https://customer-r5vkm8rpzqtdt9cz.cloudflarestream.com/${liveInputId}/iframe?autoplay=true&muted=true`;
+    // liveSessionId changes on each LIVE entry, forcing iframe to dump stale HLS state on reconnect
+    const embedUrl = `https://customer-r5vkm8rpzqtdt9cz.cloudflarestream.com/${liveInputId}/iframe?autoplay=true&muted=true&session=${liveSessionId}`;
     
     // Only set src when switching to live mode (not on every poll)
     if (streamEl.src !== embedUrl) {
@@ -577,7 +580,9 @@ function showProcessing() {
   titleEl.textContent = eventData.title;
   
   // Show a processing message without destroying the iframe structure
+  // Clear iframe src to drop any stale HLS connection (prevents freeze on reconnect)
   const streamEl = document.getElementById('live-stream');
+  if (streamEl) streamEl.src = 'about:blank';
   let processingMessage = liveEl.querySelector('.processing-message');
   if (!processingMessage) {
     processingMessage = document.createElement('div');
