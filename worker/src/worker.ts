@@ -258,7 +258,7 @@ async function syncViewerHours(env: WorkerEnv, supabase: any): Promise<void> {
   // Query Cloudflare GraphQL for minutesViewed, grouped by UID
   const today = new Date();
   const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
-
+  const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
   const graphqlQuery = {
     query: `
       query SyncViewerHours($accountTag: String!, $startDate: String!, $endDate: String!, $uids: [String!]!) {
@@ -286,7 +286,7 @@ async function syncViewerHours(env: WorkerEnv, supabase: any): Promise<void> {
     variables: {
       accountTag: env.CLOUDFLARE_ACCOUNT_ID,
       startDate: thirtyDaysAgo.toISOString().split('T')[0],
-      endDate: today.toISOString().split('T')[0],
+      endDate: tomorrow.toISOString().split('T')[0],  // date_lt is exclusive, so use tomorrow to include today's data
       uids: allUids
     }
   };
@@ -1626,7 +1626,7 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
       if (recordingUids.length > 0) {
         const today = new Date();
         const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
-        
+        const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
         const graphqlQuery = {
           query: `
             query StreamAnalytics($accountTag: String!, $startDate: String!, $endDate: String!, $uids: [String!]!) {
@@ -1651,7 +1651,7 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
           variables: {
             accountTag: env.CLOUDFLARE_ACCOUNT_ID,
             startDate: thirtyDaysAgo.toISOString().split('T')[0],
-            endDate: today.toISOString().split('T')[0],
+            endDate: tomorrow.toISOString().split('T')[0],  // date_lt is exclusive, so use tomorrow to include today's data
             uids: recordingUids
           }
         };

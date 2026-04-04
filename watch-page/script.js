@@ -285,6 +285,8 @@ function updateUI() {
     showError();
     return;
   }
+  // Update page title for GA4 tracking (dynamic since OG tags are static HTML)
+  document.title = `${eventData.title} — MomentCast`;
 
   // Check if viewer limit exceeded
   const hasRecordings = eventData.recordings && eventData.recordings.length > 0;
