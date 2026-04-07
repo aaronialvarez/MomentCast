@@ -68,9 +68,13 @@ export default function LoginPage() {
   return (
     <div className="min-h-screen bg-[var(--mc-bg)] text-[var(--mc-text-1)] flex items-center justify-center p-8">
       <div className="max-w-md w-full bg-[var(--mc-surface)] rounded-lg p-8 border border-[var(--mc-border)] shadow-sm">
-        <h1 className="text-3xl font-bold mb-6 text-center text-[var(--mc-gold)]">
-          MomentCast
-        </h1>
+        <div className="flex justify-center mb-6">
+          <img
+            src="/momentcast-logo-gold-on-light.png"
+            alt="MomentCast"
+            className="h-12 w-auto"
+          />
+        </div>
         
         <form onSubmit={handleLogin} className="space-y-6">
           <div>
