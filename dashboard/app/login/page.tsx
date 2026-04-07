@@ -66,9 +66,9 @@ export default function LoginPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center p-8">
-      <div className="max-w-md w-full bg-gray-800 rounded-lg p-8">
-        <h1 className="text-3xl font-bold mb-6 text-center bg-gradient-to-r from-purple-400 to-pink-400 bg-clip-text text-transparent">
+    <div className="min-h-screen bg-[var(--mc-bg)] text-[var(--mc-text-1)] flex items-center justify-center p-8">
+      <div className="max-w-md w-full bg-[var(--mc-surface)] rounded-lg p-8 border border-[var(--mc-border)] shadow-sm">
+        <h1 className="text-3xl font-bold mb-6 text-center text-[var(--mc-gold)]">
           MomentCast
         </h1>
         
@@ -80,7 +80,7 @@ export default function LoginPage() {
               value={email}
               onChange={(e) => setEmail(e.target.value)}
               placeholder="you@example.com"
-              className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-purple-500"
+              className="w-full px-4 py-3 bg-[var(--mc-surface-2)] border border-[var(--mc-border)] rounded focus:outline-none focus:border-[var(--mc-gold)]"
               required
             />
           </div>
@@ -92,13 +92,13 @@ export default function LoginPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="••••••••"
-              className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:border-purple-500"
+              className="w-full px-4 py-3 bg-[var(--mc-surface-2)] border border-[var(--mc-border)] rounded focus:outline-none focus:border-[var(--mc-gold)]"
               required
             />
           </div>
 
           {error && (
-            <div className="bg-red-900 text-red-100 p-4 rounded-lg text-sm">
+            <div className="bg-[var(--mc-live-bg)] text-[var(--mc-live)] p-4 rounded-lg text-sm border border-red-200">
               {error}
             </div>
           )}
@@ -107,7 +107,7 @@ export default function LoginPage() {
             <button
               type="submit"
               disabled={loading}
-              className="w-full px-6 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-700 disabled:cursor-not-allowed rounded-lg font-medium transition-colors"
+              className="w-full px-6 py-3 bg-[var(--mc-gold)] hover:bg-[var(--mc-gold-hover)] disabled:bg-[var(--mc-surface-2)] disabled:text-[var(--mc-text-3)] disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors"
             >
               {loading ? 'Signing In...' : 'Sign In'}
             </button>
@@ -116,14 +116,14 @@ export default function LoginPage() {
               type="button"
               onClick={handleSignup}
               disabled={loading}
-              className="w-full px-6 py-3 border border-gray-600 hover:bg-gray-700 disabled:bg-gray-800 disabled:cursor-not-allowed rounded-lg font-medium transition-colors"
+              className="w-full px-6 py-3 border border-[var(--mc-border)] hover:bg-[var(--mc-surface-2)] disabled:bg-[var(--mc-surface)] disabled:text-[var(--mc-text-3)] disabled:cursor-not-allowed rounded-lg font-medium transition-colors"
             >
               {loading ? 'Creating Account...' : 'Create Account (5 Free Credits)'}
             </button>
           </div>
         </form>
 
-        <p className="text-gray-400 text-xs mt-6 text-center">
+        <p className="text-[var(--mc-text-3)] text-xs mt-6 text-center">
           New accounts receive 5 free event credits
         </p>
       </div>
