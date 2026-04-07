@@ -374,12 +374,12 @@ export default function DashboardHome() {
     <div className="min-h-screen bg-[var(--mc-bg)] text-[var(--mc-text-1)]">
       {/* Header with User Info */}
       <div className="bg-[#1a1a1f] p-8">
-        <div className="max-w-6xl mx-auto flex justify-between items-center">
+        <div className="max-w-6xl mx-auto flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
           <div>
-            <h1 className="text-3xl font-bold text-white">MomentCast Dashboard</h1>
+            <img src="/momentcast-logo-gold-on-dark.png" alt="MomentCast" className="h-10 w-auto" />
             <p className="text-white/60 mt-2">Manage your live events</p>
           </div>
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-4 w-full sm:w-auto justify-between sm:justify-end">
             <div className="text-right">
               <p className="text-sm text-white/50">Logged in as</p>
               <p className="font-medium text-white">{user?.email}</p>
