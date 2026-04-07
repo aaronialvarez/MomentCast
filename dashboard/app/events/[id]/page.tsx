@@ -588,7 +588,7 @@ export default function EventDetailPage() {
    * Landscape photos get side bars; portrait photos get top/bottom bars.
    * This previews the 1:1 crop region that the watch page actually displays.
    */
-  function CoverPreviewWithCrop({ src, borderColor = 'border-gray-700' }: { src: string; borderColor?: string }) {
+  function CoverPreviewWithCrop({ src, borderColor = 'border-[var(--mc-border)]' }: { src: string; borderColor?: string }) {
     const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
 
     // Determine overlay bar sizes as percentages
@@ -637,7 +637,7 @@ export default function EventDetailPage() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--mc-bg)] text-[var(--mc-text-2)] flex items-center justify-center">
         <div className="text-xl">Loading event...</div>
       </div>
     );
@@ -645,14 +645,14 @@ export default function EventDetailPage() {
 
   if (error || !event) {
     return (
-      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--mc-bg)] text-[var(--mc-text-1)] flex items-center justify-center">
         <div className="max-w-md text-center">
-          <div className="bg-red-900 text-red-100 p-6 rounded-lg mb-4">
+          <div className="bg-[var(--mc-live-bg)] text-[var(--mc-live)] p-6 rounded-lg mb-4 border border-red-200">
             {error || 'Event not found'}
           </div>
           <button
             onClick={() => router.push('/')}
-            className="px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded-lg font-medium"
+            className="px-6 py-3 bg-[var(--mc-gold)] hover:bg-[var(--mc-gold-hover)] text-white rounded-lg font-medium transition-colors"
           >
             Back to Dashboard
           </button>
@@ -662,13 +662,13 @@ export default function EventDetailPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div className="min-h-screen bg-[var(--mc-bg)] text-[var(--mc-text-1)]">
       {/* Header */}
-      <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-8">
+      <div className="bg-[#1a1a1f] p-8">
         <div className="max-w-6xl mx-auto">
           <button
             onClick={() => router.push('/')}
-            className="text-white/80 hover:text-white mb-4 flex items-center gap-2"
+            className="text-white/60 hover:text-white mb-4 flex items-center gap-2"
           >
             ← Back to Dashboard
           </button>
@@ -719,7 +719,7 @@ export default function EventDetailPage() {
             </div>
           )}
           {titleError && (
-            <p className="text-red-200 text-sm mt-1">{titleError}</p>
+            <p className="text-red-300 text-sm mt-1">{titleError}</p>
           )}
           <p className="text-white/80 mt-2">
             {new Date(event.scheduled_date).toLocaleString('en-US', {
@@ -742,10 +742,10 @@ export default function EventDetailPage() {
           <span
             className={`inline-block px-4 py-2 rounded-full text-sm font-medium ${
               event.status === 'live'
-                ? 'bg-red-900 text-red-100'
+                ? 'bg-[var(--mc-live-bg)] text-[var(--mc-live)]'
                 : event.status === 'ended'
-                ? 'bg-gray-600 text-gray-100'
-                : 'bg-blue-900 text-blue-100'
+                ? 'bg-[var(--mc-surface-2)] text-[var(--mc-text-3)]'
+                : 'bg-[var(--mc-info-bg)] text-[var(--mc-info)]'
             }`}
           >
             {event.status.toUpperCase()}
@@ -758,11 +758,11 @@ export default function EventDetailPage() {
             <div>
               <button
                 onClick={() => setShowRescheduleModal(true)}
-                className="px-4 py-2 bg-blue-600 hover:bg-blue-700 rounded-lg font-medium transition-colors"
+                className="px-4 py-2 bg-[var(--mc-info)] hover:bg-blue-700 text-white rounded-lg font-medium transition-colors"
               >
                 Change Event Date & Time
               </button>
-              <p className="text-gray-400 text-xs mt-2">
+              <p className="text-[var(--mc-text-3)] text-xs mt-2">
                 ℹ️ You can change the date and time before starting the stream
               </p>
             </div>
@@ -770,11 +770,11 @@ export default function EventDetailPage() {
               <div>
                 <button
                   onClick={() => setShowCancelModal(true)}
-                  className="px-4 py-2 bg-red-900/50 hover:bg-red-900 text-red-200 border border-red-800 rounded-lg font-medium transition-colors"
+                  className="px-4 py-2 bg-[var(--mc-live-bg)] hover:bg-red-100 text-[var(--mc-live)] border border-red-200 rounded-lg font-medium transition-colors"
                 >
                   Cancel Event
                 </button>
-                <p className="text-gray-400 text-xs mt-2">
+                <p className="text-[var(--mc-text-3)] text-xs mt-2">
                   Credit will be returned to your balance
                 </p>
               </div>
@@ -784,30 +784,30 @@ export default function EventDetailPage() {
 
         {/* Cover Photo - hidden for cancelled events */}
         {event.status !== 'cancelled' && (
-          <div className="bg-gray-800 rounded-lg p-6 mb-6">
+          <div className="bg-[var(--mc-surface)] rounded-lg p-6 mb-6 border border-[var(--mc-border)]">
             <h2 className="text-xl font-semibold mb-2">Cover Photo</h2>
-            <p className="text-gray-400 text-sm mb-4">
+            <p className="text-[var(--mc-text-2)] text-sm mb-4">
               Shown behind the countdown on your watch page. Max 5MB. JPG, PNG, or WebP.
             </p>
 
             {/* Current cover preview — full image with 1:1 crop overlay to match watch page */}
             {(event as any).cover_image_url && !coverPreview && (
               <div className="mb-4">
-                <CoverPreviewWithCrop src={(event as any).cover_image_url} borderColor="border-gray-700" />
-                <p className="text-green-400 text-xs mt-2">✓ Cover photo is live on your watch page</p>
+                <CoverPreviewWithCrop src={(event as any).cover_image_url} borderColor="border-[var(--mc-border)]" />
+                <p className="text-[var(--mc-success)] text-xs mt-2">✓ Cover photo is live on your watch page</p>
               </div>
             )}
 
             {/* New file preview — full image with 1:1 crop overlay to match watch page */}
             {coverPreview && (
               <div className="mb-4">
-                <CoverPreviewWithCrop src={coverPreview} borderColor="border-gray-600" />
-                <p className="text-gray-400 text-xs mt-2">Preview (not saved yet)</p>
+                <CoverPreviewWithCrop src={coverPreview} borderColor="border-[var(--mc-border)]" />
+                <p className="text-[var(--mc-text-2)] text-xs mt-2">Preview (not saved yet)</p>
               </div>
             )}
 
             <div className="flex items-center gap-3">
-              <label className="px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded-lg font-medium cursor-pointer transition-colors text-sm">
+              <label className="px-4 py-2 bg-[var(--mc-surface-2)] hover:bg-[var(--mc-border)] rounded-lg font-medium cursor-pointer transition-colors text-sm text-[var(--mc-text-1)]">
                 {(event as any).cover_image_url ? 'Replace Photo' : 'Choose Photo'}
                 <input
                   type="file"
@@ -834,7 +834,7 @@ export default function EventDetailPage() {
                 <button
                   onClick={handleCoverUpload}
                   disabled={uploadingCover}
-                  className="px-4 py-2 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg font-medium transition-colors text-sm"
+                  className="px-4 py-2 bg-[var(--mc-gold)] hover:bg-[var(--mc-gold-hover)] disabled:bg-[var(--mc-surface-2)] disabled:text-[var(--mc-text-3)] disabled:cursor-not-allowed text-white rounded-lg font-medium transition-colors text-sm"
                 >
                   {uploadingCover ? 'Uploading...' : 'Save Cover Photo'}
                 </button>
@@ -845,7 +845,7 @@ export default function EventDetailPage() {
                 <button
                   onClick={handleCoverDelete}
                   disabled={deletingCover}
-                  className="px-4 py-2 bg-red-600/20 hover:bg-red-600/40 text-red-400 hover:text-red-300 disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-medium transition-colors text-sm"
+                  className="px-4 py-2 bg-[var(--mc-live-bg)] hover:bg-red-100 text-[var(--mc-live)] disabled:opacity-50 disabled:cursor-not-allowed rounded-lg font-medium transition-colors text-sm"
                 >
                   {deletingCover ? 'Removing...' : 'Remove'}
                 </button>
@@ -853,32 +853,32 @@ export default function EventDetailPage() {
             </div>
 
             {coverError && (
-              <p className="text-red-400 text-sm mt-3">{coverError}</p>
+              <p className="text-[var(--mc-live)] text-sm mt-3">{coverError}</p>
             )}
             {coverSuccess && (
-              <p className="text-green-400 text-sm mt-3">✓ Cover photo saved successfully</p>
+              <p className="text-[var(--mc-success)] text-sm mt-3">✓ Cover photo saved successfully</p>
             )}
           </div>
         )}
 
         {/* Watch URL */}
-        <div className="bg-gray-800 rounded-lg p-6 mb-6">
+        <div className="bg-[var(--mc-surface)] rounded-lg p-6 mb-6 border border-[var(--mc-border)]">
           <h2 className="text-xl font-semibold mb-4">Watch Page URL</h2>
           <div className="flex gap-2">
             <input
               type="text"
               value={`https://go.momentcast.live/${event.slug}`}
               readOnly
-              className="flex-1 px-4 py-3 bg-gray-700 border border-gray-600 rounded text-white"
+              className="flex-1 px-4 py-3 bg-[var(--mc-surface-2)] border border-[var(--mc-border)] rounded text-[var(--mc-text-1)]"
             />
             <button
               onClick={() => copyToClipboard(`https://go.momentcast.live/${event.slug}`, 'watch-url')}
-              className="px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded font-medium"
+              className="px-6 py-3 bg-[var(--mc-gold)] hover:bg-[var(--mc-gold-hover)] text-white rounded font-medium transition-colors"
             >
               {copied === 'watch-url' ? 'Copied!' : 'Copy'}
             </button>
           </div>
-          <p className="text-gray-400 text-sm mt-2">
+          <p className="text-[var(--mc-text-2)] text-sm mt-2">
             Share this URL with your guests to watch the live stream
           </p>
         </div>
@@ -886,23 +886,23 @@ export default function EventDetailPage() {
         {/* Streaming Details */}
         {event.status === 'cancelled' ? (
           // Event cancelled - show cancellation notice
-          <div className="bg-gray-800 rounded-lg p-6 mb-6">
-            <div className="bg-red-900/20 border border-red-800/50 rounded-lg p-6 text-center">
-              <h2 className="text-xl font-semibold text-red-400 mb-2">Event Cancelled</h2>
-              <p className="text-gray-400 mb-1">
+          <div className="bg-[var(--mc-surface)] rounded-lg p-6 mb-6 border border-[var(--mc-border)]">
+            <div className="bg-[var(--mc-live-bg)] border border-red-200 rounded-lg p-6 text-center">
+              <h2 className="text-xl font-semibold text-[var(--mc-live)] mb-2">Event Cancelled</h2>
+              <p className="text-[var(--mc-text-2)] mb-1">
                 This event was cancelled and the credit was returned to your balance.
               </p>
-              <p className="text-gray-500 text-sm">
+              <p className="text-[var(--mc-text-3)] text-sm">
                 The watch page link is no longer active.
               </p>
             </div>
           </div>
         ) : event.status === 'ended' ? (
           // Event ended - show completion message instead of credentials
-          <div className="bg-gray-800 rounded-lg p-6 mb-6">
+          <div className="bg-[var(--mc-surface)] rounded-lg p-6 mb-6 border border-[var(--mc-border)]">
             <h2 className="text-xl font-semibold mb-4">Event Completed</h2>
-            <div className="bg-gray-700/50 rounded-lg p-6 text-center">
-              <p className="text-gray-400 mb-2">
+            <div className="bg-[var(--mc-surface-2)] rounded-lg p-6 text-center">
+              <p className="text-[var(--mc-text-2)] mb-2">
                 This event ended on {event.stream_started_manually_at ? 
                   new Date(new Date(event.stream_started_manually_at).getTime() + 24 * 60 * 60 * 1000).toLocaleDateString('en-US', {
                     weekday: 'long',
@@ -919,31 +919,31 @@ export default function EventDetailPage() {
                   })
                 }
               </p>
-              <p className="text-gray-300 font-medium mb-4">
+              <p className="text-[var(--mc-text-1)] font-medium mb-4">
                 Recordings are available at the watch page
               </p>
               <a 
                 href={`https://go.momentcast.live/${event.slug}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-block px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded-lg font-medium transition-colors"
+                className="inline-block px-6 py-3 bg-[var(--mc-gold)] hover:bg-[var(--mc-gold-hover)] text-white rounded-lg font-medium transition-colors"
               >
                 View Recordings →
               </a>
             </div>
           </div>
         ) : !event.stream_credentials_revealed ? (
-          <div className="bg-gray-800 rounded-lg p-6 mb-6">
+          <div className="bg-[var(--mc-surface)] rounded-lg p-6 mb-6 border border-[var(--mc-border)]">
             <h2 className="text-xl font-semibold mb-4">Start Streaming</h2>
             
             {canStartStreaming(event.scheduled_date) ? (
               <>
-                <p className="text-gray-400 mb-6">
+                <p className="text-[var(--mc-text-2)] mb-6">
                   Ready to go live? Click below to start your 24-hour streaming window and get your streaming credentials.
                 </p>
                 
                 {streamError && (
-                  <div className="bg-red-900 text-red-100 p-4 rounded-lg mb-4">
+                  <div className="bg-[var(--mc-live-bg)] text-[var(--mc-live)] p-4 rounded-lg mb-4 border border-red-200">
                     {streamError}
                   </div>
                 )}
@@ -951,29 +951,29 @@ export default function EventDetailPage() {
                 <button
                   onClick={handleStartStreaming}
                   disabled={startingStream}
-                  className="w-full px-6 py-4 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg font-semibold text-lg transition-colors"
+                  className="w-full px-6 py-4 bg-[var(--mc-gold)] hover:bg-[var(--mc-gold-hover)] disabled:bg-[var(--mc-surface-2)] disabled:text-[var(--mc-text-3)] disabled:cursor-not-allowed text-white rounded-lg font-semibold text-lg transition-colors"
                 >
                   {startingStream ? 'Starting...' : 'Start Streaming'}
                 </button>
                 
-                <p className="text-sm text-gray-500 mt-4">
+                <p className="text-sm text-[var(--mc-text-3)] mt-4">
                   ⏱️ Once started, you'll have 24 hours to stream. This cannot be undone.
                 </p>
               </>
             ) : (
               <div className="py-6">
-                <p className="text-gray-400 mb-4">
+                <p className="text-[var(--mc-text-2)] mb-4">
                   Ready to go live? Click below to start your 24-hour streaming window and get your streaming credentials.
                 </p>
                 <button
                   disabled={true}
-                  className="w-full bg-gray-600 text-gray-300 font-semibold py-3 px-6 rounded-lg cursor-not-allowed"
+                  className="w-full bg-[var(--mc-surface-2)] text-[var(--mc-text-3)] font-semibold py-3 px-6 rounded-lg cursor-not-allowed"
                 >
                   Start Streaming
                 </button>
-                <p className="text-gray-400 text-sm mt-3 text-center">
+                <p className="text-[var(--mc-text-2)] text-sm mt-3 text-center">
                   Streaming will be available 2 hours before{' '}
-                  <span className="font-medium text-white">
+                  <span className="font-medium text-[var(--mc-text-1)]">
                     {new Date(event.scheduled_date).toLocaleString('en-US', {
                       weekday: 'long',
                       month: 'long',
@@ -990,16 +990,16 @@ export default function EventDetailPage() {
             )}
           </div>
         ) : (
-          <div className="bg-gray-800 rounded-lg p-6 mb-6">
+          <div className="bg-[var(--mc-surface)] rounded-lg p-6 mb-6 border border-[var(--mc-border)]">
             <h2 className="text-xl font-semibold mb-2">Streaming Credentials</h2>
             {event.stream_started_manually_at && (
               <div className="mb-4">
-                <p className="text-sm text-gray-400 mb-4">
+                <p className="text-sm text-[var(--mc-text-2)] mb-4">
                   Started: {new Date(event.stream_started_manually_at).toLocaleString()}
                   {timeRemaining && timeRemaining !== "Expired" && (() => {
                     const hours = parseInt(timeRemaining.split(':')[0]);
                     const minutes = timeRemaining.split(':')[1];
-                    const colorClass = hours >= 12 ? 'text-green-400' : 'text-yellow-400';
+                    const colorClass = hours >= 12 ? 'text-[var(--mc-success)]' : 'text-[var(--mc-warning)]';
                     return (
                       <span className={colorClass}> • {hours} hours {minutes} minutes left to stream</span>
                     );
@@ -1016,11 +1016,11 @@ export default function EventDetailPage() {
                     type="text"
                     value={event.rtmps_url || ''}
                     readOnly
-                    className="flex-1 px-4 py-3 bg-gray-700 border border-gray-600 rounded text-white font-mono text-sm"
+                    className="flex-1 px-4 py-3 bg-[var(--mc-surface-2)] border border-[var(--mc-border)] rounded text-[var(--mc-text-1)] font-mono text-sm"
                   />
                   <button
                     onClick={() => copyToClipboard(event.rtmps_url || '', 'rtmps-url')}
-                    className="px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded font-medium"
+                    className="px-6 py-3 bg-[var(--mc-gold)] hover:bg-[var(--mc-gold-hover)] text-white rounded font-medium transition-colors"
                   >
                     {copied === 'rtmps-url' ? 'Copied!' : 'Copy'}
                   </button>
@@ -1034,11 +1034,11 @@ export default function EventDetailPage() {
                     type={showStreamKey ? "text" : "password"}
                     value={event.rtmps_key || ''}
                     readOnly
-                    className="flex-1 px-4 py-3 bg-gray-700 border border-gray-600 rounded text-white font-mono text-sm"
+                    className="flex-1 px-4 py-3 bg-[var(--mc-surface-2)] border border-[var(--mc-border)] rounded text-[var(--mc-text-1)] font-mono text-sm"
                   />
                   <button
                     onClick={() => setShowStreamKey(!showStreamKey)}
-                    className="px-4 py-3 bg-gray-700 hover:bg-gray-600 border border-gray-600 rounded"
+                    className="px-4 py-3 bg-[var(--mc-surface-2)] hover:bg-[var(--mc-border)] border border-[var(--mc-border)] rounded transition-colors"
                     title={showStreamKey ? "Hide stream key" : "Show stream key"}
                   >
                     {showStreamKey ? (
@@ -1054,12 +1054,12 @@ export default function EventDetailPage() {
                   </button>
                   <button
                     onClick={() => copyToClipboard(event.rtmps_key || '', 'stream-key')}
-                    className="px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded font-medium"
+                    className="px-6 py-3 bg-[var(--mc-gold)] hover:bg-[var(--mc-gold-hover)] text-white rounded font-medium transition-colors"
                   >
                     {copied === 'stream-key' ? 'Copied!' : 'Copy'}
                   </button>
                 </div>
-                <p className="text-yellow-500 text-sm mt-2">
+                <p className="text-[var(--mc-warning)] text-sm mt-2">
                   ⚠️ Keep this private! Anyone with this key can stream to your event.
                 </p>
               </div>
@@ -1068,35 +1068,35 @@ export default function EventDetailPage() {
         )}
 
         {/* Event Info */}
-        <div className="bg-gray-800 rounded-lg p-6">
+        <div className="bg-[var(--mc-surface)] rounded-lg p-6 border border-[var(--mc-border)]">
           <h2 className="text-xl font-semibold mb-4">Event Information</h2>
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <p className="text-gray-400 text-sm">Event ID</p>
+              <p className="text-[var(--mc-text-2)] text-sm">Event ID</p>
               <p className="font-mono text-sm">{event.id}</p>
             </div>
             <div>
-              <p className="text-gray-400 text-sm">Slug</p>
+              <p className="text-[var(--mc-text-2)] text-sm">Slug</p>
               <p className="font-mono text-sm">{event.slug}</p>
             </div>
             <div>
-              <p className="text-gray-400 text-sm">Tier</p>
+              <p className="text-[var(--mc-text-2)] text-sm">Tier</p>
               <p className="capitalize">{event.tier}</p>
             </div>
             <div>
-              <p className="text-gray-400 text-sm">Viewer Hours</p>
+              <p className="text-[var(--mc-text-2)] text-sm">Viewer Hours</p>
               {analytics ? (
                 <p>
                   <span className="font-semibold">{analytics.viewerHoursUsed.toFixed(1)}</span>
                   {' of '}
                   <span className="font-semibold">{analytics.viewerHoursLimit.toLocaleString()}</span>
                   {' used'}
-                  <span className="text-gray-400 text-xs ml-2">
+                  <span className="text-[var(--mc-text-3)] text-xs ml-2">
                     ({(analytics.viewerHoursLimit - analytics.viewerHoursUsed).toFixed(1)} left)
                   </span>
                 </p>
               ) : (
-                <p className="text-gray-500">Loading...</p>
+                <p className="text-[var(--mc-text-3)]">Loading...</p>
               )}
             </div>
           </div>
@@ -1106,11 +1106,11 @@ export default function EventDetailPage() {
       {/* Reschedule Modal */}
       {showRescheduleModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full">
+          <div className="bg-[var(--mc-surface)] rounded-lg p-6 max-w-md w-full shadow-xl">
             <h3 className="text-xl font-semibold mb-4">Change Event Date & Time</h3>
             
             {rescheduleError && (
-              <div className="bg-red-900 text-red-100 p-3 rounded-lg mb-4 text-sm">
+              <div className="bg-[var(--mc-live-bg)] text-[var(--mc-live)] p-3 rounded-lg mb-4 text-sm border border-red-200">
                 {rescheduleError}
               </div>
             )}
@@ -1123,7 +1123,7 @@ export default function EventDetailPage() {
                 onChange={(e) => setNewDateTime(e.target.value)}
                 min={minRescheduleDateTime}
                 step={900} // 15-minute increments
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+                className="w-full px-4 py-2 bg-[var(--mc-surface-2)] border border-[var(--mc-border)] rounded text-[var(--mc-text-1)]"
               />
             </div>
 
@@ -1132,7 +1132,7 @@ export default function EventDetailPage() {
               <select
                 value={newTimezone || event.timezone || 'America/Los_Angeles'}
                 onChange={(e) => setNewTimezone(e.target.value)}
-                className="w-full px-4 py-2 bg-gray-700 border border-gray-600 rounded text-white"
+                className="w-full px-4 py-2 bg-[var(--mc-surface-2)] border border-[var(--mc-border)] rounded text-[var(--mc-text-1)]"
               >
                 {timezoneOptions.map((tz) => (
                   <option key={tz.value} value={tz.value}>
@@ -1142,8 +1142,8 @@ export default function EventDetailPage() {
               </select>
             </div>
             
-            <div className="bg-blue-900/30 border border-blue-700 rounded-lg p-3 mb-4">
-              <p className="text-sm text-blue-200">
+            <div className="bg-[var(--mc-info-bg)] border border-blue-200 rounded-lg p-3 mb-4">
+              <p className="text-sm text-[var(--mc-info)]">
                 ✓ Your watch URL will stay the same<br/>
                 ✓ No additional credit needed
               </p>
@@ -1157,7 +1157,7 @@ export default function EventDetailPage() {
                   setNewTimezone('');
                   setRescheduleError(null);
                 }}
-                className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded font-medium"
+                className="flex-1 px-4 py-2 bg-[var(--mc-surface-2)] hover:bg-[var(--mc-border)] rounded font-medium transition-colors"
                 disabled={rescheduling}
               >
                 Cancel
@@ -1165,7 +1165,7 @@ export default function EventDetailPage() {
               <button
                 onClick={handleReschedule}
                 disabled={!newDateTime || rescheduling}
-                className="flex-1 px-4 py-2 bg-blue-600 hover:bg-blue-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded font-medium"
+                className="flex-1 px-4 py-2 bg-[var(--mc-info)] hover:bg-blue-700 disabled:bg-[var(--mc-surface-2)] disabled:text-[var(--mc-text-3)] disabled:cursor-not-allowed text-white rounded font-medium transition-colors"
               >
                 {rescheduling ? 'Updating...' : 'Update Schedule'}
               </button>
@@ -1176,27 +1176,27 @@ export default function EventDetailPage() {
       {/* Cancel Event Modal */}
       {showCancelModal && (
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50">
-          <div className="bg-gray-800 rounded-lg p-6 max-w-md w-full">
-            <h3 className="text-xl font-semibold mb-4 text-red-400">Cancel Event</h3>
+          <div className="bg-[var(--mc-surface)] rounded-lg p-6 max-w-md w-full shadow-xl">
+            <h3 className="text-xl font-semibold mb-4 text-[var(--mc-live)]">Cancel Event</h3>
             
             {cancelError && (
-              <div className="bg-red-900 text-red-100 p-3 rounded-lg mb-4 text-sm">
+              <div className="bg-[var(--mc-live-bg)] text-[var(--mc-live)] p-3 rounded-lg mb-4 text-sm border border-red-200">
                 {cancelError}
               </div>
             )}
             
-            <p className="text-gray-300 mb-4">
-              Are you sure you want to cancel <span className="font-semibold text-white">{event.title}</span>?
+            <p className="text-[var(--mc-text-2)] mb-4">
+              Are you sure you want to cancel <span className="font-semibold text-[var(--mc-text-1)]">{event.title}</span>?
             </p>
 
-            <div className="bg-gray-700/50 rounded-lg p-3 mb-4 space-y-1">
-              <p className="text-sm text-green-300">
+            <div className="bg-[var(--mc-surface-2)] rounded-lg p-3 mb-4 space-y-1">
+              <p className="text-sm text-[var(--mc-success)]">
                 ✓ {event.tier === 'premium' ? '2 credits' : '1 credit'} will be returned to your balance
               </p>
-              <p className="text-sm text-gray-400">
+              <p className="text-sm text-[var(--mc-text-2)]">
                 ✓ The watch page link will stop working
               </p>
-              <p className="text-sm text-gray-400">
+              <p className="text-sm text-[var(--mc-text-2)]">
                 ✓ This cannot be undone
               </p>
             </div>
@@ -1207,7 +1207,7 @@ export default function EventDetailPage() {
                   setShowCancelModal(false);
                   setCancelError(null);
                 }}
-                className="flex-1 px-4 py-2 bg-gray-700 hover:bg-gray-600 rounded font-medium"
+                className="flex-1 px-4 py-2 bg-[var(--mc-surface-2)] hover:bg-[var(--mc-border)] rounded font-medium transition-colors"
                 disabled={cancelling}
               >
                 Keep Event
@@ -1215,7 +1215,7 @@ export default function EventDetailPage() {
               <button
                 onClick={handleCancelEvent}
                 disabled={cancelling}
-                className="flex-1 px-4 py-2 bg-red-600 hover:bg-red-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded font-medium"
+                className="flex-1 px-4 py-2 bg-[var(--mc-live)] hover:bg-red-700 disabled:bg-[var(--mc-surface-2)] disabled:text-[var(--mc-text-3)] disabled:cursor-not-allowed text-white rounded font-medium transition-colors"
               >
                 {cancelling ? 'Cancelling...' : 'Yes, Cancel Event'}
               </button>
