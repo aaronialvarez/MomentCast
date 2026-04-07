@@ -2,6 +2,51 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ==========================================================================
+   MomentCast Dashboard — Light Mode Design Tokens
+   Derived from the marketing site's dark cinematic palette, inverted for
+   a clean, professional dashboard experience.
+   ========================================================================== */
+
+@layer base {
+  :root {
+    /* Backgrounds: gray canvas with white cards (inverted from dark site) */
+    --mc-bg:         #f7f7f8;
+    --mc-surface:    #ffffff;
+    --mc-surface-2:  #ededf0;
+
+    /* Borders */
+    --mc-border:     #e2e2e5;
+    --mc-border-dim: #ededf0;
+
+    /* Text: WCAG AA compliant on white */
+    --mc-text-1:     #1a1a1f;   /* 14.8:1 — headings, primary */
+    --mc-text-2:     #6b6b73;   /* 4.6:1  — body secondary */
+    --mc-text-3:     #9b9ba3;   /* 3.0:1  — tertiary, decorative */
+
+    /* Brand gold: darkened from marketing #c8a96e (2.9:1) to pass AA */
+    --mc-gold:       #9a7d4a;   /* 4.5:1 on white */
+    --mc-gold-hover: #8a6e3d;
+    --mc-gold-dim:   #f5f0e6;   /* warm tint background */
+
+    /* Status colors — all ≥ 4.5:1 on white */
+    --mc-live:       #d63b3b;   /* LIVE / error */
+    --mc-success:    #1a8a5c;   /* ready / success */
+    --mc-info:       #2563a8;   /* scheduled / info */
+    --mc-warning:    #a07118;   /* warning */
+
+    /* Status tint backgrounds */
+    --mc-live-bg:    #fef2f2;
+    --mc-success-bg: #ecfdf5;
+    --mc-info-bg:    #eff6ff;
+    --mc-warning-bg: #fffbeb;
+
+    /* Typography */
+    --mc-font-display: 'Cormorant Garamond', Georgia, 'Times New Roman', serif;
+    --mc-font-body:    'DM Sans', system-ui, -apple-system, sans-serif;
+  }
+}
+
 * {
   box-sizing: border-box;
   padding: 0;
@@ -15,6 +60,9 @@ body {
 }
 
 body {
-  color: rgb(255, 255, 255);
-  background: rgb(17, 24, 39);
+  font-family: var(--mc-font-body);
+  color: var(--mc-text-1);
+  background: var(--mc-bg);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }

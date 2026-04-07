@@ -346,7 +346,7 @@ export default function DashboardHome() {
 
   if (loading) {
     return (
-      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--mc-bg)] text-[var(--mc-text-2)] flex items-center justify-center">
         <div className="text-xl">Loading...</div>
       </div>
     );
@@ -354,14 +354,14 @@ export default function DashboardHome() {
 
   if (error && !user) {
     return (
-      <div className="min-h-screen bg-gray-900 text-white flex items-center justify-center">
+      <div className="min-h-screen bg-[var(--mc-bg)] text-[var(--mc-text-1)] flex items-center justify-center">
         <div className="max-w-md text-center">
-          <div className="bg-red-900 text-red-100 p-6 rounded-lg mb-4">
+          <div className="bg-[var(--mc-live-bg)] text-[var(--mc-live)] p-6 rounded-lg mb-4 border border-red-200">
             {error}
           </div>
           <button
             onClick={() => router.push('/login')}
-            className="px-6 py-3 bg-purple-600 hover:bg-purple-700 rounded-lg font-medium"
+            className="px-6 py-3 bg-[var(--mc-gold)] hover:bg-[var(--mc-gold-hover)] text-white rounded-lg font-medium transition-colors"
           >
             Back to Login
           </button>
@@ -371,22 +371,22 @@ export default function DashboardHome() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div className="min-h-screen bg-[var(--mc-bg)] text-[var(--mc-text-1)]">
       {/* Header with User Info */}
-      <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-8">
+      <div className="bg-[#1a1a1f] p-8">
         <div className="max-w-6xl mx-auto flex justify-between items-center">
           <div>
-            <h1 className="text-3xl font-bold">MomentCast Dashboard</h1>
-            <p className="text-white/80 mt-2">Manage your live events</p>
+            <h1 className="text-3xl font-bold text-white">MomentCast Dashboard</h1>
+            <p className="text-white/60 mt-2">Manage your live events</p>
           </div>
           <div className="flex items-center gap-4">
             <div className="text-right">
-              <p className="text-sm text-white/70">Logged in as</p>
-              <p className="font-medium">{user?.email}</p>
+              <p className="text-sm text-white/50">Logged in as</p>
+              <p className="font-medium text-white">{user?.email}</p>
             </div>
             <button
               onClick={handleLogout}
-              className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg font-medium transition-colors border border-white/20"
+              className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg font-medium transition-colors border border-white/20 text-white"
             >
               Logout
             </button>
@@ -396,13 +396,13 @@ export default function DashboardHome() {
 
       <div className="max-w-6xl mx-auto p-8">
         {/* Credits Section */}
-        <div className="bg-gray-800 rounded-lg p-6 mb-8">
+        <div className="bg-[var(--mc-surface)] rounded-lg p-6 mb-8 border border-[var(--mc-border)]">
           <div className="flex justify-between items-center">
             <div>
-              <h2 className="text-xl font-semibold">Available Credits</h2>
-              <p className="text-gray-400 text-sm mt-1">Each event costs 1 credit</p>
+              <h2 className="text-xl font-semibold text-[var(--mc-text-1)]">Available Credits</h2>
+              <p className="text-[var(--mc-text-2)] text-sm mt-1">Each event costs 1 credit</p>
             </div>
-            <div className="text-5xl font-bold text-purple-400">
+            <div className="text-5xl font-bold text-[var(--mc-gold)]">
               {user?.credits || 0}
             </div>
           </div>
@@ -415,29 +415,29 @@ export default function DashboardHome() {
               if (!showCreditHistory) loadCreditHistory();
               setShowCreditHistory(!showCreditHistory);
             }}
-            className="text-sm text-purple-400 hover:text-purple-300 transition-colors"
+            className="text-sm text-[var(--mc-gold)] hover:text-[var(--mc-gold-hover)] transition-colors"
           >
             {showCreditHistory ? '▾ Hide credit history' : '▸ View credit history'}
           </button>
 
           {showCreditHistory && (
-            <div className="mt-3 bg-gray-800 rounded-lg overflow-hidden">
+            <div className="mt-3 bg-[var(--mc-surface)] rounded-lg overflow-hidden border border-[var(--mc-border)]">
               {creditHistory.length === 0 ? (
-                <p className="text-gray-500 text-sm p-4">No transactions yet.</p>
+                <p className="text-[var(--mc-text-3)] text-sm p-4">No transactions yet.</p>
               ) : (
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-gray-700">
-                      <th className="text-left text-gray-400 font-medium px-4 py-3">Date</th>
-                      <th className="text-left text-gray-400 font-medium px-4 py-3">Type</th>
-                      <th className="text-left text-gray-400 font-medium px-4 py-3">Event</th>
-                      <th className="text-right text-gray-400 font-medium px-4 py-3">Credits</th>
+                    <tr className="border-b border-[var(--mc-border)]">
+                      <th className="text-left text-[var(--mc-text-2)] font-medium px-4 py-3">Date</th>
+                      <th className="text-left text-[var(--mc-text-2)] font-medium px-4 py-3">Type</th>
+                      <th className="text-left text-[var(--mc-text-2)] font-medium px-4 py-3">Event</th>
+                      <th className="text-right text-[var(--mc-text-2)] font-medium px-4 py-3">Credits</th>
                     </tr>
                   </thead>
                   <tbody>
                     {creditHistory.map((tx) => (
-                      <tr key={tx.id} className="border-b border-gray-700/50">
-                        <td className="px-4 py-3 text-gray-400">
+                      <tr key={tx.id} className="border-b border-[var(--mc-border-dim)]">
+                        <td className="px-4 py-3 text-[var(--mc-text-2)]">
                           {new Date(tx.created_at).toLocaleDateString('en-US', {
                             month: 'short', day: 'numeric', year: 'numeric'
                           })}
@@ -448,11 +448,11 @@ export default function DashboardHome() {
                           {tx.type === 'purchase' && 'Purchase'}
                           {tx.type === 'refund' && 'Refund'}
                         </td>
-                        <td className="px-4 py-3 text-gray-400">
+                        <td className="px-4 py-3 text-[var(--mc-text-2)]">
                           {tx.events?.title || '—'}
                         </td>
                         <td className={`px-4 py-3 text-right font-medium ${
-                          tx.amount > 0 ? 'text-green-400' : 'text-red-400'
+                          tx.amount > 0 ? 'text-[var(--mc-success)]' : 'text-[var(--mc-live)]'
                         }`}>
                           {tx.amount > 0 ? '+' : ''}{tx.amount}
                         </td>
@@ -466,11 +466,11 @@ export default function DashboardHome() {
         </div>
 
         {/* Logo Upload Section */}
-        <div className="bg-gray-800 rounded-lg p-6 mb-8">
+        <div className="bg-[var(--mc-surface)] rounded-lg p-6 mb-8 border border-[var(--mc-border)]">
           <div className="flex justify-between items-start">
             <div>
-              <h2 className="text-xl font-semibold">Your Logo</h2>
-              <p className="text-gray-400 text-sm mt-1">
+              <h2 className="text-xl font-semibold text-[var(--mc-text-1)]">Your Logo</h2>
+              <p className="text-[var(--mc-text-2)] text-sm mt-1">
                 Shown as "Presented by" on your watch pages
               </p>
             </div>
@@ -483,26 +483,26 @@ export default function DashboardHome() {
                   <img
                     src={user.logo_url}
                     alt="Your logo"
-                    className="h-10 max-w-[160px] object-contain rounded bg-black p-1"
+                    className="h-10 max-w-[160px] object-contain rounded bg-[var(--mc-surface-2)] p-1"
                   />
                   {/* Remove button */}
                   <button
                     onClick={handleLogoRemove}
                     disabled={logoUploading}
-                    className="px-3 py-1.5 text-sm bg-red-900/50 hover:bg-red-900 text-red-200 rounded transition-colors disabled:opacity-50"
+                    className="px-3 py-1.5 text-sm bg-[var(--mc-live-bg)] hover:bg-red-100 text-[var(--mc-live)] rounded transition-colors disabled:opacity-50"
                   >
                     {logoUploading ? 'Removing...' : 'Remove'}
                   </button>
                 </>
               ) : (
-                <span className="text-gray-500 text-sm italic">No logo set</span>
+                <span className="text-[var(--mc-text-3)] text-sm italic">No logo set</span>
               )}
             </div>
           </div>
 
           {/* Upload input row */}
           <div className="mt-4 flex items-center gap-3">
-            <label className="cursor-pointer px-4 py-2 bg-purple-600 hover:bg-purple-700 rounded-lg text-sm font-medium transition-colors">
+            <label className="cursor-pointer px-4 py-2 bg-[var(--mc-gold)] hover:bg-[var(--mc-gold-hover)] text-white rounded-lg text-sm font-medium transition-colors">
               {logoUploading ? 'Uploading...' : (user?.logo_url ? 'Replace Logo' : 'Upload Logo')}
               <input
                 type="file"
@@ -512,12 +512,12 @@ export default function DashboardHome() {
                 className="hidden"
               />
             </label>
-            <span className="text-gray-500 text-xs">PNG, JPG, SVG, or WebP. Max 100 KB.</span>
+            <span className="text-[var(--mc-text-3)] text-xs">PNG, JPG, SVG, or WebP. Max 100 KB.</span>
           </div>
 
           {/* Error message */}
           {logoError && (
-            <p className="text-red-400 text-sm mt-2">{logoError}</p>
+            <p className="text-[var(--mc-live)] text-sm mt-2">{logoError}</p>
           )}
         </div>
 
@@ -526,12 +526,12 @@ export default function DashboardHome() {
           <button
             onClick={() => router.push('/create-event')}
             disabled={!user || user.credits < 1}
-            className="bg-purple-600 hover:bg-purple-700 disabled:bg-gray-700 disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+            className="bg-[var(--mc-gold)] hover:bg-[var(--mc-gold-hover)] disabled:bg-[var(--mc-surface-2)] disabled:text-[var(--mc-text-3)] disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-lg transition-colors"
           >
             Create New Event
           </button>
           {user && user.credits < 1 && (
-            <p className="text-yellow-500 text-sm mt-2">
+            <p className="text-[var(--mc-warning)] text-sm mt-2">
               You need credits to create an event
             </p>
           )}
@@ -539,11 +539,11 @@ export default function DashboardHome() {
 
         {/* Events List */}
         <div>
-          <h2 className="text-2xl font-bold mb-4">Current Events</h2>
+          <h2 className="text-2xl font-bold mb-4 text-[var(--mc-text-1)]">Current Events</h2>
           
           {/* Active/Upcoming Events */}
           {events.length === 0 && endedEvents.length === 0 ? (
-            <div className="bg-gray-800 rounded-lg p-8 text-center text-gray-400">
+            <div className="bg-[var(--mc-surface)] rounded-lg p-8 text-center text-[var(--mc-text-2)] border border-[var(--mc-border)]">
               No events yet. Create one to get started!
             </div>
           ) : (
@@ -554,13 +554,13 @@ export default function DashboardHome() {
                   {events.map((event) => (
                     <div
                       key={event.id}
-                      className="bg-gray-800 rounded-lg p-6 cursor-pointer hover:bg-gray-700 transition-colors"
+                      className="bg-[var(--mc-surface)] rounded-lg p-6 cursor-pointer hover:border-[var(--mc-gold)]/30 transition-colors border border-[var(--mc-border)]"
                       onClick={() => router.push(`/events/${event.id}`)}
                     >
                       <div className="flex justify-between items-start">
                         <div>
-                          <h3 className="text-xl font-semibold">{event.title}</h3>
-                          <p className="text-gray-400 text-sm mt-1">
+                          <h3 className="text-xl font-semibold text-[var(--mc-text-1)]">{event.title}</h3>
+                          <p className="text-[var(--mc-text-2)] text-sm mt-1">
                             {new Date(event.scheduled_date).toLocaleString('en-US', {
                               weekday: 'long',
                               year: 'numeric',
@@ -572,7 +572,7 @@ export default function DashboardHome() {
                               timeZone: (event as any).timezone || 'America/Los_Angeles'
                             })}
                           </p>
-                          <p className="text-gray-500 text-xs mt-2">
+                          <p className="text-[var(--mc-text-3)] text-xs mt-2">
                             Watch URL: <span className="font-mono">{event.slug}</span>
                           </p>
                         </div>
@@ -580,16 +580,16 @@ export default function DashboardHome() {
                           <span
                             className={`px-3 py-1 rounded-full text-sm font-medium ${
                               event.status === 'live'
-                                ? 'bg-red-900 text-red-100'
+                                ? 'bg-[var(--mc-live-bg)] text-[var(--mc-live)]'
                                 : event.status === 'ready'
-                                ? 'bg-green-900 text-green-50'
-                                : 'bg-blue-900 text-blue-100'
+                                ? 'bg-[var(--mc-success-bg)] text-[var(--mc-success)]'
+                                : 'bg-[var(--mc-info-bg)] text-[var(--mc-info)]'
                             }`}
                           >
                             {event.status.toUpperCase()}
                           </span>
                           {event.stream_state === 'active' && (
-                            <span className="px-3 py-1 rounded-full text-sm font-medium bg-green-900 text-green-100">
+                            <span className="px-3 py-1 rounded-full text-sm font-medium bg-[var(--mc-live-bg)] text-[var(--mc-live)]">
                               🔴 STREAMING
                             </span>
                           )}
@@ -603,18 +603,18 @@ export default function DashboardHome() {
               {/* Ended Events Section */}
               {endedEvents.length > 0 && (
                 <>
-                  <h3 className="text-xl font-semibold mb-4 mt-8 text-gray-400">Past Events</h3>
+                  <h3 className="text-xl font-semibold mb-4 mt-8 text-[var(--mc-text-2)]">Past Events</h3>
                   <div className="grid gap-4">
                     {endedEvents.map((event) => (
                       <div
                         key={event.id}
-                        className="bg-gray-800/50 rounded-lg p-6 cursor-pointer hover:bg-gray-700/50 transition-colors"
+                        className="bg-[var(--mc-surface)] rounded-lg p-6 cursor-pointer hover:border-[var(--mc-gold)]/20 transition-colors border border-[var(--mc-border-dim)]"
                         onClick={() => router.push(`/events/${event.id}`)}
                       >
                         <div className="flex justify-between items-start">
                           <div>
-                            <h3 className="text-xl font-semibold text-gray-300">{event.title}</h3>
-                            <p className="text-gray-500 text-sm mt-1">
+                            <h3 className="text-xl font-semibold text-[var(--mc-text-2)]">{event.title}</h3>
+                            <p className="text-[var(--mc-text-3)] text-sm mt-1">
                               {new Date(event.scheduled_date).toLocaleString('en-US', {
                                 weekday: 'long',
                                 year: 'numeric',
@@ -626,11 +626,11 @@ export default function DashboardHome() {
                                 timeZone: (event as any).timezone || 'America/Los_Angeles'
                               })}
                             </p>
-                            <p className="text-gray-600 text-xs mt-2">
+                            <p className="text-[var(--mc-text-3)] text-xs mt-2">
                               Watch URL: <span className="font-mono">{event.slug}</span>
                             </p>
                           </div>
-                          <span className="px-3 py-1 rounded-full text-sm font-medium bg-gray-600 text-gray-300">
+                          <span className="px-3 py-1 rounded-full text-sm font-medium bg-[var(--mc-surface-2)] text-[var(--mc-text-3)]">
                             ENDED
                           </span>
                         </div>
@@ -643,14 +643,14 @@ export default function DashboardHome() {
                     <button
                       onClick={() => loadEndedEvents()}
                       disabled={loadingMoreEnded}
-                      className="w-full mt-4 py-4 bg-gray-800 hover:bg-gray-700 disabled:bg-gray-800/50 disabled:cursor-not-allowed rounded-lg text-gray-400 hover:text-white transition-colors"
+                      className="w-full mt-4 py-4 bg-[var(--mc-surface)] hover:bg-[var(--mc-surface-2)] disabled:bg-[var(--mc-surface)] disabled:cursor-not-allowed rounded-lg text-[var(--mc-text-2)] hover:text-[var(--mc-text-1)] transition-colors border border-[var(--mc-border)]"
                     >
                       {loadingMoreEnded ? 'Loading...' : 'Load More Past Events'}
                     </button>
                   )}
                   
                   {!hasMoreEnded && endedEvents.length > 0 && (
-                    <p className="text-center text-gray-500 text-sm mt-4">
+                    <p className="text-center text-[var(--mc-text-3)] text-sm mt-4">
                       All past events loaded ({endedEvents.length} total)
                     </p>
                   )}
@@ -665,7 +665,7 @@ export default function DashboardHome() {
                 if (!showCancelled) loadCancelledEvents();
                 setShowCancelled(!showCancelled);
               }}
-              className="text-sm text-gray-500 hover:text-gray-400 transition-colors"
+              className="text-sm text-[var(--mc-text-3)] hover:text-[var(--mc-text-2)] transition-colors"
             >
               {showCancelled ? '▾ Hide cancelled events' : '▸ Show cancelled events'}
             </button>
@@ -675,13 +675,13 @@ export default function DashboardHome() {
                 {cancelledEvents.map((event) => (
                   <div
                     key={event.id}
-                    className="bg-gray-800/30 rounded-lg p-6 cursor-pointer hover:bg-gray-700/30 transition-colors opacity-60"
+                    className="bg-[var(--mc-surface)] rounded-lg p-6 cursor-pointer hover:bg-[var(--mc-surface-2)] transition-colors opacity-60 border border-[var(--mc-border-dim)]"
                     onClick={() => router.push(`/events/${event.id}`)}
                   >
                     <div className="flex justify-between items-start">
                       <div>
-                        <h3 className="text-xl font-semibold text-gray-400 line-through">{event.title}</h3>
-                        <p className="text-gray-600 text-sm mt-1">
+                        <h3 className="text-xl font-semibold text-[var(--mc-text-3)] line-through">{event.title}</h3>
+                        <p className="text-[var(--mc-text-3)] text-sm mt-1">
                           {new Date(event.scheduled_date).toLocaleString('en-US', {
                             weekday: 'long',
                             year: 'numeric',
@@ -694,7 +694,7 @@ export default function DashboardHome() {
                           })}
                         </p>
                       </div>
-                      <span className="px-3 py-1 rounded-full text-sm font-medium bg-red-900/30 text-red-400">
+                      <span className="px-3 py-1 rounded-full text-sm font-medium bg-[var(--mc-live-bg)] text-[var(--mc-live)]">
                         CANCELLED
                       </span>
                     </div>
@@ -704,7 +704,7 @@ export default function DashboardHome() {
             )}
 
             {showCancelled && cancelledEvents.length === 0 && (
-              <p className="text-gray-600 text-sm mt-3">No cancelled events.</p>
+              <p className="text-[var(--mc-text-3)] text-sm mt-3">No cancelled events.</p>
             )}
           </div>
         </div>
