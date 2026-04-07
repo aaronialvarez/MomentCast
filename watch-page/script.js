@@ -135,30 +135,53 @@ function renderLogo(headerEl) {
 }
 
 /**
- * Show or hide the QR share block in the countdown section.
- * Visible only in COUNTDOWN and WAITING modes (before the event goes live).
- * QR data URL comes pre-generated from the API — no client-side work needed.
+ * Show or hide the QR share block.
+ * Works in two modes:
+ *   1. Countdown/Waiting: populates the static #qr-share-block in index.html
+ *   2. Live player: dynamically injects a QR block into the given container
+ *
+ * @param {boolean} visible   — show or hide
+ * @param {Element} [container] — optional parent to inject into (e.g. live footer).
+ *                                 If omitted, targets the static #qr-share-block.
  */
-function renderQrBlock(visible) {
-  const block = document.getElementById('qr-share-block');
-  if (!block) return;
+function renderQrBlock(visible, container) {
+  const staticBlock = document.getElementById('qr-share-block');
 
   if (!visible || !eventData?.qr_code_data_url) {
-    block.classList.add('hidden');
+    if (staticBlock) staticBlock.classList.add('hidden');
+    // Remove any dynamically injected QR blocks (e.g. from live footer)
+    document.querySelectorAll('.qr-share-block-injected').forEach(el => el.remove());
     return;
   }
 
-  const img = document.getElementById('qr-image');
-  const urlEl = document.getElementById('qr-url');
-
-  if (img && img.src !== eventData.qr_code_data_url) {
-    img.src = eventData.qr_code_data_url;
+  // Dynamic injection mode (used by showLive)
+  if (container) {
+    let injected = container.querySelector('.qr-share-block-injected');
+    if (!injected) {
+      injected = document.createElement('div');
+      injected.className = 'qr-share-block qr-share-block-injected';
+      injected.innerHTML = `
+        <p class="qr-label">Share this stream</p>
+        <img class="qr-image" src="" alt="Scan to share this event" width="160" height="160" />
+        <p class="qr-url"></p>
+      `;
+      container.appendChild(injected);
+    }
+    const img = injected.querySelector('.qr-image');
+    const urlEl = injected.querySelector('.qr-url');
+    if (img && img.src !== eventData.qr_code_data_url) img.src = eventData.qr_code_data_url;
+    if (urlEl) urlEl.textContent = `go.momentcast.live/${slug}`;
+    return;
   }
-  if (urlEl) {
-    urlEl.textContent = `go.momentcast.live/${slug}`;
-  }
 
-  block.classList.remove('hidden');
+  // Static mode (used by showCountdown and showCountdownState)
+  if (staticBlock) {
+    const img = document.getElementById('qr-image');
+    const urlEl = document.getElementById('qr-url');
+    if (img && img.src !== eventData.qr_code_data_url) img.src = eventData.qr_code_data_url;
+    if (urlEl) urlEl.textContent = `go.momentcast.live/${slug}`;
+    staticBlock.classList.remove('hidden');
+  }
 }
 
 function getEventDate() {
@@ -525,7 +548,8 @@ function showLive() {
       processingOverlay.remove();
     }
   }
-  
+  // Show QR code in the live player footer so viewers can share the stream
+  renderQrBlock(true, liveEl.querySelector('.mc-player-footer'));
   liveEl.classList.remove('hidden');
 }
 
