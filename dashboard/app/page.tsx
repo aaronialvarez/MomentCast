@@ -483,7 +483,7 @@ export default function DashboardHome() {
                   <img
                     src={user.logo_url}
                     alt="Your logo"
-                    className="h-10 max-w-[160px] object-contain rounded bg-[var(--mc-surface-2)] p-1"
+                    className="h-10 max-w-[160px] object-contain rounded bg-black p-1"
                   />
                   {/* Remove button */}
                   <button
