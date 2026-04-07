@@ -100,16 +100,16 @@ export default function CreateEventPage() {
   }
 
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
+    <div className="min-h-screen bg-[var(--mc-bg)] text-[var(--mc-text-1)]">
       {/* Header */}
-      <div className="bg-gradient-to-r from-purple-600 to-pink-600 p-8">
+      <div className="bg-[#1a1a1f] p-8">
         <div className="max-w-2xl mx-auto">
-          <h1 className="text-3xl font-bold">Create New Event</h1>
+          <h1 className="text-3xl font-bold text-white">Create New Event</h1>
         </div>
       </div>
 
       <div className="max-w-2xl mx-auto p-8">
-        <form onSubmit={handleSubmit} className="bg-gray-800 rounded-lg p-8">
+        <form onSubmit={handleSubmit} className="bg-[var(--mc-surface)] rounded-lg p-8 border border-[var(--mc-border)]">
           {/* Title Field */}
           <div className="mb-6">
             <label className="block text-sm font-medium mb-2">Event Title</label>
@@ -118,10 +118,10 @@ export default function CreateEventPage() {
               value={title}
               onChange={(e) => setTitle(e.target.value)}
               placeholder="e.g., Sofia's Quinceañera"
-              className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-purple-500 text-white"
+              className="w-full px-4 py-3 bg-[var(--mc-surface-2)] border border-[var(--mc-border)] rounded focus:outline-none focus:ring-2 focus:ring-[var(--mc-gold)] text-[var(--mc-text-1)]"
               required
             />
-            <p className="text-gray-400 text-sm mt-1">
+            <p className="text-[var(--mc-text-2)] text-sm mt-1">
               This will be the watch page name
             </p>
           </div>
@@ -137,10 +137,10 @@ export default function CreateEventPage() {
               onChange={(e) => setScheduledDateTime(e.target.value)}
               min={minDateTime}
               step={900} // 15-minute increments
-              className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-purple-500 text-white"
+              className="w-full px-4 py-3 bg-[var(--mc-surface-2)] border border-[var(--mc-border)] rounded focus:outline-none focus:ring-2 focus:ring-[var(--mc-gold)] text-[var(--mc-text-1)]"
               required
             />
-            <p className="text-gray-400 text-sm mt-1">
+            <p className="text-[var(--mc-text-2)] text-sm mt-1">
               When should viewers expect the stream to start?
             </p>
           </div>
@@ -153,7 +153,7 @@ export default function CreateEventPage() {
             <select
               value={timezone}
               onChange={(e) => setTimezone(e.target.value)}
-              className="w-full px-4 py-3 bg-gray-700 border border-gray-600 rounded focus:outline-none focus:ring-2 focus:ring-purple-500 text-white"
+              className="w-full px-4 py-3 bg-[var(--mc-surface-2)] border border-[var(--mc-border)] rounded focus:outline-none focus:ring-2 focus:ring-[var(--mc-gold)] text-[var(--mc-text-1)]"
             >
               {timezoneOptions.map((tz) => (
                 <option key={tz.value} value={tz.value}>
@@ -161,7 +161,7 @@ export default function CreateEventPage() {
                 </option>
               ))}
             </select>
-            <p className="text-gray-400 text-sm mt-1">
+            <p className="text-[var(--mc-text-2)] text-sm mt-1">
               The event's local timezone (used for the viewer countdown)
             </p>
           </div>
@@ -174,8 +174,8 @@ export default function CreateEventPage() {
               <div
                 className={`p-4 border rounded-lg cursor-pointer transition-colors ${
                   tier === 'standard'
-                    ? 'border-purple-500 bg-purple-900 bg-opacity-20'
-                    : 'border-gray-600 hover:border-gray-500'
+                    ? 'border-[var(--mc-gold)] bg-[var(--mc-gold-dim)]'
+                    : 'border-[var(--mc-border)] hover:border-[var(--mc-text-3)]'
                 }`}
                 onClick={() => setTier('standard')}
               >
@@ -190,7 +190,7 @@ export default function CreateEventPage() {
                   />
                   <div>
                     <div className="font-medium">1 Credit - 400 viewer hours</div>
-                    <div className="text-sm text-gray-400">$40 • Perfect for most events</div>
+                    <div className="text-sm text-[var(--mc-text-2)]">$40 • Perfect for most events</div>
                   </div>
                 </div>
               </div>
@@ -199,8 +199,8 @@ export default function CreateEventPage() {
               <div
                 className={`p-4 border rounded-lg cursor-pointer transition-colors ${
                   tier === 'premium'
-                    ? 'border-purple-500 bg-purple-900 bg-opacity-20'
-                    : 'border-gray-600 hover:border-gray-500'
+                    ? 'border-[var(--mc-gold)] bg-[var(--mc-gold-dim)]'
+                    : 'border-[var(--mc-border)] hover:border-[var(--mc-text-3)]'
                 }`}
                 onClick={() => setTier('premium')}
               >
@@ -215,7 +215,7 @@ export default function CreateEventPage() {
                   />
                   <div>
                     <div className="font-medium">2 Credits - 1,000 viewer hours</div>
-                    <div className="text-sm text-gray-400">$70 • For long events or large audiences</div>
+                    <div className="text-sm text-[var(--mc-text-2)]">$70 • For long events or large audiences</div>
                   </div>
                 </div>
               </div>
@@ -224,7 +224,7 @@ export default function CreateEventPage() {
 
           {/* Error Message */}
           {error && (
-            <div className="bg-red-900 text-red-100 p-4 rounded-lg mb-6">
+            <div className="bg-[var(--mc-live-bg)] text-[var(--mc-live)] p-4 rounded-lg mb-6 border border-red-200">
               {error}
             </div>
           )}
@@ -234,14 +234,14 @@ export default function CreateEventPage() {
             <button
               type="button"
               onClick={() => router.back()}
-              className="flex-1 px-6 py-3 border border-gray-600 rounded-lg hover:bg-gray-700 transition-colors"
+              className="flex-1 px-6 py-3 border border-[var(--mc-border)] rounded-lg hover:bg-[var(--mc-surface-2)] transition-colors"
             >
               Cancel
             </button>
             <button
               type="submit"
               disabled={loading}
-              className="flex-1 px-6 py-3 bg-purple-600 hover:bg-purple-700 disabled:bg-gray-600 disabled:cursor-not-allowed rounded-lg font-semibold transition-colors"
+              className="flex-1 px-6 py-3 bg-[var(--mc-gold)] hover:bg-[var(--mc-gold-hover)] disabled:bg-[var(--mc-surface-2)] disabled:text-[var(--mc-text-3)] disabled:cursor-not-allowed text-white rounded-lg font-semibold transition-colors"
             >
               {loading ? 'Creating...' : 'Create Event'}
             </button>
