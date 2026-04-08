@@ -708,7 +708,7 @@ export default function EventDetailPage() {
               {!event.stream_credentials_revealed && event.status !== 'ended' && (
                 <button
                   onClick={() => { setEditedTitle(event.title); setEditingTitle(true); setTitleError(null); }}
-                  className="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg transition-colors"
+                  className="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg transition-colors text-white"
                   title="Edit title"
                 >
                   <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -740,12 +740,12 @@ export default function EventDetailPage() {
         {/* Status Badge */}
         <div className="mb-8">
           <span
-            className={`inline-block px-4 py-2 rounded-full text-sm font-medium ${
+            className={`inline-block px-4 py-2 rounded-full text-sm font-medium border ${
               event.status === 'live'
-                ? 'bg-[var(--mc-live-bg)] text-[var(--mc-live)]'
+                ? 'bg-[var(--mc-live-bg)] text-[var(--mc-live)] border-red-200'
                 : event.status === 'ended'
-                ? 'bg-[var(--mc-surface-2)] text-[var(--mc-text-3)]'
-                : 'bg-[var(--mc-info-bg)] text-[var(--mc-info)]'
+                ? 'bg-[var(--mc-surface-2)] text-[var(--mc-text-3)] border-[var(--mc-border)]'
+                : 'bg-[var(--mc-info-bg)] text-[var(--mc-info)] border-blue-200'
             }`}
           >
             {event.status.toUpperCase()}
@@ -1060,7 +1060,7 @@ export default function EventDetailPage() {
                   </button>
                 </div>
                 <p className="text-[var(--mc-warning)] text-sm mt-2">
-                  ⚠️ Keep this private! Anyone with this key can stream to your event.
+                  ⚠️ Keep this private! Anyone with this credentials can stream to your event.
                 </p>
               </div>
             </div>
