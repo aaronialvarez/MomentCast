@@ -56,8 +56,7 @@ function LoginForm() {
       })
       if (error) throw error
 
-      router.push('/')
-      router.refresh()
+      window.location.href = '/'
     } catch (err) {
       console.error('Login error:', err)
       setError(err instanceof Error ? err.message : 'Failed to sign in')
