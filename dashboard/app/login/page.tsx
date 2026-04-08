@@ -50,6 +50,9 @@ function LoginForm() {
     setLoading(true)
 
     try {
+      // Clear any stale session before signing in
+      await supabase.auth.signOut()
+
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,
@@ -60,7 +63,6 @@ function LoginForm() {
     } catch (err) {
       console.error('Login error:', err)
       setError(err instanceof Error ? err.message : 'Failed to sign in')
-    } finally {
       setLoading(false)
     }
   }
