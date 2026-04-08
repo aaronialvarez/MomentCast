@@ -703,7 +703,7 @@ export default function EventDetailPage() {
             </div>
           ) : (
             <div className="flex items-center gap-3">
-              <h1 className="text-3xl font-bold">{event.title}</h1>
+              <h1 className="text-3xl font-bold text-white">{event.title}</h1>
               {/* Edit button — only show before streaming has started */}
               {!event.stream_credentials_revealed && event.status !== 'ended' && (
                 <button
