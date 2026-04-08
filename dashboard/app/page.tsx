@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { createBrowserClient } from '@supabase/ssr';
+import { createClient } from '@/lib/supabase/client';
 
 interface User {
   id: string;
@@ -33,12 +33,7 @@ interface CreditTransaction {
 
 export default function DashboardHome() {
   const router = useRouter();
-  const [supabase] = useState(() =>
-    createBrowserClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    )
-  );
+  const [supabase] = useState(() => createClient());
 
   const [user, setUser] = useState<User | null>(null);  // This was missing!
   const [events, setEvents] = useState<Event[]>([]);
@@ -341,7 +336,7 @@ export default function DashboardHome() {
 
   async function handleLogout() {
     await supabase.auth.signOut();
-    router.push('/login');
+    window.location.href = '/login';
   }
 
   if (loading) {
