@@ -50,9 +50,6 @@ function LoginForm() {
     setLoading(true)
 
     try {
-      // Clear any stale session before signing in
-      await supabase.auth.signOut()
-
       const { error } = await supabase.auth.signInWithPassword({
         email,
         password,

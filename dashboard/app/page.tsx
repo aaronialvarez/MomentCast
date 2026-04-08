@@ -65,7 +65,7 @@ export default function DashboardHome() {
         const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
         
         if (authError || !authUser) {
-          router.push('/login');
+          window.location.href = '/login';
           return;
         }
 
