@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Privacy Policy | MomentCast</title>
+  <meta name="description" content="MomentCast Privacy Policy — how we collect, use, store, and protect your data, including Google user data." />
+
+  <!-- Fonts (same as index.html) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet" />
+
+  <!-- Shared stylesheet -->
+  <link rel="stylesheet" href="style.css" />
+
+  <!-- Privacy-page-only additions (no duplication of style.css tokens) -->
+  <style>
+    /* Page hero band */
+    .pp-hero {
+      padding: 140px 24px 64px;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+    }
+    .pp-hero h1 {
+      font-family: var(--font-display);
+      font-size: clamp(32px, 5vw, 52px);
+      font-weight: 500;
+      line-height: 1.15;
+      margin-bottom: 12px;
+    }
+    .pp-hero .pp-meta {
+      font-size: 13px;
+      color: var(--text-3);
+      letter-spacing: 0.04em;
+    }
+
+    /* Content wrapper — narrower than mc-container for readability */
+    .pp-wrapper {
+      max-width: 760px;
+      margin: 0 auto;
+      padding: 64px 24px 96px;
+    }
+
+    /* Table of contents */
+    .pp-toc {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 32px;
+      margin-bottom: 56px;
+    }
+    .pp-toc h2 {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 16px;
+    }
+    .pp-toc ol {
+      padding-left: 18px;
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px 32px;
+    }
+    .pp-toc li a {
+      font-size: 14px;
+      color: var(--text-2);
+      transition: color 0.2s;
+    }
+    .pp-toc li a:hover { color: var(--gold); }
+    @media (max-width: 560px) { .pp-toc ol { grid-template-columns: 1fr; } }
+
+    /* Section */
+    .pp-section {
+      margin-bottom: 52px;
+    }
+    .pp-section-num {
+      font-size: 11px;
+      font-weight: 500;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: var(--gold);
+      margin-bottom: 4px;
+    }
+    .pp-section h2 {
+      font-family: var(--font-display);
+      font-size: 1.6rem;
+      font-weight: 500;
+      color: var(--text-1);
+      margin-bottom: 16px;
+      padding-bottom: 14px;
+      border-bottom: 1px solid var(--border);
+    }
+    .pp-section h3 {
+      font-family: var(--font-body);
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      text-transform: uppercase;
+      color: var(--text-2);
+      margin: 24px 0 10px;
+    }
+    .pp-section p {
+      font-size: 15px;
+      color: var(--text-2);
+      line-height: 1.75;
+      margin-bottom: 12px;
+    }
+    .pp-section p:last-child { margin-bottom: 0; }
+    .pp-section a { color: var(--gold); transition: opacity 0.2s; }
+    .pp-section a:hover { opacity: 0.8; }
+    .pp-section ul, .pp-section ol {
+      padding-left: 20px;
+      margin-bottom: 14px;
+    }
+    .pp-section li {
+      font-size: 15px;
+      color: var(--text-2);
+      line-height: 1.7;
+      margin-bottom: 8px;
+    }
+    .pp-section strong { color: var(--text-1); font-weight: 500; }
+
+    /* Callout box (reuses gold-dim from design system) */
+    .pp-callout {
+      background: var(--gold-dim);
+      border: 1px solid rgba(200, 169, 110, 0.18);
+      border-radius: var(--radius-sm);
+      padding: 18px 22px;
+      margin: 20px 0;
+    }
+    .pp-callout p {
+      font-size: 14px;
+      margin: 0;
+    }
+
+    /* Data table */
+    .pp-table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 16px 0 14px;
+      font-size: 14px;
+    }
+    .pp-table th {
+      background: var(--surface-2);
+      color: var(--gold);
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      text-align: left;
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+    }
+    .pp-table td {
+      padding: 10px 14px;
+      border: 1px solid var(--border);
+      color: var(--text-2);
+      vertical-align: top;
+      line-height: 1.6;
+    }
+    .pp-table tr:nth-child(even) td {
+      background: rgba(255,255,255,0.015);
+    }
+
+    /* Contact card */
+    .pp-contact {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 28px 32px;
+      margin-top: 16px;
+    }
+    .pp-contact p { margin-bottom: 6px; font-size: 15px; }
+    .pp-contact p:last-child { margin-bottom: 0; }
+
+    /* Divider */
+    .pp-divider {
+      border: none;
+      border-top: 1px solid var(--border);
+      margin: 0 0 56px;
+    }
+  </style>
+</head>
+<body>
+
+  <!-- ── NAV (matches index.html exactly) ── -->
+  <nav class="mc-nav">
+    <div class="mc-nav-inner">
+      <a href="index.html">
+        <img src="momentcast-logo-gold-on-dark.png" alt="MomentCast" class="mc-nav-logo-img" />
+      </a>
+      <div class="mc-nav-links">
+        <a href="index.html#features">Features</a>
+        <a href="index.html#pricing">Pricing</a>
+        <a href="index.html#how-it-works">How It Works</a>
+      </div>
+      <a href="https://app.momentcast.live" class="mc-btn mc-btn-nav">Streamer Login</a>
+    </div>
+  </nav>
+
+  <!-- ── Page Hero ── -->
+  <div class="pp-hero">
+    <p class="mc-kicker">Legal</p>
+    <h1>Privacy Policy</h1>
+    <p class="pp-meta">Effective Date: April 8, 2025 &nbsp;&middot;&nbsp; Last Updated: April 8, 2025</p>
+  </div>
+
+  <!-- ── Body ── -->
+  <div class="pp-wrapper">
+
+    <!-- TOC -->
+    <div class="pp-toc mc-reveal">
+      <h2>Contents</h2>
+      <ol>
+        <li><a href="#s1">Who We Are</a></li>
+        <li><a href="#s2">Information We Collect</a></li>
+        <li><a href="#s3">Google User Data</a></li>
+        <li><a href="#s4">How We Use Your Data</a></li>
+        <li><a href="#s5">Data Sharing &amp; Disclosure</a></li>
+        <li><a href="#s6">Data Security</a></li>
+        <li><a href="#s7">Data Retention &amp; Deletion</a></li>
+        <li><a href="#s8">Cookies &amp; Analytics</a></li>
+        <li><a href="#s9">Your Rights</a></li>
+        <li><a href="#s10">Children's Privacy</a></li>
+        <li><a href="#s11">Policy Updates</a></li>
+        <li><a href="#s12">Contact Us</a></li>
+      </ol>
+    </div>
+
+    <!-- 1 -->
+    <div class="pp-section mc-reveal" id="s1">
+      <p class="pp-section-num">01</p>
+      <h2>Who We Are</h2>
+      <p>MomentCast ("MomentCast," "we," "us," or "our") is a live streaming platform at <strong>momentcast.live</strong> that enables photographers, videographers, and other event professionals ("Streamers") to broadcast live events to their clients' guests ("Viewers") in real time.</p>
+      <p>This Privacy Policy describes how MomentCast collects, uses, stores, and protects personal information when you use our marketing site at <strong>momentcast.live</strong>, our streamer dashboard at <strong>app.momentcast.live</strong>, or our viewer pages at <strong>go.momentcast.live</strong>.</p>
+      <p>By using MomentCast, you agree to the practices described in this Privacy Policy. If you do not agree, please do not use our services.</p>
+    </div>
+
+    <!-- 2 -->
+    <div class="pp-section mc-reveal" id="s2">
+      <p class="pp-section-num">02</p>
+      <h2>Information We Collect</h2>
+
+      <h3>Information you provide directly</h3>
+      <table class="pp-table">
+        <thead>
+          <tr><th>Category</th><th>Examples</th><th>Who provides it</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Account details</td><td>Name, email address, profile photo</td><td>Streamers (via Google Sign-In or direct registration)</td></tr>
+          <tr><td>Event information</td><td>Event title, date, time, timezone, cover photo, slug</td><td>Streamers</td></tr>
+          <tr><td>Branding assets</td><td>Presenter logo uploaded for display on the watch page</td><td>Streamers</td></tr>
+          <tr><td>Payment information</td><td>Billing data processed by our payment provider; we do not store raw card data</td><td>Streamers</td></tr>
+          <tr><td>Communications</td><td>Support messages, feedback submitted to us</td><td>Streamers and Viewers</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Information collected automatically</h3>
+      <table class="pp-table">
+        <thead>
+          <tr><th>Category</th><th>Examples</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Usage data</td><td>Pages visited, features used, event status transitions, timestamps</td></tr>
+          <tr><td>Device &amp; browser data</td><td>IP address, browser type, operating system, referring URL</td></tr>
+          <tr><td>Video analytics</td><td>Viewer minutes watched, viewer country (aggregated), stream connection events</td></tr>
+          <tr><td>Cookies</td><td>Session tokens, analytics identifiers (see Section 8)</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Information from third-party services</h3>
+      <p>When you sign in using Google, we receive your Google account name, email address, and profile photo as authorized by you on Google's consent screen. We do not receive or store your Google password or access to any Google services beyond what you explicitly authorize.</p>
+    </div>
+
+    <!-- 3 — GOOGLE USER DATA (most important for OAuth verification) -->
+    <div class="pp-section mc-reveal" id="s3">
+      <p class="pp-section-num">03</p>
+      <h2>Google User Data</h2>
+
+      <div class="pp-callout">
+        <p><strong>Google OAuth disclosure.</strong> This section specifically describes how MomentCast accesses, uses, stores, and shares data obtained through Google Sign-In ("Google user data"), in compliance with the <a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener">Google API Services User Data Policy</a>.</p>
+      </div>
+
+      <h3>What Google data we access</h3>
+      <p>MomentCast uses Google Sign-In for authentication only. When you sign in with Google, we request access to the following data:</p>
+      <ul>
+        <li><strong>Email address</strong> — used as your account identifier and for service communications.</li>
+        <li><strong>Display name</strong> — used to personalize your dashboard experience.</li>
+        <li><strong>Profile photo URL</strong> — optionally displayed in your account settings.</li>
+      </ul>
+      <p>We do not request access to your Google Drive, Gmail, Google Calendar, Google Contacts, or any other Google service. We do not request sensitive or restricted OAuth scopes beyond basic profile and email identification.</p>
+
+      <h3>How we use Google user data</h3>
+      <p>Google user data is used exclusively to:</p>
+      <ul>
+        <li>Create and authenticate your MomentCast account.</li>
+        <li>Display your name within your personal dashboard.</li>
+        <li>Send transactional emails related to your account and events (e.g., event confirmations, support responses).</li>
+      </ul>
+      <p>We do not use Google user data for advertising, profiling, data brokerage, or any purpose beyond providing and improving your MomentCast experience. We do not transfer, sell, or share Google user data with any third party except as described in Section 5.</p>
+
+      <h3>How we store Google user data</h3>
+      <p>Your name, email address, and profile photo URL are stored securely in our database hosted on Supabase (PostgreSQL), protected by encryption at rest and in transit. See Section 6 for details.</p>
+
+      <h3>How to revoke Google access</h3>
+      <p>You can revoke MomentCast's access to your Google account at any time by visiting <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">Google Account Permissions</a> and removing MomentCast. Revoking access will not delete your MomentCast account or event data; contact <a href="mailto:privacy@momentcast.live">privacy@momentcast.live</a> to request full account deletion.</p>
+
+      <div class="pp-callout">
+        <p><strong>Limited Use policy.</strong> MomentCast's use of information received from Google APIs adheres to the Google API Services User Data Policy, including the <a href="https://developers.google.com/terms/api-services-user-data-policy#limited-use" target="_blank" rel="noopener">Limited Use requirements</a>. Google user data is not used for any purpose other than providing and improving the features you explicitly use within MomentCast.</p>
+      </div>
+    </div>
+
+    <!-- 4 -->
+    <div class="pp-section mc-reveal" id="s4">
+      <p class="pp-section-num">04</p>
+      <h2>How We Use Your Data</h2>
+      <p>We use the information we collect to:</p>
+      <ul>
+        <li>Create, maintain, and authenticate your MomentCast account.</li>
+        <li>Enable Streamers to create and manage live events.</li>
+        <li>Deliver live video streams and recorded replays to authorized Viewers.</li>
+        <li>Process payments and manage event credits.</li>
+        <li>Send transactional communications (event confirmations, receipts, support responses).</li>
+        <li>Monitor platform performance, diagnose technical issues, and improve the service.</li>
+        <li>Measure viewer engagement through aggregated, anonymized analytics.</li>
+        <li>Comply with applicable legal obligations.</li>
+      </ul>
+      <p>We do not use your data for behavioral advertising, do not build advertising profiles, and do not sell or rent your personal information.</p>
+    </div>
+
+    <!-- 5 -->
+    <div class="pp-section mc-reveal" id="s5">
+      <p class="pp-section-num">05</p>
+      <h2>Data Sharing &amp; Disclosure</h2>
+      <p>MomentCast does not sell your personal information. We share data only in the following limited circumstances:</p>
+
+      <h3>Service providers (processors)</h3>
+      <table class="pp-table">
+        <thead>
+          <tr><th>Vendor</th><th>Purpose</th><th>Data shared</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Supabase</td><td>Database, authentication, file storage</td><td>Account data, event data, uploaded assets</td></tr>
+          <tr><td>Cloudflare</td><td>Video streaming, hosting, CDN, analytics</td><td>Video streams, anonymized viewer analytics, request logs</td></tr>
+          <tr><td>Google (Auth)</td><td>Sign-In authentication</td><td>Identity token (email, name) returned to us upon your authorization</td></tr>
+          <tr><td>Google Analytics (GA4)</td><td>Web analytics on viewer pages</td><td>Anonymized usage data, page views</td></tr>
+          <tr><td>Payment processor</td><td>Processing event purchase payments</td><td>Payment details (card data never stored by MomentCast)</td></tr>
+        </tbody>
+      </table>
+
+      <h3>Legal requirements</h3>
+      <p>We may disclose your information if required by law, court order, or government authority, or when we believe in good faith that disclosure is necessary to protect our rights, your safety, or the safety of others, or to investigate fraud.</p>
+
+      <h3>Business transfers</h3>
+      <p>If MomentCast is acquired, merged, or undergoes a change of ownership, your information may be transferred to the successor entity under the same privacy protections described here. We will notify you of any such change via email or prominent notice on our website.</p>
+
+      <h3>What we never do</h3>
+      <ul>
+        <li>We never sell personal data or Google user data to any third party.</li>
+        <li>We never share Google user data with advertisers or data brokers.</li>
+        <li>We never use Google user data to serve targeted advertisements.</li>
+        <li>We never transfer Google user data to any party other than those listed above.</li>
+      </ul>
+    </div>
+
+    <!-- 6 -->
+    <div class="pp-section mc-reveal" id="s6">
+      <p class="pp-section-num">06</p>
+      <h2>Data Security</h2>
+      <p>We take reasonable, industry-standard measures to protect your personal information against unauthorized access, disclosure, alteration, and destruction:</p>
+      <ul>
+        <li><strong>Encryption in transit:</strong> All data transmitted between your browser and our servers uses HTTPS/TLS.</li>
+        <li><strong>Encryption at rest:</strong> User data stored in Supabase is encrypted at rest.</li>
+        <li><strong>Access controls:</strong> Database access is restricted to authenticated application processes; no public access is permitted.</li>
+        <li><strong>Secure infrastructure:</strong> We operate on Cloudflare Pages and Cloudflare Workers, which enforce HTTPS for all requests.</li>
+        <li><strong>Authentication tokens:</strong> OAuth tokens are short-lived and stored using secure, httpOnly mechanisms.</li>
+      </ul>
+      <p>No security system is impenetrable. In the event of a data breach that affects your rights or freedoms, we will notify affected users promptly as required by applicable law.</p>
+    </div>
+
+    <!-- 7 -->
+    <div class="pp-section mc-reveal" id="s7">
+      <p class="pp-section-num">07</p>
+      <h2>Data Retention &amp; Deletion</h2>
+
+      <table class="pp-table">
+        <thead>
+          <tr><th>Data type</th><th>Retention period</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Account data (name, email)</td><td>Life of account; deleted within 30 days of verified account deletion request</td></tr>
+          <tr><td>Event data and metadata</td><td>Life of account; deleted upon account deletion</td></tr>
+          <tr><td>Live stream recordings</td><td>Duration specified in your service plan; deleted upon account deletion or expiration</td></tr>
+          <tr><td>Payment and billing records</td><td>7 years to comply with tax and financial regulations</td></tr>
+          <tr><td>Google user data (name, email, photo URL)</td><td>Life of account; deleted within 30 days of account deletion request</td></tr>
+          <tr><td>Analytics data (aggregated)</td><td>Up to 90 days in Cloudflare Stream; standard GA4 retention settings</td></tr>
+          <tr><td>Support communications</td><td>2 years, then deleted</td></tr>
+        </tbody>
+      </table>
+
+      <h3>How to request deletion</h3>
+      <p>To delete your account and associated data, email <a href="mailto:privacy@momentcast.live">privacy@momentcast.live</a> with the subject line "Account Deletion Request." We will confirm receipt within 5 business days and complete deletion within 30 days, except for data we are legally required to retain (e.g., billing records).</p>
+    </div>
+
+    <!-- 8 -->
+    <div class="pp-section mc-reveal" id="s8">
+      <p class="pp-section-num">08</p>
+      <h2>Cookies &amp; Analytics</h2>
+
+      <h3>Cookies we use</h3>
+      <ul>
+        <li><strong>Session cookies:</strong> Used to keep you logged into your Streamer dashboard. These expire when you close your browser or sign out.</li>
+        <li><strong>Authentication cookies:</strong> Set by Supabase Auth to maintain your authenticated session securely.</li>
+        <li><strong>Analytics cookies:</strong> Google Analytics 4 (GA4) cookies are set on viewer pages (go.momentcast.live) to measure page views and engagement. These are anonymized and do not identify you personally.</li>
+      </ul>
+
+      <h3>Viewers (unauthenticated)</h3>
+      <p>Viewers of event pages at go.momentcast.live do not need to create an account. Their viewing experience is anonymous. GA4 may set analytics cookies; viewers can opt out using their browser's cookie settings or a browser-based ad blocker.</p>
+
+      <h3>Third-party analytics</h3>
+      <p>We use Google Analytics 4 (tag G-KL4FM3L62J) on viewer pages to understand aggregate traffic patterns, and Cloudflare Analytics on all properties for performance monitoring. Neither service is given access to personally identifiable information.</p>
+    </div>
+
+    <!-- 9 -->
+    <div class="pp-section mc-reveal" id="s9">
+      <p class="pp-section-num">09</p>
+      <h2>Your Rights</h2>
+      <p>Depending on your location, you may have the following rights regarding your personal information:</p>
+      <ul>
+        <li><strong>Access:</strong> Request a copy of the personal data we hold about you.</li>
+        <li><strong>Correction:</strong> Request correction of inaccurate or incomplete data.</li>
+        <li><strong>Deletion:</strong> Request deletion of your personal data (subject to legal retention obligations).</li>
+        <li><strong>Portability:</strong> Request your data in a structured, machine-readable format.</li>
+        <li><strong>Withdrawal of consent:</strong> Revoke Google Sign-In authorization at any time via <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">Google Account Permissions</a>, or contact us to withdraw other consents.</li>
+        <li><strong>Opt-out of analytics:</strong> Disable GA4 tracking via your browser's cookie controls or <a href="https://tools.google.com/dlpage/gaoptout" target="_blank" rel="noopener">Google's opt-out tool</a>.</li>
+      </ul>
+      <p>California residents may have additional rights under the California Consumer Privacy Act (CCPA), including the right to know, the right to delete, and the right to opt out of the sale of personal information. We do not sell personal information.</p>
+      <p>To exercise any of these rights, contact <a href="mailto:privacy@momentcast.live">privacy@momentcast.live</a>. We will respond within 30 days.</p>
+    </div>
+
+    <!-- 10 -->
+    <div class="pp-section mc-reveal" id="s10">
+      <p class="pp-section-num">10</p>
+      <h2>Children's Privacy</h2>
+      <p>MomentCast is not directed to children under the age of 13, and we do not knowingly collect personal information from children under 13. If you believe a child under 13 has provided us with personal information, please contact <a href="mailto:privacy@momentcast.live">privacy@momentcast.live</a> and we will delete it promptly.</p>
+      <p>Consistent with Google's COPPA requirements for OAuth applications, MomentCast's Streamer dashboard (which uses Google Sign-In) is intended for adult professionals only.</p>
+    </div>
+
+    <!-- 11 -->
+    <div class="pp-section mc-reveal" id="s11">
+      <p class="pp-section-num">11</p>
+      <h2>Policy Updates</h2>
+      <p>We may update this Privacy Policy from time to time to reflect changes in our practices, legal requirements, or platform features. When we make material changes, we will notify registered Streamers by email and update the "Last Updated" date at the top of this page.</p>
+      <p>If you use Google Sign-In and we begin using Google user data in a new way, we will notify you and prompt you to consent to the updated policy before making any such change.</p>
+      <p>Your continued use of MomentCast after a policy update constitutes your acceptance of the revised Privacy Policy.</p>
+    </div>
+
+    <!-- 12 -->
+    <div class="pp-section mc-reveal" id="s12">
+      <p class="pp-section-num">12</p>
+      <h2>Contact Us</h2>
+      <p>If you have any questions, concerns, or requests regarding this Privacy Policy or how we handle your data, please reach out:</p>
+      <div class="pp-contact">
+        <p><strong>MomentCast</strong></p>
+        <p>Privacy inquiries: <a href="mailto:privacy@momentcast.live">privacy@momentcast.live</a></p>
+        <p>General support: <a href="mailto:support@momentcast.live">support@momentcast.live</a></p>
+        <p>Website: <a href="https://momentcast.live">momentcast.live</a></p>
+      </div>
+      <p style="margin-top:16px;">We aim to respond to all privacy-related requests within 5 business days and to resolve them within 30 days.</p>
+    </div>
+
+  </div><!-- /pp-wrapper -->
+
+
+  <!-- ── FOOTER (matches index.html exactly) ── -->
+  <footer class="mc-footer">
+    <div class="mc-container">
+      <div class="mc-footer-inner">
+
+        <div class="mc-footer-brand">
+          <img src="momentcast-logo-gold-on-dark.png" alt="MomentCast" class="mc-footer-logo" />
+          <p>Professional live streaming for photographers and videographers. Your event. Their moment.</p>
+        </div>
+
+        <div class="mc-footer-links">
+          <div class="mc-footer-col">
+            <h4>Product</h4>
+            <a href="index.html#features">Features</a>
+            <a href="index.html#pricing">Pricing</a>
+            <a href="index.html#how-it-works">How It Works</a>
+          </div>
+          <div class="mc-footer-col">
+            <h4>Company</h4>
+            <a href="privacy.html">Privacy Policy</a>
+            <a href="terms.html">Terms of Service</a>
+            <a href="mailto:support@momentcast.live">Support</a>
+          </div>
+        </div>
+
+      </div>
+    </div>
+    <div class="mc-footer-bottom">
+      <p>&copy; 2026 MomentCast. All rights reserved.</p>
+    </div>
+  </footer>
+
+
+  <!-- Scroll reveal (same as index.html) -->
+  <script>
+    const observer = new IntersectionObserver(
+      entries => entries.forEach(e => { if (e.isIntersecting) e.target.classList.add('mc-visible'); }),
+      { threshold: 0.1 }
+    );
+    document.querySelectorAll('.mc-reveal').forEach(el => observer.observe(el));
+  </script>
+
+</body>
+</html>
