@@ -736,7 +736,7 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
           rtmps_url: cfResult.rtmpsUrl,
           rtmps_key: cfResult.rtmpsKey,
           tier: body.tier || 'standard',
-          viewer_hour_limit: body.tier === 'premium' ? 15000 : 5000,
+          viewer_hour_limit: 12000, // 200 viewing hours per credit (in minutes)
           qr_code_data_url: qrCodeDataUrl, // base64 SVG for watch page sharing
         })
         .select()
@@ -902,7 +902,7 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
 
       // Check if viewer limit exceeded (only applies to live/replay viewing)
       const viewerHoursConsumed = event.viewer_hours_consumed || 0;
-      const viewerHourLimit = event.viewer_hour_limit || 400;
+      const viewerHourLimit = event.viewer_hour_limit || 12000; // 200 viewing hours default
       const limitExceeded = viewerHoursConsumed >= viewerHourLimit;
 
       // Fetch photographer's logo from users table
@@ -1331,6 +1331,116 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
         success: true,
         creditsRefunded: creditsToRefund,
         message: `Event cancelled. ${creditsToRefund} credit(s) returned to your balance.`
+      }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    /**
+     * POST /api/events/:slug/add-credits — Add viewing hours to an existing event (authenticated)
+     * 
+     * Deducts 1 credit from user balance and adds 12,000 minutes (200 viewing hours)
+     * to the event's viewer_hour_limit. Works on live, scheduled, or ready events.
+     * 
+     * Body: {} (no body needed, always adds 1 credit worth)
+     * Returns: { newLimit, creditsRemaining }
+     */
+    if (pathname.match(/^\/api\/events\/[a-z0-9-]+\/add-credits$/) && method === 'POST') {
+      const token = extractToken(request.headers.get('authorization'));
+      if (!token) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401, headers: corsHeaders,
+        });
+      }
+
+      const userId = await verifyJWT(token, env);
+      if (!userId) {
+        return new Response(JSON.stringify({ error: 'Invalid token' }), {
+          status: 401, headers: corsHeaders,
+        });
+      }
+
+      const slug = pathname.split('/')[3];
+
+      // Verify event belongs to this user and is not ended/cancelled
+      const { data: event, error: eventError } = await supabase
+        .from('events')
+        .select('id, slug, user_id, status, viewer_hour_limit')
+        .eq('slug', slug)
+        .single();
+
+      if (eventError || !event) {
+        return new Response(JSON.stringify({ error: 'Event not found' }), {
+          status: 404, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (event.user_id !== userId) {
+        return new Response(JSON.stringify({ error: 'Not your event' }), {
+          status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (event.status === 'ended' || event.status === 'cancelled') {
+        return new Response(JSON.stringify({ error: 'Cannot add credits to an ended or cancelled event' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Check user has at least 1 credit
+      const { data: user, error: userError } = await supabase
+        .from('users')
+        .select('credits')
+        .eq('id', userId)
+        .single();
+
+      if (userError || !user || user.credits < 1) {
+        return new Response(JSON.stringify({ error: 'Insufficient credits' }), {
+          status: 402, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Add 12,000 minutes (200 viewing hours) to event limit
+      const MINUTES_PER_CREDIT = 12000;
+      const currentLimit = event.viewer_hour_limit || 12000;
+      const newLimit = currentLimit + MINUTES_PER_CREDIT;
+
+      const { error: updateError } = await supabase
+        .from('events')
+        .update({ viewer_hour_limit: newLimit })
+        .eq('id', event.id);
+
+      if (updateError) {
+        console.error('Error adding credits to event:', updateError);
+        return new Response(JSON.stringify({ error: 'Failed to update event' }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Deduct 1 credit from user
+      const newBalance = user.credits - 1;
+      await supabase
+        .from('users')
+        .update({ credits: newBalance })
+        .eq('id', userId);
+
+      // Log the transaction
+      await supabase.from('credit_transactions').insert({
+        user_id: userId,
+        amount: -1,
+        type: 'event_topup',
+        event_id: event.id,
+      });
+
+      console.log(`✅ Event ${slug}: +200 viewing hours (limit now ${newLimit} min), user balance: ${newBalance}`);
+
+      return new Response(JSON.stringify({
+        success: true,
+        newLimit,
+        newLimitHours: Math.round(newLimit / 60),
+        creditsRemaining: newBalance,
+        message: `Added 200 viewing hours. Event now has ${Math.round(newLimit / 60)} total hours.`,
       }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
