@@ -139,6 +139,20 @@ export default function DashboardHome() {
         // Load first page of ended events in background
         loadEndedEvents(authUser.id);
 
+        // Handle Stripe redirect: show success/cancelled message
+        const urlParams = new URLSearchParams(window.location.search);
+        const purchaseStatus = urlParams.get('purchase');
+        if (purchaseStatus === 'success') {
+          const creditCount = urlParams.get('credits') || '?';
+          setPurchaseMessage(`Payment successful! ${creditCount} credit${creditCount !== '1' ? 's' : ''} added to your account.`);
+          // Clean up URL params without reload
+          window.history.replaceState({}, '', window.location.pathname);
+        } else if (purchaseStatus === 'cancelled') {
+          setPurchaseMessage('Purchase cancelled. No charges were made.');
+          setShowBuyCredits(true);
+          window.history.replaceState({}, '', window.location.pathname);
+        }
+
       } catch (err) {
         console.error('Dashboard load error:', err);
         setError('Failed to load dashboard');
@@ -348,11 +362,13 @@ export default function DashboardHome() {
   }
 
   /**
-   * Test-mode credit purchase: adds credits directly via Supabase.
-   * In production (Phase 2), this will create a Stripe Checkout Session instead.
-   * The test banner + this function will be removed once Stripe is wired up.
+   * Purchase credits via Stripe Checkout.
+   * Creates a Checkout Session on the Worker, then redirects to Stripe.
+   * Falls back to direct Supabase write in test mode (toggle below).
    */
-  async function handleTestPurchase(tierId: string) {
+  const TEST_MODE = false; // Set true to bypass Stripe and add credits directly
+
+  async function handlePurchase(tierId: string) {
     if (!user) return;
     
     const tier = CREDIT_TIERS.find(t => t.id === tierId);
@@ -362,41 +378,57 @@ export default function DashboardHome() {
     setPurchaseMessage(null);
 
     try {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) throw new Error('Not authenticated');
+      if (TEST_MODE) {
+        // --- TEST MODE: add credits directly (no Stripe) ---
+        const { data: { user: authUser } } = await supabase.auth.getUser();
+        if (!authUser) throw new Error('Not authenticated');
 
-      // Add credits to user balance
-      const newBalance = user.credits + tier.credits;
-      const { error: updateError } = await supabase
-        .from('users')
-        .update({ credits: newBalance })
-        .eq('id', authUser.id);
+        const newBalance = user.credits + tier.credits;
+        const { error: updateError } = await supabase
+          .from('users')
+          .update({ credits: newBalance })
+          .eq('id', authUser.id);
 
-      if (updateError) throw new Error(updateError.message);
+        if (updateError) throw new Error(updateError.message);
 
-      // Log the credit transaction
-      const { error: txError } = await supabase
-        .from('credit_transactions')
-        .insert({
+        await supabase.from('credit_transactions').insert({
           user_id: authUser.id,
           amount: tier.credits,
           type: 'purchase',
           event_id: null,
         });
 
-      if (txError) console.error('Transaction log error:', txError);
+        setUser({ ...user, credits: newBalance });
+        setPurchaseMessage(`Added ${tier.credits} credit${tier.credits > 1 ? 's' : ''}! New balance: ${newBalance}`);
+        setSelectedTier(null);
+        if (showCreditHistory) loadCreditHistory();
+        console.log(`✅ Test purchase: +${tier.credits} credits, balance now ${newBalance}`);
+      } else {
+        // --- PRODUCTION: Stripe Checkout ---
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session?.access_token) throw new Error('Not authenticated');
 
-      // Update local state immediately
-      setUser({ ...user, credits: newBalance });
-      setPurchaseMessage(`Added ${tier.credits} credit${tier.credits > 1 ? 's' : ''}! New balance: ${newBalance}`);
-      setSelectedTier(null);
+        const response = await fetch('https://api.momentcast.live/api/checkout', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ tierId }),
+        });
 
-      // Refresh credit history if it's open
-      if (showCreditHistory) loadCreditHistory();
+        const data = await response.json() as { url?: string; error?: string };
 
-      console.log(`✅ Test purchase: +${tier.credits} credits, balance now ${newBalance}`);
+        if (!response.ok || !data.url) {
+          throw new Error(data.error || 'Failed to create checkout session');
+        }
+
+        // Redirect to Stripe Checkout
+        window.location.href = data.url;
+        return; // Don't reset purchasing state — we're navigating away
+      }
     } catch (err: any) {
-      console.error('Test purchase error:', err);
+      console.error('Purchase error:', err);
       setPurchaseMessage(`Error: ${err.message}`);
     } finally {
       setPurchasing(false);
@@ -517,10 +549,11 @@ export default function DashboardHome() {
           {/* Buy Credits Panel (expandable) */}
           {showBuyCredits && (
             <div className="mt-6 pt-6 border-t border-[var(--mc-border)]">
-              {/* TEST MODE banner — remove in Phase 2 */}
+              {/* TEST MODE banner — only visible when TEST_MODE = true */}
+              {TEST_MODE && (
               <div className="bg-[var(--mc-warning-bg)] border border-yellow-300 rounded-lg px-4 py-2.5 mb-5 flex items-center justify-between">
                 <span className="text-[var(--mc-warning)] text-sm font-medium">
-                  🧪 Test Mode — credits are added directly (no payment). Will connect to Stripe in Phase 2.
+                  🧪 Test Mode — credits are added directly (no payment). Set TEST_MODE = false for Stripe.
                 </span>
                 <button
                   onClick={handleTestRemoveCredit}
@@ -530,6 +563,7 @@ export default function DashboardHome() {
                   Remove 1 Credit (test)
                 </button>
               </div>
+              )}
 
               {/* Tier Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
@@ -593,7 +627,7 @@ export default function DashboardHome() {
               {selectedTier && (
                 <div className="mt-5 flex items-center gap-4">
                   <button
-                    onClick={() => handleTestPurchase(selectedTier)}
+                    onClick={() => handlePurchase(selectedTier)}
                     disabled={purchasing}
                     className="bg-[var(--mc-gold)] hover:bg-[var(--mc-gold-hover)] disabled:bg-[var(--mc-surface-2)] disabled:text-[var(--mc-text-3)] disabled:cursor-not-allowed text-white font-semibold py-3 px-8 rounded-lg transition-colors"
                   >
@@ -618,6 +652,17 @@ export default function DashboardHome() {
             </div>
           )}
         </div>
+
+        {/* Purchase message (shown after Stripe redirect, outside the buy panel) */}
+        {purchaseMessage && !showBuyCredits && (
+          <div className={`-mt-4 mb-6 px-4 py-3 rounded-lg text-sm font-medium ${
+            purchaseMessage.startsWith('Error') || purchaseMessage.startsWith('Purchase cancelled')
+              ? 'bg-[var(--mc-live-bg)] text-[var(--mc-live)]'
+              : 'bg-[var(--mc-success-bg)] text-[var(--mc-success)]'
+          }`}>
+            {purchaseMessage}
+          </div>
+        )}
 
         {/* Credit History Toggle */}
         <div className="mb-8 -mt-4">

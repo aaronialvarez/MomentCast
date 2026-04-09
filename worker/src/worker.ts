@@ -1699,6 +1699,257 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
       );
     }
 
+    // =========================================================================
+    // Stripe Integration — Credit Purchase Flow
+    // =========================================================================
+
+    /**
+     * POST /api/checkout — Create a Stripe Checkout Session (authenticated)
+     * 
+     * Body: { tierId: 'single' | 'pro5' | 'studio10' }
+     * Returns: { url: string } — the Stripe Checkout URL to redirect the user to
+     * 
+     * Pricing tiers (launch promo, 15% off $35 regular):
+     *   single:   1 credit  @ $29.99
+     *   pro5:     5 credits @ $137.99  ($27.60/ea)
+     *   studio10: 10 credits @ $259.99 ($26.00/ea)
+     */
+    if (pathname === '/api/checkout' && method === 'POST') {
+      const token = extractToken(request.headers.get('authorization'));
+      if (!token) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401, headers: corsHeaders,
+        });
+      }
+
+      const userId = await verifyJWT(token, env);
+      if (!userId) {
+        return new Response(JSON.stringify({ error: 'Invalid token' }), {
+          status: 401, headers: corsHeaders,
+        });
+      }
+
+      const body = await request.json() as { tierId?: string };
+      if (!body.tierId) {
+        return new Response(JSON.stringify({ error: 'Missing tierId' }), {
+          status: 400, headers: corsHeaders,
+        });
+      }
+
+      // Tier definitions — prices in cents for Stripe
+      const tiers: Record<string, { credits: number; priceInCents: number; label: string }> = {
+        single:   { credits: 1,  priceInCents: 2999,  label: '1 MomentCast Credit' },
+        pro5:     { credits: 5,  priceInCents: 13799, label: '5 MomentCast Credits' },
+        studio10: { credits: 10, priceInCents: 25999, label: '10 MomentCast Credits' },
+      };
+
+      const tier = tiers[body.tierId];
+      if (!tier) {
+        return new Response(JSON.stringify({ error: 'Invalid tierId' }), {
+          status: 400, headers: corsHeaders,
+        });
+      }
+
+      // Fetch user email for Stripe pre-fill
+      const { data: userData } = await supabase
+        .from('users')
+        .select('email')
+        .eq('id', userId)
+        .single();
+
+      try {
+        // Create Stripe Checkout Session via REST API (no SDK needed in Workers)
+        const stripeResponse = await fetch('https://api.stripe.com/v1/checkout/sessions', {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${env.STRIPE_SECRET_KEY}`,
+            'Content-Type': 'application/x-www-form-urlencoded',
+          },
+          body: new URLSearchParams({
+            'mode': 'payment',
+            'success_url': `https://app.momentcast.live/?purchase=success&credits=${tier.credits}`,
+            'cancel_url': 'https://app.momentcast.live/?purchase=cancelled',
+            'line_items[0][price_data][currency]': 'usd',
+            'line_items[0][price_data][product_data][name]': tier.label,
+            'line_items[0][price_data][product_data][description]': `${tier.credits} event credit${tier.credits > 1 ? 's' : ''}, 200 viewing hours each`,
+            'line_items[0][price_data][unit_amount]': tier.priceInCents.toString(),
+            'line_items[0][quantity]': '1',
+            // Metadata — used in the webhook to credit the right user
+            'metadata[user_id]': userId,
+            'metadata[tier_id]': body.tierId,
+            'metadata[credits]': tier.credits.toString(),
+            // Pre-fill email if we have it
+            ...(userData?.email ? { 'customer_email': userData.email } : {}),
+          }).toString(),
+        });
+
+        const session = await stripeResponse.json() as any;
+
+        if (!stripeResponse.ok || !session.url) {
+          console.error('Stripe Checkout error:', JSON.stringify(session));
+          return new Response(JSON.stringify({ error: 'Failed to create checkout session' }), {
+            status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        console.log(`✅ Stripe Checkout created for user ${userId}: ${tier.label} ($${(tier.priceInCents / 100).toFixed(2)})`);
+
+        return new Response(JSON.stringify({ url: session.url }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+
+      } catch (err) {
+        console.error('Stripe Checkout error:', err);
+        return new Response(JSON.stringify({ error: 'Stripe checkout failed' }), {
+          status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+    }
+
+    /**
+     * POST /api/webhooks/stripe — Handle Stripe webhook events (unauthenticated)
+     * 
+     * Verifies the Stripe-Signature header, then processes checkout.session.completed
+     * to credit the user's balance and log the transaction.
+     * 
+     * Required env vars: STRIPE_WEBHOOK_SECRET
+     */
+    if (pathname === '/api/webhooks/stripe' && method === 'POST') {
+      const signature = request.headers.get('stripe-signature');
+      if (!signature) {
+        return new Response(JSON.stringify({ error: 'Missing Stripe signature' }), {
+          status: 400, headers: corsHeaders,
+        });
+      }
+
+      const rawBody = await request.text();
+
+      // Verify webhook signature (Stripe HMAC-SHA256)
+      try {
+        const signatureParts = signature.split(',').reduce((acc: Record<string, string>, part: string) => {
+          const [key, value] = part.split('=');
+          acc[key] = value;
+          return acc;
+        }, {} as Record<string, string>);
+
+        const timestamp = signatureParts['t'];
+        const expectedSig = signatureParts['v1'];
+
+        if (!timestamp || !expectedSig) {
+          return new Response(JSON.stringify({ error: 'Invalid signature format' }), {
+            status: 400, headers: corsHeaders,
+          });
+        }
+
+        // Reject if timestamp is too old (5 minutes tolerance)
+        const ageSeconds = Math.floor(Date.now() / 1000) - parseInt(timestamp);
+        if (ageSeconds > 300) {
+          return new Response(JSON.stringify({ error: 'Webhook timestamp too old' }), {
+            status: 400, headers: corsHeaders,
+          });
+        }
+
+        // Compute expected signature
+        const signedPayload = `${timestamp}.${rawBody}`;
+        const encoder = new TextEncoder();
+        const key = await crypto.subtle.importKey(
+          'raw',
+          encoder.encode(env.STRIPE_WEBHOOK_SECRET),
+          { name: 'HMAC', hash: 'SHA-256' },
+          false,
+          ['sign']
+        );
+        const sig = await crypto.subtle.sign('HMAC', key, encoder.encode(signedPayload));
+        const computedSig = [...new Uint8Array(sig)]
+          .map(b => b.toString(16).padStart(2, '0'))
+          .join('');
+
+        if (computedSig !== expectedSig) {
+          console.error('Stripe webhook signature mismatch');
+          return new Response(JSON.stringify({ error: 'Invalid signature' }), {
+            status: 400, headers: corsHeaders,
+          });
+        }
+      } catch (err) {
+        console.error('Stripe signature verification error:', err);
+        return new Response(JSON.stringify({ error: 'Signature verification failed' }), {
+          status: 400, headers: corsHeaders,
+        });
+      }
+
+      // Signature verified — process the event
+      const event = JSON.parse(rawBody) as any;
+      console.log(`Stripe webhook received: ${event.type}`);
+
+      if (event.type === 'checkout.session.completed') {
+        const session = event.data.object;
+        const userId = session.metadata?.user_id;
+        const credits = parseInt(session.metadata?.credits || '0');
+        const tierId = session.metadata?.tier_id || 'unknown';
+
+        if (!userId || credits < 1) {
+          console.error('Stripe webhook: missing metadata', { userId, credits });
+          return new Response(JSON.stringify({ error: 'Invalid metadata' }), {
+            status: 400, headers: corsHeaders,
+          });
+        }
+
+        // Idempotency: check if we already processed this session
+        const stripeSessionId = session.id;
+        const { data: existing } = await supabase
+          .from('credit_transactions')
+          .select('id')
+          .eq('stripe_session_id', stripeSessionId)
+          .maybeSingle();
+
+        if (existing) {
+          console.log(`Stripe webhook: session ${stripeSessionId} already processed, skipping`);
+          return new Response(JSON.stringify({ received: true, duplicate: true }), {
+            status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
+        // Credit the user
+        const { data: user } = await supabase
+          .from('users')
+          .select('credits')
+          .eq('id', userId)
+          .single();
+
+        if (!user) {
+          console.error(`Stripe webhook: user ${userId} not found`);
+          return new Response(JSON.stringify({ error: 'User not found' }), {
+            status: 404, headers: corsHeaders,
+          });
+        }
+
+        const newBalance = user.credits + credits;
+        await supabase
+          .from('users')
+          .update({ credits: newBalance })
+          .eq('id', userId);
+
+        // Log the transaction with Stripe reference for idempotency
+        await supabase.from('credit_transactions').insert({
+          user_id: userId,
+          amount: credits,
+          type: 'purchase',
+          event_id: null,
+          stripe_session_id: stripeSessionId,
+        });
+
+        const amountPaid = (session.amount_total / 100).toFixed(2);
+        console.log(`✅ Stripe: +${credits} credits for user ${userId} (${tierId}, $${amountPaid}), balance now ${newBalance}`);
+      }
+
+      // Always return 200 to Stripe (even for event types we don't handle)
+      return new Response(JSON.stringify({ received: true }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // GET /ping - Health check
     if (pathname === '/ping' && method === 'GET') {
       return new Response(
