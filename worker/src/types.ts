@@ -114,6 +114,8 @@ export interface CloudflareStreamAnalytics {
 }
 
 export interface WorkerEnv {
+  STRIPE_SECRET_KEY: string;
+  STRIPE_WEBHOOK_SECRET: string;
   SUPABASE_URL: string;
   SUPABASE_SERVICE_KEY: string;
   CLOUDFLARE_ACCOUNT_ID: string;

@@ -67,6 +67,11 @@ export default function EventDetailPage() {
   const [showCancelModal, setShowCancelModal] = useState(false);
   const [cancelling, setCancelling] = useState(false);
   const [cancelError, setCancelError] = useState<string | null>(null);
+  // Add viewing hours (top-up) state
+  const [addingHours, setAddingHours] = useState(false);
+  const [topupMessage, setTopupMessage] = useState<string | null>(null);
+  // Minutes-to-hours helper (DB stores minutes, UI shows hours)
+  const toHours = (minutes: number) => Math.round((minutes / 60) * 10) / 10;
   // Same timezone list as create-event page
   const timezoneOptions = [
     { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
@@ -143,8 +148,8 @@ export default function EventDetailPage() {
         if (response.ok) {
           const data = await response.json();
           setAnalytics({
-            viewerHoursUsed: data.viewerHoursUsed || 0,
-            viewerHoursLimit: event.viewer_hour_limit,
+            viewerHoursUsed: data.viewerHoursUsed || 0,       // Already in hours from the API
+            viewerHoursLimit: toHours(event.viewer_hour_limit), // Convert minutes → hours
           });
         }
       } catch (err) {
@@ -576,6 +581,66 @@ export default function EventDetailPage() {
       setTitleError(err instanceof Error ? err.message : 'Failed to update title');
     } finally {
       setSavingTitle(false);
+    }
+  }
+
+  /**
+   * Add 200 viewing hours to this event by spending 1 credit.
+   * Calls POST /api/events/:slug/add-credits on the Worker.
+   */
+  async function handleAddViewingHours() {
+    if (!event) return;
+
+    setAddingHours(true);
+    setTopupMessage(null);
+
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        router.push('/login');
+        return;
+      }
+
+      const response = await fetch(
+        `${process.env.NEXT_PUBLIC_WORKER_API_URL}/api/events/${event.slug}/add-credits`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${session.access_token}`,
+            'Content-Type': 'application/json',
+          },
+        }
+      );
+
+      const data = await response.json();
+
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to add viewing hours');
+      }
+
+      // Update local analytics to reflect the new limit
+      if (analytics) {
+        setAnalytics({
+          ...analytics,
+          viewerHoursLimit: toHours(data.newLimit),
+        });
+      }
+
+      // Reload event to get updated viewer_hour_limit
+      const { data: eventData } = await supabase
+        .from('events')
+        .select('*')
+        .eq('id', event.id)
+        .single();
+
+      if (eventData) setEvent(eventData);
+
+      setTopupMessage(data.message);
+    } catch (err) {
+      console.error('Add viewing hours error:', err);
+      setTopupMessage(`Error: ${err instanceof Error ? err.message : 'Failed to add hours'}`);
+    } finally {
+      setAddingHours(false);
     }
   }
 
@@ -1079,26 +1144,85 @@ export default function EventDetailPage() {
               <p className="text-[var(--mc-text-2)] text-sm">Slug</p>
               <p className="font-mono text-sm">{event.slug}</p>
             </div>
-            <div>
-              <p className="text-[var(--mc-text-2)] text-sm">Tier</p>
-              <p className="capitalize">{event.tier}</p>
-            </div>
-            <div>
-              <p className="text-[var(--mc-text-2)] text-sm">Viewer Hours</p>
-              {analytics ? (
-                <p>
-                  <span className="font-semibold">{analytics.viewerHoursUsed.toFixed(1)}</span>
-                  {' of '}
-                  <span className="font-semibold">{analytics.viewerHoursLimit.toLocaleString()}</span>
-                  {' used'}
-                  <span className="text-[var(--mc-text-3)] text-xs ml-2">
-                    ({(analytics.viewerHoursLimit - analytics.viewerHoursUsed).toFixed(1)} left)
-                  </span>
+          </div>
+
+          {/* Viewing Hours Usage Meter */}
+          <div className="mt-6 pt-5 border-t border-[var(--mc-border)]">
+            <div className="flex justify-between items-baseline mb-2">
+              <p className="text-[var(--mc-text-2)] text-sm font-medium">Viewing Hours</p>
+              {analytics && (
+                <p className="text-sm text-[var(--mc-text-3)]">
+                  {(analytics.viewerHoursLimit - analytics.viewerHoursUsed).toFixed(1)} hours remaining
                 </p>
-              ) : (
-                <p className="text-[var(--mc-text-3)]">Loading...</p>
               )}
             </div>
+
+            {analytics ? (
+              <>
+                {/* Progress bar */}
+                <div className="w-full h-3 bg-[var(--mc-surface-2)] rounded-full overflow-hidden">
+                  <div
+                    className={`h-full rounded-full transition-all duration-500 ${
+                      analytics.viewerHoursUsed / analytics.viewerHoursLimit >= 0.9
+                        ? 'bg-[var(--mc-live)]'
+                        : analytics.viewerHoursUsed / analytics.viewerHoursLimit >= 0.7
+                        ? 'bg-[var(--mc-warning)]'
+                        : 'bg-[var(--mc-success)]'
+                    }`}
+                    style={{
+                      width: `${Math.min((analytics.viewerHoursUsed / analytics.viewerHoursLimit) * 100, 100)}%`,
+                    }}
+                  />
+                </div>
+
+                {/* Usage text */}
+                <p className="mt-2 text-sm">
+                  <span className="font-semibold">{analytics.viewerHoursUsed.toFixed(1)}</span>
+                  <span className="text-[var(--mc-text-2)]"> of </span>
+                  <span className="font-semibold">{analytics.viewerHoursLimit.toLocaleString()}</span>
+                  <span className="text-[var(--mc-text-2)]"> hours used</span>
+                </p>
+
+                {/* Warning at 80%+ usage */}
+                {analytics.viewerHoursUsed / analytics.viewerHoursLimit >= 0.8 && (
+                  <p className={`mt-1 text-xs font-medium ${
+                    analytics.viewerHoursUsed / analytics.viewerHoursLimit >= 0.9
+                      ? 'text-[var(--mc-live)]'
+                      : 'text-[var(--mc-warning)]'
+                  }`}>
+                    {analytics.viewerHoursUsed >= analytics.viewerHoursLimit
+                      ? '⚠ Limit reached. New viewers cannot join until you add more hours.'
+                      : analytics.viewerHoursUsed / analytics.viewerHoursLimit >= 0.9
+                      ? '⚠ Almost at limit. Consider adding more viewing hours.'
+                      : 'ℹ Approaching your viewing hour limit.'}
+                  </p>
+                )}
+              </>
+            ) : (
+              <div className="w-full h-3 bg-[var(--mc-surface-2)] rounded-full animate-pulse" />
+            )}
+
+            {/* Add More Hours button — only for non-ended/cancelled events */}
+            {event.status !== 'ended' && event.status !== 'cancelled' && (
+              <div className="mt-4">
+                <button
+                  onClick={handleAddViewingHours}
+                  disabled={addingHours}
+                  className="px-5 py-2.5 bg-[var(--mc-gold)] hover:bg-[var(--mc-gold-hover)] disabled:bg-[var(--mc-surface-2)] disabled:text-[var(--mc-text-3)] disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-colors"
+                >
+                  {addingHours ? 'Adding...' : '+ Add 200 Viewing Hours (1 credit)'}
+                </button>
+                {topupMessage && (
+                  <p className={`mt-2 text-sm font-medium ${
+                    topupMessage.startsWith('Error')
+                      ? 'text-[var(--mc-live)]'
+                      : 'text-[var(--mc-success)]'
+                  }`}>
+                    {topupMessage}
+                  </p>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>

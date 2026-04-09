@@ -1868,37 +1868,52 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
         .single();
 
       try {
+        // Verify Stripe key is configured
+        if (!env.STRIPE_SECRET_KEY) {
+          console.error('STRIPE_SECRET_KEY is not configured');
+          return new Response(JSON.stringify({ error: 'Stripe is not configured. Add STRIPE_SECRET_KEY to worker secrets.' }), {
+            status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+
         // Create Stripe Checkout Session via REST API (no SDK needed in Workers)
+        const stripeParams = new URLSearchParams({
+          'mode': 'payment',
+          'success_url': `https://app.momentcast.live/?purchase=success&credits=${tier.credits}`,
+          'cancel_url': 'https://app.momentcast.live/?purchase=cancelled',
+          'line_items[0][price_data][currency]': 'usd',
+          'line_items[0][price_data][product_data][name]': tier.label,
+          'line_items[0][price_data][product_data][description]': `${tier.credits} event credit${tier.credits > 1 ? 's' : ''}, 200 viewing hours each`,
+          'line_items[0][price_data][unit_amount]': tier.priceInCents.toString(),
+          'line_items[0][quantity]': '1',
+          'metadata[user_id]': userId,
+          'metadata[tier_id]': body.tierId,
+          'metadata[credits]': tier.credits.toString(),
+          ...(userData?.email ? { 'customer_email': userData.email } : {}),
+        });
+
+        console.log(`Stripe checkout request: key prefix=${env.STRIPE_SECRET_KEY.substring(0, 8)}..., tier=${body.tierId}`);
+
         const stripeResponse = await fetch('https://api.stripe.com/v1/checkout/sessions', {
           method: 'POST',
           headers: {
             'Authorization': `Bearer ${env.STRIPE_SECRET_KEY}`,
             'Content-Type': 'application/x-www-form-urlencoded',
           },
-          body: new URLSearchParams({
-            'mode': 'payment',
-            'success_url': `https://app.momentcast.live/?purchase=success&credits=${tier.credits}`,
-            'cancel_url': 'https://app.momentcast.live/?purchase=cancelled',
-            'line_items[0][price_data][currency]': 'usd',
-            'line_items[0][price_data][product_data][name]': tier.label,
-            'line_items[0][price_data][product_data][description]': `${tier.credits} event credit${tier.credits > 1 ? 's' : ''}, 200 viewing hours each`,
-            'line_items[0][price_data][unit_amount]': tier.priceInCents.toString(),
-            'line_items[0][quantity]': '1',
-            // Metadata — used in the webhook to credit the right user
-            'metadata[user_id]': userId,
-            'metadata[tier_id]': body.tierId,
-            'metadata[credits]': tier.credits.toString(),
-            // Pre-fill email if we have it
-            ...(userData?.email ? { 'customer_email': userData.email } : {}),
-          }).toString(),
+          body: stripeParams.toString(),
         });
 
         const session = await stripeResponse.json() as any;
 
         if (!stripeResponse.ok || !session.url) {
-          console.error('Stripe Checkout error:', JSON.stringify(session));
-          return new Response(JSON.stringify({ error: 'Failed to create checkout session' }), {
-            status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          // Surface the actual Stripe error for debugging
+          const stripeError = session.error?.message || session.error?.type || JSON.stringify(session.error) || 'Unknown Stripe error';
+          console.error(`Stripe Checkout error (${stripeResponse.status}):`, JSON.stringify(session));
+          return new Response(JSON.stringify({ 
+            error: `Stripe error: ${stripeError}`,
+            stripeStatus: stripeResponse.status,
+          }), {
+            status: 502, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
 
