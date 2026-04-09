@@ -57,6 +57,19 @@ export default function DashboardHome() {
   const [cancelledEvents, setCancelledEvents] = useState<Event[]>([]);
   const [showCancelled, setShowCancelled] = useState(false);
 
+  // Buy Credits state
+  const [showBuyCredits, setShowBuyCredits] = useState(false);
+  const [selectedTier, setSelectedTier] = useState<string | null>(null);
+  const [purchasing, setPurchasing] = useState(false);
+  const [purchaseMessage, setPurchaseMessage] = useState<string | null>(null);
+
+  // Credit pricing tiers — launch promo (15% off $35 regular)
+  const CREDIT_TIERS = [
+    { id: 'single',  credits: 1,  regular: 35.00, promo: 29.99, label: '1 Credit' },
+    { id: 'pro5',    credits: 5,  regular: 175.00, promo: 137.99, label: '5 Credits', badge: 'Most Popular' },
+    { id: 'studio10', credits: 10, regular: 350.00, promo: 259.99, label: '10 Credits', badge: 'Best Value' },
+  ] as const;
+
   useEffect(() => {
     async function loadDashboard() {
       console.log('🚀 Dashboard v2.0 - Loading with optimized queries');
@@ -334,6 +347,96 @@ export default function DashboardHome() {
     }
   }
 
+  /**
+   * Test-mode credit purchase: adds credits directly via Supabase.
+   * In production (Phase 2), this will create a Stripe Checkout Session instead.
+   * The test banner + this function will be removed once Stripe is wired up.
+   */
+  async function handleTestPurchase(tierId: string) {
+    if (!user) return;
+    
+    const tier = CREDIT_TIERS.find(t => t.id === tierId);
+    if (!tier) return;
+
+    setPurchasing(true);
+    setPurchaseMessage(null);
+
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) throw new Error('Not authenticated');
+
+      // Add credits to user balance
+      const newBalance = user.credits + tier.credits;
+      const { error: updateError } = await supabase
+        .from('users')
+        .update({ credits: newBalance })
+        .eq('id', authUser.id);
+
+      if (updateError) throw new Error(updateError.message);
+
+      // Log the credit transaction
+      const { error: txError } = await supabase
+        .from('credit_transactions')
+        .insert({
+          user_id: authUser.id,
+          amount: tier.credits,
+          type: 'purchase',
+          event_id: null,
+        });
+
+      if (txError) console.error('Transaction log error:', txError);
+
+      // Update local state immediately
+      setUser({ ...user, credits: newBalance });
+      setPurchaseMessage(`Added ${tier.credits} credit${tier.credits > 1 ? 's' : ''}! New balance: ${newBalance}`);
+      setSelectedTier(null);
+
+      // Refresh credit history if it's open
+      if (showCreditHistory) loadCreditHistory();
+
+      console.log(`✅ Test purchase: +${tier.credits} credits, balance now ${newBalance}`);
+    } catch (err: any) {
+      console.error('Test purchase error:', err);
+      setPurchaseMessage(`Error: ${err.message}`);
+    } finally {
+      setPurchasing(false);
+    }
+  }
+
+  /**
+   * Test-mode credit removal: for testing the deduction flow.
+   * Removes 1 credit from balance. Will be removed in Phase 2.
+   */
+  async function handleTestRemoveCredit() {
+    if (!user || user.credits < 1) return;
+
+    try {
+      const { data: { user: authUser } } = await supabase.auth.getUser();
+      if (!authUser) return;
+
+      const newBalance = user.credits - 1;
+      await supabase
+        .from('users')
+        .update({ credits: newBalance })
+        .eq('id', authUser.id);
+
+      await supabase
+        .from('credit_transactions')
+        .insert({
+          user_id: authUser.id,
+          amount: -1,
+          type: 'test_deduction',
+          event_id: null,
+        });
+
+      setUser({ ...user, credits: newBalance });
+      if (showCreditHistory) loadCreditHistory();
+      console.log(`✅ Test deduction: -1 credit, balance now ${newBalance}`);
+    } catch (err) {
+      console.error('Test deduction error:', err);
+    }
+  }
+
   async function handleLogout() {
     await supabase.auth.signOut();
     window.location.href = '/login';
@@ -392,15 +495,128 @@ export default function DashboardHome() {
       <div className="max-w-6xl mx-auto p-8">
         {/* Credits Section */}
         <div className="bg-[var(--mc-surface)] rounded-lg p-6 mb-8 border border-[var(--mc-border)]">
+          {/* Balance row */}
           <div className="flex justify-between items-center">
             <div>
               <h2 className="text-xl font-semibold text-[var(--mc-text-1)]">Available Credits</h2>
-              <p className="text-[var(--mc-text-2)] text-sm mt-1">Each event costs 1 credit</p>
+              <p className="text-[var(--mc-text-2)] text-sm mt-1">Each credit = 1 event with 200 viewing hours</p>
             </div>
-            <div className="text-5xl font-bold text-[var(--mc-gold)]">
-              {user?.credits || 0}
+            <div className="flex items-center gap-4">
+              <div className="text-5xl font-bold text-[var(--mc-gold)]">
+                {user?.credits || 0}
+              </div>
+              <button
+                onClick={() => setShowBuyCredits(!showBuyCredits)}
+                className="bg-[var(--mc-gold)] hover:bg-[var(--mc-gold-hover)] text-white font-semibold py-2.5 px-5 rounded-lg transition-colors text-sm"
+              >
+                {showBuyCredits ? 'Hide' : 'Buy Credits'}
+              </button>
             </div>
           </div>
+
+          {/* Buy Credits Panel (expandable) */}
+          {showBuyCredits && (
+            <div className="mt-6 pt-6 border-t border-[var(--mc-border)]">
+              {/* TEST MODE banner — remove in Phase 2 */}
+              <div className="bg-[var(--mc-warning-bg)] border border-yellow-300 rounded-lg px-4 py-2.5 mb-5 flex items-center justify-between">
+                <span className="text-[var(--mc-warning)] text-sm font-medium">
+                  🧪 Test Mode — credits are added directly (no payment). Will connect to Stripe in Phase 2.
+                </span>
+                <button
+                  onClick={handleTestRemoveCredit}
+                  disabled={!user || user.credits < 1}
+                  className="text-xs px-3 py-1 bg-white border border-yellow-300 rounded text-[var(--mc-warning)] hover:bg-yellow-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+                >
+                  Remove 1 Credit (test)
+                </button>
+              </div>
+
+              {/* Tier Cards */}
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                {CREDIT_TIERS.map((tier) => {
+                  const perCredit = (tier.promo / tier.credits).toFixed(2);
+                  const isSelected = selectedTier === tier.id;
+                  const regularPer = (tier.regular / tier.credits).toFixed(2);
+                  
+                  return (
+                    <div
+                      key={tier.id}
+                      onClick={() => setSelectedTier(isSelected ? null : tier.id)}
+                      className={`relative rounded-lg p-5 cursor-pointer transition-all border-2 ${
+                        isSelected
+                          ? 'border-[var(--mc-gold)] bg-[var(--mc-gold-dim)]'
+                          : 'border-[var(--mc-border)] bg-[var(--mc-surface)] hover:border-[var(--mc-gold)]/40'
+                      }`}
+                    >
+                      {/* Badge */}
+                      {'badge' in tier && tier.badge && (
+                        <span className="absolute -top-2.5 left-4 bg-[var(--mc-gold)] text-white text-xs font-semibold px-2.5 py-0.5 rounded-full">
+                          {tier.badge}
+                        </span>
+                      )}
+
+                      {/* Credit count */}
+                      <p className="text-lg font-bold text-[var(--mc-text-1)]">{tier.label}</p>
+                      
+                      {/* Pricing */}
+                      <div className="mt-3">
+                        <div className="flex items-baseline gap-2">
+                          <span className="text-2xl font-bold text-[var(--mc-text-1)]">
+                            ${tier.promo.toFixed(2)}
+                          </span>
+                          <span className="text-sm text-[var(--mc-text-3)] line-through">
+                            ${tier.regular.toFixed(2)}
+                          </span>
+                        </div>
+                        {tier.credits > 1 && (
+                          <p className="text-sm text-[var(--mc-text-2)] mt-1">
+                            ${perCredit}/credit
+                            <span className="text-[var(--mc-text-3)] line-through ml-1.5">${regularPer}</span>
+                          </p>
+                        )}
+                      </div>
+
+                      {/* Selected indicator */}
+                      <div className={`mt-4 w-full h-8 rounded flex items-center justify-center text-sm font-medium transition-colors ${
+                        isSelected
+                          ? 'bg-[var(--mc-gold)] text-white'
+                          : 'bg-[var(--mc-surface-2)] text-[var(--mc-text-2)]'
+                      }`}>
+                        {isSelected ? '✓ Selected' : 'Select'}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Purchase Button */}
+              {selectedTier && (
+                <div className="mt-5 flex items-center gap-4">
+                  <button
+                    onClick={() => handleTestPurchase(selectedTier)}
+                    disabled={purchasing}
+                    className="bg-[var(--mc-gold)] hover:bg-[var(--mc-gold-hover)] disabled:bg-[var(--mc-surface-2)] disabled:text-[var(--mc-text-3)] disabled:cursor-not-allowed text-white font-semibold py-3 px-8 rounded-lg transition-colors"
+                  >
+                    {purchasing
+                      ? 'Processing...'
+                      : `Buy ${CREDIT_TIERS.find(t => t.id === selectedTier)?.label} — $${CREDIT_TIERS.find(t => t.id === selectedTier)?.promo.toFixed(2)}`
+                    }
+                  </button>
+                </div>
+              )}
+
+              {/* Purchase feedback message */}
+              {purchaseMessage && (
+                <p className={`mt-3 text-sm font-medium ${
+                  purchaseMessage.startsWith('Error')
+                    ? 'text-[var(--mc-live)]'
+                    : 'text-[var(--mc-success)]'
+                }`}>
+                  {purchaseMessage}
+                </p>
+              )}
+            </div>
+          )}
         </div>
 
         {/* Credit History Toggle */}
@@ -527,7 +743,13 @@ export default function DashboardHome() {
           </button>
           {user && user.credits < 1 && (
             <p className="text-[var(--mc-warning)] text-sm mt-2">
-              You need credits to create an event
+              You need credits to create an event.{' '}
+              <button
+                onClick={() => setShowBuyCredits(true)}
+                className="underline font-medium hover:text-[var(--mc-gold)] transition-colors"
+              >
+                Buy credits
+              </button>
             </p>
           )}
         </div>
