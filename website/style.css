@@ -786,6 +786,8 @@ ul { list-style: none; }
 .mc-footer {
   border-top: 1px solid var(--border);
   padding-top: 64px;
+  position: relative;
+  z-index: 10;
 }
 
 .mc-footer-inner {
