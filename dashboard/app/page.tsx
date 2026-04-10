@@ -218,7 +218,7 @@ export default function DashboardHome() {
 
       const { data, error } = await supabase
         .from('credit_transactions')
-        .select('id, amount, type, event_id, created_at, events(title, slug)')
+        .select('id, amount, type, event_id, created_at, stripe_session_id, events(title, slug)')
         .eq('user_id', authUser.id)
         .order('created_at', { ascending: false })
         .limit(50);
@@ -694,6 +694,7 @@ export default function DashboardHome() {
                       <th className="text-left text-[var(--mc-text-2)] font-medium px-4 py-3">Type</th>
                       <th className="text-left text-[var(--mc-text-2)] font-medium px-4 py-3">Event</th>
                       <th className="text-right text-[var(--mc-text-2)] font-medium px-4 py-3">Credits</th>
+                      <th className="text-right text-[var(--mc-text-2)] font-medium px-4 py-3">Ref</th>
                     </tr>
                   </thead>
                   <tbody>
@@ -706,9 +707,11 @@ export default function DashboardHome() {
                         </td>
                         <td className="px-4 py-3">
                           {tx.type === 'event_created' && 'Event created'}
+                          {tx.type === 'event_topup' && 'Viewing hours added'}
                           {tx.type === 'event_cancelled' && 'Event cancelled'}
                           {tx.type === 'purchase' && 'Purchase'}
                           {tx.type === 'refund' && 'Refund'}
+                          {tx.type === 'test_deduction' && 'Test deduction'}
                         </td>
                         <td className="px-4 py-3 text-[var(--mc-text-2)]">
                           {tx.events?.title || '—'}
@@ -717,6 +720,11 @@ export default function DashboardHome() {
                           tx.amount > 0 ? 'text-[var(--mc-success)]' : 'text-[var(--mc-live)]'
                         }`}>
                           {tx.amount > 0 ? '+' : ''}{tx.amount}
+                        </td>
+                        <td className="px-4 py-3 text-right font-mono text-xs text-[var(--mc-text-3)]">
+                          {(tx as any).stripe_session_id
+                            ? (tx as any).stripe_session_id.slice(-8).toUpperCase()
+                            : '—'}
                         </td>
                       </tr>
                     ))}
