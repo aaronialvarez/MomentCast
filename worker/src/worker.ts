@@ -1441,12 +1441,19 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
         .eq('id', userId);
 
       // Log the transaction
-      await supabase.from('credit_transactions').insert({
+      const { error: txError } = await supabase.from('credit_transactions').insert({
         user_id: userId,
         amount: -1,
         type: 'event_topup',
         event_id: event.id,
       });
+
+      if (txError) {
+        // If the insert fails (e.g. type constraint), log it loudly
+        // The credit was already deducted and the limit already increased,
+        // so we don't rollback, but this will break refund accounting
+        console.error(`⚠️ CRITICAL: event_topup transaction insert failed for event ${slug}:`, txError);
+      }
 
       console.log(`✅ Event ${slug}: +200 viewing hours (limit now ${newLimit} min), user balance: ${newBalance}`);
 
