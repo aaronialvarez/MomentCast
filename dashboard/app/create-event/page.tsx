@@ -52,9 +52,9 @@ export default function CreateEventPage() {
   const [loadingCredits, setLoadingCredits] = useState(true);
 
   // Viewing hours estimator sliders
-  const [estDuration, setEstDuration] = useState(2);   // hours (1-12)
+  const [estDuration, setEstDuration] = useState(2);   // hours (0.5-12, step 0.1)
   const [estViewers, setEstViewers] = useState(100);    // viewers (10-500)
-  const estViewingHours = estDuration * estViewers;
+  const estViewingHours = Math.round(estDuration * estViewers);
   const estCreditsNeeded = Math.ceil(estViewingHours / 200);
   const HOURS_PER_CREDIT = 200;
 
@@ -205,7 +205,6 @@ export default function CreateEventPage() {
                 value={scheduledDateTime}
                 onChange={(e) => setScheduledDateTime(e.target.value)}
                 min={minDateTime}
-                step={900}
                 className="w-full px-4 py-3 bg-[var(--mc-surface-2)] border border-[var(--mc-border)] rounded focus:outline-none focus:ring-2 focus:ring-[var(--mc-gold)] text-[var(--mc-text-1)]"
                 required
               />
@@ -243,19 +242,19 @@ export default function CreateEventPage() {
               <div className="mb-4">
                 <div className="flex justify-between text-sm mb-1">
                   <span className="text-[var(--mc-text-2)]">Expected event length</span>
-                  <span className="font-semibold">{estDuration} hour{estDuration !== 1 ? 's' : ''}</span>
+                  <span className="font-semibold">{estDuration.toFixed(1)} hour{estDuration !== 1 ? 's' : ''}</span>
                 </div>
                 <input
                   type="range"
-                  min={1}
+                  min={0.5}
                   max={12}
-                  step={1}
+                  step={0.1}
                   value={estDuration}
                   onChange={(e) => setEstDuration(Number(e.target.value))}
                   className="w-full accent-[var(--mc-gold)]"
                 />
                 <div className="flex justify-between text-xs text-[var(--mc-text-3)] mt-0.5">
-                  <span>1 hr</span>
+                  <span>0.5 hr</span>
                   <span>6 hrs</span>
                   <span>12 hrs</span>
                 </div>
