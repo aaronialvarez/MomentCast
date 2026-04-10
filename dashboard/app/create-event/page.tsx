@@ -336,6 +336,11 @@ export default function CreateEventPage() {
                 {loading ? 'Creating...' : 'Create Event (1 Credit)'}
               </button>
             </div>
+
+            {/* Refund policy note */}
+            <p className="text-xs text-[var(--mc-text-3)] text-center mt-4">
+              1 credit will be deducted. Fully refundable if you cancel before streaming starts.
+            </p>
           </form>
         )}
       </div>

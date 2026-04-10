@@ -1263,6 +1263,11 @@ export default function EventDetailPage() {
                     {userCredits} credit{userCredits !== 1 ? 's' : ''} available
                   </p>
                 )}
+                {event.stream_credentials_revealed && (
+                  <p className="text-xs text-[var(--mc-text-3)] mt-1">
+                    Credits applied to active events are non-refundable.
+                  </p>
+                )}
                 {topupMessage && (
                   <p className={`mt-2 text-sm font-medium ${
                     topupMessage.startsWith('Error')

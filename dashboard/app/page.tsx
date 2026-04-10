@@ -977,6 +977,19 @@ export default function DashboardHome() {
           </div>
         </div>
       </div>
+
+      {/* Footer */}
+      <footer className="border-t border-[var(--mc-border)] mt-12 py-6 text-center text-xs text-[var(--mc-text-3)]">
+        <div className="max-w-6xl mx-auto px-8 flex items-center justify-center gap-4 flex-wrap">
+          <span>&copy; {new Date().getFullYear()} MomentCast</span>
+          <span className="hidden sm:inline">&middot;</span>
+          <a href="https://momentcast.live/terms.html" target="_blank" rel="noopener" className="hover:text-[var(--mc-text-2)] transition-colors">Terms of Service</a>
+          <span className="hidden sm:inline">&middot;</span>
+          <a href="https://momentcast.live/privacy.html" target="_blank" rel="noopener" className="hover:text-[var(--mc-text-2)] transition-colors">Privacy Policy</a>
+          <span className="hidden sm:inline">&middot;</span>
+          <a href="mailto:support@momentcast.live" className="hover:text-[var(--mc-text-2)] transition-colors">Support</a>
+        </div>
+      </footer>
     </div>
   );
 }
