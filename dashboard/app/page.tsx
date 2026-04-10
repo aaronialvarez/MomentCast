@@ -724,7 +724,7 @@ export default function DashboardHome() {
                         <td className="px-4 py-3 text-right font-mono text-xs text-[var(--mc-text-3)]">
                           {(tx as any).stripe_session_id
                             ? (tx as any).stripe_session_id.slice(-8).toUpperCase()
-                            : '—'}
+                            : tx.events?.slug || '—'}
                         </td>
                       </tr>
                     ))}
