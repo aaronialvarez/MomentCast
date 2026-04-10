@@ -72,6 +72,8 @@ export default function EventDetailPage() {
   const [topupMessage, setTopupMessage] = useState<string | null>(null);
   // Track total credits invested in this event (for cancel modal refund display)
   const [creditsSpent, setCreditsSpent] = useState<number>(1);
+  // User's current credit balance (for showing buy vs add button)
+  const [userCredits, setUserCredits] = useState<number | null>(null);
   // Minutes-to-hours helper (DB stores minutes, UI shows hours)
   const toHours = (minutes: number) => Math.round((minutes / 60) * 10) / 10;
   // Same timezone list as create-event page
@@ -131,6 +133,15 @@ export default function EventDetailPage() {
           const total = txData.reduce((sum: number, tx: { amount: number }) => sum + Math.abs(tx.amount), 0);
           setCreditsSpent(total);
         }
+
+        // Load user's current credit balance
+        const { data: userData } = await supabase
+          .from('users')
+          .select('credits')
+          .eq('id', authUser.id)
+          .single();
+
+        if (userData) setUserCredits(userData.credits);
       } catch (err) {
         console.error('Load event error:', err);
         setError('Failed to load event');
@@ -658,6 +669,7 @@ export default function EventDetailPage() {
       if (eventData) setEvent(eventData);
 
       setCreditsSpent(prev => prev + 1);
+      setUserCredits(prev => prev !== null ? prev - 1 : null);
       setTopupMessage(data.message);
     } catch (err) {
       console.error('Add viewing hours error:', err);
@@ -1225,16 +1237,32 @@ export default function EventDetailPage() {
               <div className="w-full h-3 bg-[var(--mc-surface-2)] rounded-full animate-pulse" />
             )}
 
-            {/* Add More Hours button — only for non-ended/cancelled events */}
+            {/* Add More Hours / Buy Credits button — only for non-ended/cancelled events */}
             {event.status !== 'ended' && event.status !== 'cancelled' && (
               <div className="mt-4">
-                <button
-                  onClick={handleAddViewingHours}
-                  disabled={addingHours}
-                  className="px-5 py-2.5 bg-[var(--mc-gold)] hover:bg-[var(--mc-gold-hover)] disabled:bg-[var(--mc-surface-2)] disabled:text-[var(--mc-text-3)] disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-colors"
-                >
-                  {addingHours ? 'Adding...' : '+ Add 200 Viewing Hours (1 credit)'}
-                </button>
+                {userCredits !== null && userCredits < 1 ? (
+                  /* No credits: show buy button */
+                  <button
+                    onClick={() => router.push('/?buyCredits=true')}
+                    className="px-5 py-2.5 bg-[var(--mc-info)] hover:bg-blue-700 text-white text-sm font-semibold rounded-lg transition-colors"
+                  >
+                    Buy Credits to Add More Hours
+                  </button>
+                ) : (
+                  /* Has credits: show add button */
+                  <button
+                    onClick={handleAddViewingHours}
+                    disabled={addingHours}
+                    className="px-5 py-2.5 bg-[var(--mc-gold)] hover:bg-[var(--mc-gold-hover)] disabled:bg-[var(--mc-surface-2)] disabled:text-[var(--mc-text-3)] disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-colors"
+                  >
+                    {addingHours ? 'Adding...' : `+ Add 200 Viewing Hours (1 credit)`}
+                  </button>
+                )}
+                {userCredits !== null && (
+                  <p className="text-xs text-[var(--mc-text-3)] mt-1.5">
+                    {userCredits} credit{userCredits !== 1 ? 's' : ''} available
+                  </p>
+                )}
                 {topupMessage && (
                   <p className={`mt-2 text-sm font-medium ${
                     topupMessage.startsWith('Error')

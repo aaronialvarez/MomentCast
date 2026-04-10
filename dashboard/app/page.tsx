@@ -153,6 +153,12 @@ export default function DashboardHome() {
           window.history.replaceState({}, '', window.location.pathname);
         }
 
+        // Auto-open buy panel when redirected from event detail "Buy Credits" button
+        if (urlParams.get('buyCredits') === 'true') {
+          setShowBuyCredits(true);
+          window.history.replaceState({}, '', window.location.pathname);
+        }
+
       } catch (err) {
         console.error('Dashboard load error:', err);
         setError('Failed to load dashboard');
