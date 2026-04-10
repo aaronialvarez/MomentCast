@@ -70,6 +70,8 @@ export default function EventDetailPage() {
   // Add viewing hours (top-up) state
   const [addingHours, setAddingHours] = useState(false);
   const [topupMessage, setTopupMessage] = useState<string | null>(null);
+  // Track total credits invested in this event (for cancel modal refund display)
+  const [creditsSpent, setCreditsSpent] = useState<number>(1);
   // Minutes-to-hours helper (DB stores minutes, UI shows hours)
   const toHours = (minutes: number) => Math.round((minutes / 60) * 10) / 10;
   // Same timezone list as create-event page
@@ -117,6 +119,18 @@ export default function EventDetailPage() {
         }
 
         setEvent(eventData);
+
+        // Count total credits invested in this event (for refund display in cancel modal)
+        const { data: txData } = await supabase
+          .from('credit_transactions')
+          .select('amount')
+          .eq('event_id', eventId)
+          .in('type', ['event_created', 'event_topup']);
+
+        if (txData && txData.length > 0) {
+          const total = txData.reduce((sum: number, tx: { amount: number }) => sum + Math.abs(tx.amount), 0);
+          setCreditsSpent(total);
+        }
       } catch (err) {
         console.error('Load event error:', err);
         setError('Failed to load event');
@@ -591,6 +605,14 @@ export default function EventDetailPage() {
   async function handleAddViewingHours() {
     if (!event) return;
 
+    // Confirm before spending a credit (non-refundable if event has started streaming)
+    const isStreaming = event.stream_credentials_revealed || event.status === 'live' || event.status === 'ready';
+    const confirmMsg = isStreaming
+      ? 'This will spend 1 credit to add 200 viewing hours. Credits cannot be refunded on active events. Continue?'
+      : 'This will spend 1 credit to add 200 viewing hours. Continue?';
+
+    if (!window.confirm(confirmMsg)) return;
+
     setAddingHours(true);
     setTopupMessage(null);
 
@@ -635,6 +657,7 @@ export default function EventDetailPage() {
 
       if (eventData) setEvent(eventData);
 
+      setCreditsSpent(prev => prev + 1);
       setTopupMessage(data.message);
     } catch (err) {
       console.error('Add viewing hours error:', err);
@@ -955,7 +978,7 @@ export default function EventDetailPage() {
             <div className="bg-[var(--mc-live-bg)] border border-red-200 rounded-lg p-6 text-center">
               <h2 className="text-xl font-semibold text-[var(--mc-live)] mb-2">Event Cancelled</h2>
               <p className="text-[var(--mc-text-2)] mb-1">
-                This event was cancelled and the credit was returned to your balance.
+                This event was cancelled and {creditsSpent} credit{creditsSpent !== 1 ? 's were' : ' was'} returned to your balance.
               </p>
               <p className="text-[var(--mc-text-3)] text-sm">
                 The watch page link is no longer active.
@@ -1315,7 +1338,7 @@ export default function EventDetailPage() {
 
             <div className="bg-[var(--mc-surface-2)] rounded-lg p-3 mb-4 space-y-1">
               <p className="text-sm text-[var(--mc-success)]">
-                ✓ {event.tier === 'premium' ? '2 credits' : '1 credit'} will be returned to your balance
+                ✓ {creditsSpent} credit{creditsSpent !== 1 ? 's' : ''} will be returned to your balance
               </p>
               <p className="text-sm text-[var(--mc-text-2)]">
                 ✓ The watch page link will stop working

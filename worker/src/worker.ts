@@ -1301,8 +1301,23 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
         });
       }
 
-      // 3. Refund credit(s) to user balance
-      const creditsToRefund = event.tier === 'premium' ? 2 : 1;
+      // 3. Refund ALL credits spent on this event (initial creation + any top-ups)
+      const { data: eventTransactions } = await supabase
+        .from('credit_transactions')
+        .select('amount')
+        .eq('event_id', event.id)
+        .in('type', ['event_created', 'event_topup']);
+
+      // Sum the absolute values of all deductions for this event
+      const creditsToRefund = (eventTransactions || []).reduce(
+        (sum: number, tx: { amount: number }) => sum + Math.abs(tx.amount), 0
+      );
+
+      if (creditsToRefund < 1) {
+        console.warn(`Cancel ${slug}: no credit transactions found, defaulting to 1`);
+      }
+
+      const refundAmount = Math.max(creditsToRefund, 1); // At least 1 credit
 
       const { data: user } = await supabase
         .from('users')
@@ -1313,24 +1328,24 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
       if (user) {
         await supabase
           .from('users')
-          .update({ credits: user.credits + creditsToRefund })
+          .update({ credits: user.credits + refundAmount })
           .eq('id', userId);
       }
 
       // 4. Log the refund transaction
       await supabase.from('credit_transactions').insert({
         user_id: userId,
-        amount: creditsToRefund,
+        amount: refundAmount,
         type: 'event_cancelled',
         event_id: event.id,
       });
 
-      console.log(`✅ Event ${slug} cancelled, ${creditsToRefund} credit(s) refunded to user ${userId}`);
+      console.log(`✅ Event ${slug} cancelled, ${refundAmount} credit(s) refunded to user ${userId}`);
 
       return new Response(JSON.stringify({ 
         success: true,
-        creditsRefunded: creditsToRefund,
-        message: `Event cancelled. ${creditsToRefund} credit(s) returned to your balance.`
+        creditsRefunded: refundAmount,
+        message: `Event cancelled. ${refundAmount} credit(s) returned to your balance.`
       }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
