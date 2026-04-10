@@ -241,7 +241,7 @@ export default function CreateEventPage() {
               {/* Duration slider */}
               <div className="mb-4">
                 <div className="flex justify-between text-sm mb-1">
-                  <span className="text-[var(--mc-text-2)]">Expected event length</span>
+                  <span className="text-[var(--mc-text-2)]">Hours of live streaming</span>
                   <span className="font-semibold">{estDuration.toFixed(1)} hour{estDuration !== 1 ? 's' : ''}</span>
                 </div>
                 <input
@@ -258,6 +258,9 @@ export default function CreateEventPage() {
                   <span>6 hrs</span>
                   <span>12 hrs</span>
                 </div>
+                <p className="text-xs text-[var(--mc-text-3)] mt-1">
+                  Total time the stream will be live, not the full event duration.
+                </p>
               </div>
 
               {/* Viewers slider */}
