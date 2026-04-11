@@ -1060,13 +1060,22 @@ body::after {
     display: flex;
     flex-direction: column;
     align-items: center;
-    gap: 0.5rem;
-    margin: 1.25rem 0 0.5rem;
+    gap: 0.4rem;
+    margin: 0.75rem 0 1.5rem;
+    padding: 0 1rem;
+  }
+
+  .mc-presented-by--countdown .mc-presented-label {
+    font-size: 0.65rem;
+    letter-spacing: 0.15em;
+    text-transform: uppercase;
+    opacity: 0.6;
   }
 
   .mc-presented-by--countdown .mc-presented-logo {
-    max-height: 48px;
-    max-width: 200px;
+    max-height: 40px;
+    max-width: min(180px, 60vw); /* 60vw prevents overflow on narrow phones */
+    width: auto;
     object-fit: contain;
   }
 
