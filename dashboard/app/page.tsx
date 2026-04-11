@@ -530,9 +530,11 @@ export default function DashboardHome() {
         </div>
       </div>
 
-      <div className="max-w-6xl mx-auto p-8">
+      {/* Account Settings Zone — slightly darker background */}
+      <div className="bg-[var(--mc-surface)] border-b border-[var(--mc-border)]">
+        <div className="max-w-6xl mx-auto px-8 py-8">
         {/* Credits Section */}
-        <div className="bg-[var(--mc-surface)] rounded-lg p-6 mb-8 border border-[var(--mc-border)]">
+        <div className="bg-[var(--mc-surface-2)] rounded-lg p-6 mb-8 border border-[var(--mc-border)]">
           {/* Balance row */}
           <div className="flex justify-between items-center">
             <div>
@@ -790,6 +792,12 @@ export default function DashboardHome() {
             <p className="text-[var(--mc-live)] text-sm mt-2">{logoError}</p>
           )}
         </div>
+
+        </div>{/* end max-w-6xl inner */}
+      </div>{/* end account settings zone */}
+
+      {/* Main Content Zone */}
+      <div className="max-w-6xl mx-auto p-8">
 
         {/* Create Event Button */}
         <div className="mb-8">
