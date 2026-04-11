@@ -134,6 +134,25 @@ function renderLogo(headerEl) {
   }
 }
 
+// Renders the photographer logo in the countdown/waiting/ended screens.
+// Targets the static #countdown-logo-block injected in index.html.
+// Safe to call on every poll — idempotent.
+function renderCountdownLogo() {
+  const block = document.getElementById('countdown-logo-block');
+  if (!block) return;
+
+  if (!eventData?.logo_url) {
+    block.classList.add('hidden');
+    return;
+  }
+
+  const img = block.querySelector('.mc-presented-logo');
+  if (img && img.src !== eventData.logo_url) {
+    img.src = eventData.logo_url;
+  }
+  block.classList.remove('hidden');
+}
+
 /**
  * Show or hide the QR share block.
  * Works in two modes:
@@ -416,6 +435,7 @@ function showCountdown() {
   updateCountdown(scheduledDate);
   renderQrBlock(true); // Show QR code during countdown
   applyCoverBackground(countdownEl); // Full-bleed cover photo behind countdown
+  renderCountdownLogo(); // Show photographer logo in pre-event states
   countdownEl.classList.remove('hidden');
 }
 
@@ -1102,6 +1122,7 @@ function showCountdownState(mode) {
     removeCoverBackground(countdownEl);
   }
 
+  renderCountdownLogo(); // Show photographer logo in all pre-event states
   countdownEl.classList.remove('hidden');
 }
 
