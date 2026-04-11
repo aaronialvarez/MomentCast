@@ -681,6 +681,35 @@ body::after {
   white-space: nowrap;
 }
 
+/* Countdown/pre-event logo — centered column, overrides player-header defaults */
+.mc-presented-by--countdown {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.4rem;
+  height: auto;           /* override fixed 44px from base */
+  overflow: visible;      /* override hidden from base */
+  padding-left: 0;        /* override player-header indent */
+  margin: 1.25rem 0 1.75rem;
+  width: 100%;
+}
+
+.mc-presented-by--countdown .mc-presented-label {
+  font-size: 0.6rem;
+  letter-spacing: 0.2em;
+  opacity: 0.55;
+  white-space: nowrap;
+}
+
+.mc-presented-by--countdown .mc-presented-logo {
+  height: auto;
+  max-height: 36px;
+  max-width: min(160px, 55vw);
+  width: auto;
+  object-fit: contain;
+}
+
 /* --------------------------------------------------------------------------
    Spinners
    -------------------------------------------------------------------------- */
@@ -1053,30 +1082,6 @@ body::after {
     max-width: 250px;
     margin-left: auto;
     padding-left: 0;
-  }
-
-  /* Countdown/pre-event logo variant — centered, slightly larger */
-  .mc-presented-by--countdown {
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 0.4rem;
-    margin: 0.75rem 0 1.5rem;
-    padding: 0 1rem;
-  }
-
-  .mc-presented-by--countdown .mc-presented-label {
-    font-size: 0.65rem;
-    letter-spacing: 0.15em;
-    text-transform: uppercase;
-    opacity: 0.6;
-  }
-
-  .mc-presented-by--countdown .mc-presented-logo {
-    max-height: 40px;
-    max-width: min(180px, 60vw); /* 60vw prevents overflow on narrow phones */
-    width: auto;
-    object-fit: contain;
   }
 
   .mc-presented-logo {
