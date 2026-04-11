@@ -738,7 +738,7 @@ export default function DashboardHome() {
         </div>
 
         {/* Logo Upload Section */}
-        <div className="bg-[var(--mc-surface)] rounded-lg p-6 mb-8 border border-[var(--mc-border)]">
+        <div className="bg-[var(--mc-surface-2)] rounded-lg p-6 mb-8 border border-[var(--mc-border)]">
           <div className="flex justify-between items-start">
             <div>
               <h2 className="text-xl font-semibold text-[var(--mc-text-1)]">Your Logo</h2>
