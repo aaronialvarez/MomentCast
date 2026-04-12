@@ -1084,6 +1084,10 @@ body::after {
     padding-left: 0;
   }
 
+  .mc-presented-by--countdown {
+    margin-left: 0;
+  }
+
   .mc-presented-logo {
     max-height: 100%;
   }
