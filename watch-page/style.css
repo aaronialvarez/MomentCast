@@ -1036,7 +1036,7 @@ body::after {
 
 .qr-url {
   font-size: 0.75rem;
-  color: var(--text-2);
+  color: var(--text-1);
   letter-spacing: 0.06em;
   font-weight: 400;
 }
