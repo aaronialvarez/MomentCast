@@ -676,7 +676,7 @@ body::after {
   font-size: 0.5625rem;
   letter-spacing: 0.18em;
   text-transform: uppercase;
-  color: var(--text-3);
+  color: var(--text-2);
   font-weight: 500;
   white-space: nowrap;
 }
@@ -698,7 +698,7 @@ body::after {
 .mc-presented-by--countdown .mc-presented-label {
   font-size: 0.6rem;
   letter-spacing: 0.2em;
-  opacity: 0.95;
+  opacity: 0.75;
   white-space: nowrap;
 }
 

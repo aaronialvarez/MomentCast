@@ -129,7 +129,7 @@ function renderLogo(headerEl) {
     container.className = 'mc-presented-by';
     container.innerHTML = `
       <span class="mc-presented-label">Presented by</span>
-      <img class="mc-presented-logo" src="" alt="Photographer logo" />
+      <img class="mc-presented-logo" src="" alt="Streamer logo" />
     `;
     headerEl.appendChild(container);
   }
