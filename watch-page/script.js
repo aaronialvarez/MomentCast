@@ -2,6 +2,13 @@
 const API_URL = 'https://api.momentcast.live';
 
 const slug = window.location.pathname.split('/').filter(Boolean).pop() || '';
+
+// Derive the public watch URL from the current origin.
+// Works for go.momentcast.live, live.aaronalvarez.com, or any future custom domain
+// without any code changes — the browser already knows where it is.
+const WATCH_BASE_URL = window.location.origin;
+const WATCH_URL = `${WATCH_BASE_URL}/${slug}`;
+const WATCH_DISPLAY = `${window.location.host}/${slug}`;
 // const slug = 'sofia-s-quince';
 
 // State management
@@ -189,7 +196,18 @@ function renderQrBlock(visible, container) {
     const img = injected.querySelector('.qr-image');
     const urlEl = injected.querySelector('.qr-url');
     if (img && img.src !== eventData.qr_code_data_url) img.src = eventData.qr_code_data_url;
-    if (urlEl) urlEl.textContent = `go.momentcast.live/${slug}`;
+    if (urlEl) {
+      urlEl.textContent = WATCH_DISPLAY;
+      urlEl.style.cursor = 'pointer';
+      urlEl.title = 'Click to copy';
+      urlEl.onclick = () => {
+        navigator.clipboard.writeText(WATCH_URL).then(() => {
+          const original = urlEl.textContent;
+          urlEl.textContent = 'Copied!';
+          setTimeout(() => { urlEl.textContent = original; }, 1800);
+        });
+      };
+    }
     return;
   }
 
@@ -198,7 +216,18 @@ function renderQrBlock(visible, container) {
     const img = document.getElementById('qr-image');
     const urlEl = document.getElementById('qr-url');
     if (img && img.src !== eventData.qr_code_data_url) img.src = eventData.qr_code_data_url;
-    if (urlEl) urlEl.textContent = `go.momentcast.live/${slug}`;
+    if (urlEl) {
+      urlEl.textContent = WATCH_DISPLAY;
+      urlEl.style.cursor = 'pointer';
+      urlEl.title = 'Click to copy';
+      urlEl.onclick = () => {
+        navigator.clipboard.writeText(WATCH_URL).then(() => {
+          const original = urlEl.textContent;
+          urlEl.textContent = 'Copied!';
+          setTimeout(() => { urlEl.textContent = original; }, 1800);
+        });
+      };
+    }
     staticBlock.classList.remove('hidden');
   }
 }

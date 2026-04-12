@@ -698,7 +698,7 @@ body::after {
 .mc-presented-by--countdown .mc-presented-label {
   font-size: 0.6rem;
   letter-spacing: 0.2em;
-  opacity: 0.75;
+  opacity: 0.95;
   white-space: nowrap;
 }
 
