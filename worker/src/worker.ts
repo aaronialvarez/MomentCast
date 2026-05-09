@@ -2097,6 +2097,351 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
       });
     }
 
+    // POST /api/events/:slug/recordings/downloads - Enable MP4 download generation
+    // for every recording produced by this event's Live Input (authenticated, owner only).
+    // Cloudflare Stream MP4 downloads are async: this kicks off generation and returns
+    // the current status. The frontend polls the matching GET endpoint until ready.
+    // Constraint: live recordings over 4 hours cannot be downloaded as MP4 per Cloudflare.
+    if (pathname.match(/^\/api\/events\/[a-z0-9-]+\/recordings\/downloads$/) && method === 'POST') {
+      const token = extractToken(request.headers.get('authorization'));
+      if (!token) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const userId = await verifyJWT(token, env);
+      if (!userId) {
+        return new Response(JSON.stringify({ error: 'Invalid token' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const slug = pathname.split('/')[3];
+
+      // Verify ownership and that the event has actually ended (recordings are finalized)
+      const { data: event, error: getError } = await supabase
+        .from('events')
+        .select('id, slug, user_id, status, live_input_id')
+        .eq('slug', slug)
+        .single();
+
+      if (getError || !event || event.user_id !== userId) {
+        return new Response(JSON.stringify({ error: 'Event not found' }), {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Only allow MP4 generation for ended events; ready/live recordings aren't finalized
+      if (event.status !== 'ended') {
+        return new Response(JSON.stringify({
+          error: 'Downloads are only available for ended events',
+        }), {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (!event.live_input_id) {
+        return new Response(JSON.stringify({ error: 'No recordings available for this event' }), {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Fetch the list of recordings (videos) tied to this Live Input
+      let videos: any[] = [];
+      try {
+        const recordingsResponse = await fetch(
+          `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/stream/live_inputs/${event.live_input_id}/videos`,
+          {
+            headers: { 'Authorization': `Bearer ${env.CLOUDFLARE_STREAM_API_TOKEN}` },
+          }
+        );
+        const recordingsData = await recordingsResponse.json() as any;
+        if (recordingsData.success && Array.isArray(recordingsData.result)) {
+          videos = recordingsData.result;
+        }
+      } catch (err) {
+        console.error('Failed to fetch recordings for downloads:', err);
+        return new Response(JSON.stringify({ error: 'Failed to fetch recordings' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Sort by creation time so "Part 1, Part 2..." matches chronological order
+      videos.sort((a, b) => new Date(a.created).getTime() - new Date(b.created).getTime());
+
+      // Filter to only recordings that are ready to be processed for download
+      const eligibleVideos = videos.filter(v => v.status?.state === 'ready' && v.readyToStream);
+
+      if (eligibleVideos.length === 0) {
+        return new Response(JSON.stringify({
+          error: 'No recordings are ready for download yet',
+          recordings: [],
+        }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Filename pattern: single-part → "{slug}.mp4", multi-part → "{slug}-part-{N}.mp4"
+      const isMultiPart = eligibleVideos.length > 1;
+      const FOUR_HOURS_SECONDS = 4 * 60 * 60;
+
+      // Kick off MP4 generation for each recording. Cloudflare's POST is idempotent:
+      // calling it on a video that already has an enabled download just returns current status.
+      const recordings = await Promise.all(eligibleVideos.map(async (video, index) => {
+        const partNumber = index + 1;
+        const filename = isMultiPart
+          ? `${event.slug}-part-${partNumber}.mp4`
+          : `${event.slug}.mp4`;
+        const durationSeconds = video.duration || 0;
+        const tooLongForMp4 = durationSeconds > FOUR_HOURS_SECONDS;
+
+        // Skip the API call entirely for recordings that exceed Cloudflare's 4-hour MP4 limit
+        if (tooLongForMp4) {
+          return {
+            uid: video.uid,
+            partNumber,
+            totalParts: eligibleVideos.length,
+            durationSeconds,
+            tooLongForMp4: true,
+            status: 'unsupported',
+            url: null,
+            filename,
+            percentComplete: 0,
+          };
+        }
+
+        try {
+          const downloadsResponse = await fetch(
+            `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/stream/${video.uid}/downloads`,
+            {
+              method: 'POST',
+              headers: { 'Authorization': `Bearer ${env.CLOUDFLARE_STREAM_API_TOKEN}` },
+            }
+          );
+          const downloadsData = await downloadsResponse.json() as any;
+          const def = downloadsData.result?.default;
+
+          // Append ?filename= so the browser saves a clean name instead of "default.mp4"
+          const baseUrl = def?.url as string | undefined;
+          const urlWithFilename = baseUrl
+            ? `${baseUrl}?filename=${encodeURIComponent(filename)}`
+            : null;
+
+          return {
+            uid: video.uid,
+            partNumber,
+            totalParts: eligibleVideos.length,
+            durationSeconds,
+            tooLongForMp4: false,
+            status: def?.status || 'unknown', // "inprogress" | "ready"
+            url: urlWithFilename,
+            filename,
+            percentComplete: def?.percentComplete ?? 0,
+          };
+        } catch (err) {
+          console.error(`Failed to enable MP4 download for ${video.uid}:`, err);
+          return {
+            uid: video.uid,
+            partNumber,
+            totalParts: eligibleVideos.length,
+            durationSeconds,
+            tooLongForMp4: false,
+            status: 'error',
+            url: null,
+            filename,
+            percentComplete: 0,
+          };
+        }
+      }));
+
+      return new Response(JSON.stringify({ recordings }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
+    // GET /api/events/:slug/recordings/downloads - Poll MP4 generation status
+    // for every recording. Used by the dashboard to show progress and surface
+    // download URLs once each MP4 reaches "ready" state. Authenticated, owner only.
+    if (pathname.match(/^\/api\/events\/[a-z0-9-]+\/recordings\/downloads$/) && method === 'GET') {
+      const token = extractToken(request.headers.get('authorization'));
+      if (!token) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const userId = await verifyJWT(token, env);
+      if (!userId) {
+        return new Response(JSON.stringify({ error: 'Invalid token' }), {
+          status: 401,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const slug = pathname.split('/')[3];
+
+      // Verify ownership
+      const { data: event, error: getError } = await supabase
+        .from('events')
+        .select('id, slug, user_id, status, live_input_id')
+        .eq('slug', slug)
+        .single();
+
+      if (getError || !event || event.user_id !== userId) {
+        return new Response(JSON.stringify({ error: 'Event not found' }), {
+          status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (!event.live_input_id) {
+        return new Response(JSON.stringify({ recordings: [] }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Same recording lookup as the POST handler (kept consistent so the UI stays in sync)
+      let videos: any[] = [];
+      try {
+        const recordingsResponse = await fetch(
+          `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/stream/live_inputs/${event.live_input_id}/videos`,
+          {
+            headers: { 'Authorization': `Bearer ${env.CLOUDFLARE_STREAM_API_TOKEN}` },
+          }
+        );
+        const recordingsData = await recordingsResponse.json() as any;
+        if (recordingsData.success && Array.isArray(recordingsData.result)) {
+          videos = recordingsData.result;
+        }
+      } catch (err) {
+        console.error('Failed to fetch recordings for downloads status:', err);
+        return new Response(JSON.stringify({ error: 'Failed to fetch recordings' }), {
+          status: 500,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      videos.sort((a, b) => new Date(a.created).getTime() - new Date(b.created).getTime());
+      const eligibleVideos = videos.filter(v => v.status?.state === 'ready' && v.readyToStream);
+      const isMultiPart = eligibleVideos.length > 1;
+      const FOUR_HOURS_SECONDS = 4 * 60 * 60;
+
+      // GET each video's downloads endpoint to read current generation status.
+      // Returns 404 if downloads were never enabled for that video — we surface
+      // that as status "not_started" so the UI can render a "Prepare" button.
+      const recordings = await Promise.all(eligibleVideos.map(async (video, index) => {
+        const partNumber = index + 1;
+        const filename = isMultiPart
+          ? `${event.slug}-part-${partNumber}.mp4`
+          : `${event.slug}.mp4`;
+        const durationSeconds = video.duration || 0;
+        const tooLongForMp4 = durationSeconds > FOUR_HOURS_SECONDS;
+
+        if (tooLongForMp4) {
+          return {
+            uid: video.uid,
+            partNumber,
+            totalParts: eligibleVideos.length,
+            durationSeconds,
+            tooLongForMp4: true,
+            status: 'unsupported',
+            url: null,
+            filename,
+            percentComplete: 0,
+          };
+        }
+
+        try {
+          const downloadsResponse = await fetch(
+            `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/stream/${video.uid}/downloads`,
+            {
+              method: 'GET',
+              headers: { 'Authorization': `Bearer ${env.CLOUDFLARE_STREAM_API_TOKEN}` },
+            }
+          );
+
+          // 404 means downloads have never been enabled for this video yet
+          if (downloadsResponse.status === 404) {
+            return {
+              uid: video.uid,
+              partNumber,
+              totalParts: eligibleVideos.length,
+              durationSeconds,
+              tooLongForMp4: false,
+              status: 'not_started',
+              url: null,
+              filename,
+              percentComplete: 0,
+            };
+          }
+
+          const downloadsData = await downloadsResponse.json() as any;
+          const def = downloadsData.result?.default;
+
+          // If the result object is empty/missing, treat as not started
+          if (!def) {
+            return {
+              uid: video.uid,
+              partNumber,
+              totalParts: eligibleVideos.length,
+              durationSeconds,
+              tooLongForMp4: false,
+              status: 'not_started',
+              url: null,
+              filename,
+              percentComplete: 0,
+            };
+          }
+
+          const baseUrl = def.url as string | undefined;
+          const urlWithFilename = baseUrl
+            ? `${baseUrl}?filename=${encodeURIComponent(filename)}`
+            : null;
+
+          return {
+            uid: video.uid,
+            partNumber,
+            totalParts: eligibleVideos.length,
+            durationSeconds,
+            tooLongForMp4: false,
+            status: def.status || 'unknown',
+            url: urlWithFilename,
+            filename,
+            percentComplete: def.percentComplete ?? 0,
+          };
+        } catch (err) {
+          console.error(`Failed to fetch download status for ${video.uid}:`, err);
+          return {
+            uid: video.uid,
+            partNumber,
+            totalParts: eligibleVideos.length,
+            durationSeconds,
+            tooLongForMp4: false,
+            status: 'error',
+            url: null,
+            filename,
+            percentComplete: 0,
+          };
+        }
+      }));
+
+      return new Response(JSON.stringify({ recordings }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // GET /ping - Health check
     if (pathname === '/ping' && method === 'GET') {
       return new Response(
