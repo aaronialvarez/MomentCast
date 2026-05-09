@@ -791,15 +791,19 @@ export default function EventDetailPage() {
     }
   }
 
-  // Initial load: fetch download status once when an ended event opens.
-  // This shows existing "ready" downloads immediately on page open without
-  // requiring the user to click "Prepare" again.
+  // Initial load: fetch download status whenever streaming has been activated.
+  // Cloudflare finalizes each recording segment as soon as that segment ends, so
+  // downloads can be available mid-event (e.g. after an OBS reconnect creates a
+  // new segment). We fetch for live / ready / ended states; cancelled events
+  // never have downloads.
   useEffect(() => {
-    if (!event || event.status !== 'ended') return;
+    if (!event) return;
+    if (!event.stream_credentials_revealed) return;
+    if (event.status === 'cancelled') return;
     setLoadingDownloads(true);
     fetchDownloadStatus().finally(() => setLoadingDownloads(false));
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [event?.id, event?.status]);
+  }, [event?.id, event?.status, event?.stream_credentials_revealed]);
 
   // Polling: while any recording is "inprogress", refetch every 7 seconds.
   // Stops automatically once all recordings are ready / unsupported / errored.
@@ -1170,144 +1174,6 @@ export default function EventDetailPage() {
                 View Recordings →
               </a>
             </div>
-
-            {/* Download Recordings — streamer-only. Viewers never see MP4 URLs.
-                MP4 generation is async on Cloudflare's side, so the UI shows
-                progress per part and surfaces a download button once ready. */}
-            <div className="border-t border-[var(--mc-border)] pt-6">
-              <h3 className="text-lg font-semibold mb-1">Download Recordings</h3>
-              <p className="text-[var(--mc-text-2)] text-sm mb-4">
-                Generate MP4 files of your event recordings for archiving or editing.
-                Only you can see these download links.
-              </p>
-
-              {downloadError && (
-                <div className="bg-[var(--mc-live-bg)] text-[var(--mc-live)] p-3 rounded-lg mb-4 text-sm border border-red-200">
-                  {downloadError}
-                </div>
-              )}
-
-              {/* Loading state on initial fetch */}
-              {loadingDownloads && !recordingDownloads && (
-                <div className="bg-[var(--mc-surface-2)] rounded-lg p-4 text-sm text-[var(--mc-text-2)]">
-                  Loading recordings...
-                </div>
-              )}
-
-              {/* Empty state: no recordings exist yet (rare for ended events, but possible) */}
-              {!loadingDownloads && recordingDownloads && recordingDownloads.length === 0 && (
-                <div className="bg-[var(--mc-surface-2)] rounded-lg p-4 text-sm text-[var(--mc-text-2)]">
-                  No recordings are available for this event yet. Cloudflare may still be finalizing them. Check back in a few minutes.
-                </div>
-              )}
-
-              {/* Pre-prepare state: recordings exist but MP4 generation hasn't been kicked off */}
-              {!loadingDownloads && recordingDownloads && recordingDownloads.length > 0 &&
-               recordingDownloads.every(r => r.status === 'not_started') && (
-                <>
-                  <p className="text-sm text-[var(--mc-text-2)] mb-3">
-                    {recordingDownloads.length === 1
-                      ? '1 recording is ready to be prepared for download.'
-                      : `${recordingDownloads.length} recordings are ready to be prepared for download.`}
-                  </p>
-                  <button
-                    onClick={handlePrepareDownloads}
-                    disabled={preparingDownloads}
-                    className="px-5 py-2.5 bg-[var(--mc-gold)] hover:bg-[var(--mc-gold-hover)] disabled:bg-[var(--mc-surface-2)] disabled:text-[var(--mc-text-3)] disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-colors"
-                  >
-                    {preparingDownloads ? 'Preparing...' : 'Prepare MP4 Downloads'}
-                  </button>
-                  <p className="text-xs text-[var(--mc-text-3)] mt-2">
-                    MP4 generation typically takes 1-3 minutes per recording.
-                  </p>
-                </>
-              )}
-
-              {/* Per-recording cards: shown when at least one recording has status beyond not_started */}
-              {!loadingDownloads && recordingDownloads && recordingDownloads.length > 0 &&
-               recordingDownloads.some(r => r.status !== 'not_started') && (
-                <div className="space-y-3">
-                  {recordingDownloads.map((rec) => (
-                    <div key={rec.uid} className="bg-[var(--mc-surface-2)] rounded-lg p-4 border border-[var(--mc-border)]">
-                      <div className="flex items-start justify-between gap-4 flex-wrap">
-                        <div className="flex-1 min-w-0">
-                          <p className="font-medium text-[var(--mc-text-1)]">
-                            {rec.totalParts > 1 ? `Part ${rec.partNumber} of ${rec.totalParts}` : 'Full Recording'}
-                          </p>
-                          <p className="text-sm text-[var(--mc-text-2)] mt-0.5">
-                            Duration: {formatDuration(rec.durationSeconds)}
-                          </p>
-
-                          {/* Status-specific copy */}
-                          {rec.status === 'ready' && (
-                            <p className="text-sm text-[var(--mc-success)] mt-1">✓ Ready to download</p>
-                          )}
-                          {rec.status === 'inprogress' && (
-                            <p className="text-sm text-[var(--mc-info)] mt-1">
-                              Preparing... {Math.round(rec.percentComplete)}%
-                            </p>
-                          )}
-                          {rec.status === 'unsupported' && (
-                            <p className="text-sm text-[var(--mc-warning)] mt-1">
-                              Too long for MP4 download (over 4 hours). View on the watch page instead.
-                            </p>
-                          )}
-                          {rec.status === 'error' && (
-                            <p className="text-sm text-[var(--mc-live)] mt-1">
-                              Something went wrong preparing this download.
-                            </p>
-                          )}
-                          {rec.status === 'not_started' && rec.totalParts > 1 && (
-                            <p className="text-sm text-[var(--mc-text-3)] mt-1">Not yet prepared</p>
-                          )}
-
-                          {/* Progress bar for in-progress generation */}
-                          {rec.status === 'inprogress' && (
-                            <div className="w-full h-2 bg-[var(--mc-surface)] rounded-full overflow-hidden mt-2">
-                              <div
-                                className="h-full bg-[var(--mc-info)] rounded-full transition-all duration-500"
-                                style={{ width: `${Math.min(rec.percentComplete, 100)}%` }}
-                              />
-                            </div>
-                          )}
-                        </div>
-
-                        {/* Download button — only when ready and URL is present */}
-                        {rec.status === 'ready' && rec.url && (
-                          <a
-                            href={rec.url}
-                            download={rec.filename}
-                            className="px-4 py-2 bg-[var(--mc-gold)] hover:bg-[var(--mc-gold-hover)] text-white text-sm font-semibold rounded-lg transition-colors whitespace-nowrap"
-                          >
-                            Download MP4
-                          </a>
-                        )}
-                      </div>
-
-                      {/* Show filename hint once ready, so the user knows what they're saving */}
-                      {rec.status === 'ready' && (
-                        <p className="text-xs text-[var(--mc-text-3)] mt-2 font-mono break-all">
-                          Saves as: {rec.filename}
-                        </p>
-                      )}
-                    </div>
-                  ))}
-
-                  {/* If some parts are still not_started after a partial prepare, allow re-prepare */}
-                  {recordingDownloads.some(r => r.status === 'not_started') && (
-                    <div className="pt-2">
-                      <button
-                        onClick={handlePrepareDownloads}
-                        disabled={preparingDownloads}
-                        className="px-4 py-2 bg-[var(--mc-surface-2)] hover:bg-[var(--mc-border)] border border-[var(--mc-border)] text-[var(--mc-text-1)] text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
-                      >
-                        {preparingDownloads ? 'Preparing...' : 'Prepare remaining parts'}
-                      </button>
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
           </div>
         ) : !event.stream_credentials_revealed ? (
           <div className="bg-[var(--mc-surface)] rounded-lg p-6 mb-6 border border-[var(--mc-border)]">
@@ -1441,6 +1307,150 @@ export default function EventDetailPage() {
                 </p>
               </div>
             </div>
+          </div>
+        )}
+
+        {/* Download Recordings — shown as soon as streaming has been activated and
+            individual segments are finalized by Cloudflare, not just when the event
+            has ended. Streamer-only: viewers never see these download links. */}
+        {event.stream_credentials_revealed && event.status !== 'cancelled' && (
+          <div className="bg-[var(--mc-surface)] rounded-lg p-6 mb-6 border border-[var(--mc-border)]">
+            <h3 className="text-lg font-semibold mb-1">Download Recordings</h3>
+            <p className="text-[var(--mc-text-2)] text-sm mb-4">
+              Generate MP4 files of your event recordings for archiving or editing.
+              Only you can see these download links.
+            </p>
+
+            {downloadError && (
+              <div className="bg-[var(--mc-live-bg)] text-[var(--mc-live)] p-3 rounded-lg mb-4 text-sm border border-red-200">
+                {downloadError}
+              </div>
+            )}
+
+            {/* Loading state on initial fetch */}
+            {loadingDownloads && !recordingDownloads && (
+              <div className="bg-[var(--mc-surface-2)] rounded-lg p-4 text-sm text-[var(--mc-text-2)]">
+                Loading recordings...
+              </div>
+            )}
+
+            {/* Empty state: no finalized segments yet (common during a live event
+                that has just started; expected behavior for ended events with no recordings) */}
+            {!loadingDownloads && recordingDownloads && recordingDownloads.length === 0 && (
+              <div className="bg-[var(--mc-surface-2)] rounded-lg p-4 text-sm text-[var(--mc-text-2)]">
+                No recordings are available yet. Cloudflare finalizes each segment after the
+                stream stops or disconnects, so check back in a few minutes.
+              </div>
+            )}
+
+            {/* Pre-prepare state: recordings exist but MP4 generation hasn't been kicked off */}
+            {!loadingDownloads && recordingDownloads && recordingDownloads.length > 0 &&
+             recordingDownloads.every(r => r.status === 'not_started') && (
+              <>
+                <p className="text-sm text-[var(--mc-text-2)] mb-3">
+                  {recordingDownloads.length === 1
+                    ? '1 recording is ready to be prepared for download.'
+                    : `${recordingDownloads.length} recordings are ready to be prepared for download.`}
+                </p>
+                <button
+                  onClick={handlePrepareDownloads}
+                  disabled={preparingDownloads}
+                  className="px-5 py-2.5 bg-[var(--mc-gold)] hover:bg-[var(--mc-gold-hover)] disabled:bg-[var(--mc-surface-2)] disabled:text-[var(--mc-text-3)] disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-colors"
+                >
+                  {preparingDownloads ? 'Preparing...' : 'Prepare MP4 Downloads'}
+                </button>
+                <p className="text-xs text-[var(--mc-text-3)] mt-2">
+                  MP4 generation typically takes 1-3 minutes per recording.
+                </p>
+              </>
+            )}
+
+            {/* Per-recording cards: shown when at least one recording has status beyond not_started */}
+            {!loadingDownloads && recordingDownloads && recordingDownloads.length > 0 &&
+             recordingDownloads.some(r => r.status !== 'not_started') && (
+              <div className="space-y-3">
+                {recordingDownloads.map((rec) => (
+                  <div key={rec.uid} className="bg-[var(--mc-surface-2)] rounded-lg p-4 border border-[var(--mc-border)]">
+                    <div className="flex items-start justify-between gap-4 flex-wrap">
+                      <div className="flex-1 min-w-0">
+                        <p className="font-medium text-[var(--mc-text-1)]">
+                          {rec.totalParts > 1 ? `Part ${rec.partNumber} of ${rec.totalParts}` : 'Full Recording'}
+                        </p>
+                        <p className="text-sm text-[var(--mc-text-2)] mt-0.5">
+                          Duration: {formatDuration(rec.durationSeconds)}
+                        </p>
+
+                        {/* Status-specific copy */}
+                        {rec.status === 'ready' && (
+                          <p className="text-sm text-[var(--mc-success)] mt-1">✓ Ready to download</p>
+                        )}
+                        {rec.status === 'inprogress' && (
+                          <p className="text-sm text-[var(--mc-info)] mt-1">
+                            Preparing... {Math.round(rec.percentComplete)}%
+                          </p>
+                        )}
+                        {rec.status === 'unsupported' && (
+                          <p className="text-sm text-[var(--mc-warning)] mt-1">
+                            Too long for MP4 download (over 4 hours). View on the watch page instead.
+                          </p>
+                        )}
+                        {rec.status === 'error' && (
+                          <p className="text-sm text-[var(--mc-live)] mt-1">
+                            Something went wrong preparing this download.
+                          </p>
+                        )}
+                        {rec.status === 'not_started' && rec.totalParts > 1 && (
+                          <p className="text-sm text-[var(--mc-text-3)] mt-1">Not yet prepared</p>
+                        )}
+
+                        {/* Progress bar for in-progress generation */}
+                        {rec.status === 'inprogress' && (
+                          <div className="w-full h-2 bg-[var(--mc-surface)] rounded-full overflow-hidden mt-2">
+                            <div
+                              className="h-full bg-[var(--mc-info)] rounded-full transition-all duration-500"
+                              style={{ width: `${Math.min(rec.percentComplete, 100)}%` }}
+                            />
+                          </div>
+                        )}
+                      </div>
+
+                      {/* Download button — only when ready and URL is present */}
+                      {rec.status === 'ready' && rec.url && (
+                        <a
+                          href={rec.url}
+                          download={rec.filename}
+                          className="px-4 py-2 bg-[var(--mc-gold)] hover:bg-[var(--mc-gold-hover)] text-white text-sm font-semibold rounded-lg transition-colors whitespace-nowrap"
+                        >
+                          Download MP4
+                        </a>
+                      )}
+                    </div>
+
+                    {/* Filename hint once ready, so the user knows what they're saving */}
+                    {rec.status === 'ready' && (
+                      <p className="text-xs text-[var(--mc-text-3)] mt-2 font-mono break-all">
+                        Saves as: {rec.filename}
+                      </p>
+                    )}
+                  </div>
+                ))}
+
+                {/* If some parts are still not_started after a partial prepare, allow re-prepare.
+                    Useful during a live event when a new segment finalizes after the user
+                    has already prepared earlier segments. */}
+                {recordingDownloads.some(r => r.status === 'not_started') && (
+                  <div className="pt-2">
+                    <button
+                      onClick={handlePrepareDownloads}
+                      disabled={preparingDownloads}
+                      className="px-4 py-2 bg-[var(--mc-surface-2)] hover:bg-[var(--mc-border)] border border-[var(--mc-border)] text-[var(--mc-text-1)] text-sm font-medium rounded-lg transition-colors disabled:opacity-50"
+                    >
+                      {preparingDownloads ? 'Preparing...' : 'Prepare remaining parts'}
+                    </button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 

@@ -2121,10 +2121,11 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
 
       const slug = pathname.split('/')[3];
 
-      // Verify ownership and that the event has actually ended (recordings are finalized)
+      // Verify ownership. Downloads are gated per-recording (readyToStream), not per-event status,
+      // so a live event with finalized segments is a valid candidate.
       const { data: event, error: getError } = await supabase
         .from('events')
-        .select('id, slug, user_id, status, live_input_id')
+        .select('id, slug, user_id, status, live_input_id, stream_credentials_revealed')
         .eq('slug', slug)
         .single();
 
@@ -2135,10 +2136,12 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
         });
       }
 
-      // Only allow MP4 generation for ended events; ready/live recordings aren't finalized
-      if (event.status !== 'ended') {
+      // Block cancelled events and events that haven't started streaming yet.
+      // For active/ended events, individual recording readiness is enforced below
+      // by the eligibleVideos filter (status.state === 'ready' && readyToStream).
+      if (event.status === 'cancelled' || !event.stream_credentials_revealed) {
         return new Response(JSON.stringify({
-          error: 'Downloads are only available for ended events',
+          error: 'Downloads are not available for this event',
         }), {
           status: 403,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
