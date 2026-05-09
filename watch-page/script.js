@@ -667,7 +667,7 @@ function showProcessing() {
         <div class="mc-spinner mc-spinner--gold"></div>
         <p class="mc-processing-title">Processing recording...</p>
         <p class="mc-processing-sub">Your stream will be ready for playback shortly</p>
-        <p class="mc-processing-sub mc-processing-sub--faint">Usually takes 1-2 minutes</p>
+        <p class="mc-processing-sub mc-processing-sub--faint">Refresh your browser in 2-5 minutes</p>
       </div>
     `;
     const container = streamEl?.parentElement;
