@@ -1390,8 +1390,6 @@ export default function EventDetailPage() {
                           ? { color: 'bg-red-500', label: 'Error', tooltip: 'Something went wrong preparing this download' }
                           : { color: 'bg-gray-400', label: 'Queued', tooltip: 'Waiting to start MP4 preparation' };
 
-                      const isReady = rec.status === 'ready' && !!rec.url;
-
                       return (
                         <tr key={rec.uid} className="border-b border-[var(--mc-border)] last:border-0">
                           {/* File: truncated filename, full name on hover */}
@@ -1426,9 +1424,12 @@ export default function EventDetailPage() {
                             )}
                           </td>
 
-                          {/* Download button: active only when ready. Grayed out otherwise. */}
+                          {/* Download button: active only when ready and URL is present.
+                              Inlining the rec.url check (rather than using a precomputed
+                              boolean) lets TypeScript flow-narrow rec.url from string|null
+                              to string for the href prop. */}
                           <td className="py-3 text-right">
-                            {isReady ? (
+                            {rec.status === 'ready' && rec.url ? (
                               <a
                                 href={rec.url}
                                 download={rec.filename}
