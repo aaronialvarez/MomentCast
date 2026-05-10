@@ -1,6 +1,6 @@
 'use client';
 
-import { useEffect, useRef, useState } from 'react';
+import { memo, useEffect, useRef, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
 export const runtime = 'edge';
@@ -22,6 +22,65 @@ interface Event {
   can_be_rescheduled: boolean;
   timezone?: string;
 }
+
+/**
+ * CoverPreviewWithCrop — shows the cover image at its natural aspect ratio
+ * with semi-transparent dark overlays on the non-square edges, previewing
+ * the 1:1 crop region that the watch page displays.
+ *
+ * Defined outside EventDetailPage and wrapped in memo so React treats it as
+ * a stable component reference. Without this, every parent re-render (e.g.
+ * the 60s countdown tick) would unmount and remount the img element, causing
+ * a redundant network re-fetch of the cover photo.
+ */
+const CoverPreviewWithCrop = memo(function CoverPreviewWithCrop({
+  src,
+  borderColor = 'border-[var(--mc-border)]',
+}: {
+  src: string;
+  borderColor?: string;
+}) {
+  const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
+
+  // Determine overlay bar sizes as percentages
+  let topBar = '0%', bottomBar = '0%', leftBar = '0%', rightBar = '0%';
+  if (dims) {
+    if (dims.w > dims.h) {
+      // Landscape: side bars
+      const barWidth = ((dims.w - dims.h) / dims.w / 2) * 100;
+      leftBar = `${barWidth}%`;
+      rightBar = `${barWidth}%`;
+    } else if (dims.h > dims.w) {
+      // Portrait: top/bottom bars
+      const barHeight = ((dims.h - dims.w) / dims.h / 2) * 100;
+      topBar = `${barHeight}%`;
+      bottomBar = `${barHeight}%`;
+    }
+    // Square: no bars needed
+  }
+
+  return (
+    <div className={`relative w-96 max-w-full rounded-lg ${borderColor} border overflow-hidden`}>
+      <img
+        src={src}
+        alt="Cover preview"
+        className="w-full h-auto block"
+        onLoad={(e) => {
+          const img = e.currentTarget;
+          setDims({ w: img.naturalWidth, h: img.naturalHeight });
+        }}
+      />
+      {dims && (
+        <>
+          <div className="absolute top-0 left-0 right-0 pointer-events-none" style={{ height: topBar, background: 'rgba(0,0,0,0.6)' }} />
+          <div className="absolute bottom-0 left-0 right-0 pointer-events-none" style={{ height: bottomBar, background: 'rgba(0,0,0,0.6)' }} />
+          <div className="absolute top-0 left-0 bottom-0 pointer-events-none" style={{ width: leftBar, background: 'rgba(0,0,0,0.6)' }} />
+          <div className="absolute top-0 right-0 bottom-0 pointer-events-none" style={{ width: rightBar, background: 'rgba(0,0,0,0.6)' }} />
+        </>
+      )}
+    </div>
+  );
+});
 
 export default function EventDetailPage() {
   const router = useRouter();
@@ -241,7 +300,12 @@ export default function EventDetailPage() {
     }, 60000);
 
     return () => clearInterval(interval);
-  }, [event]);
+  // Depend only on the fields this effect actually reads, not the entire event
+  // object. Previously [event] caused a new interval + re-render every time any
+  // part of event changed (cover upload, credit fetch, etc.), which re-mounted
+  // the cover image and triggered an unnecessary network re-fetch each time.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [event?.id, event?.status, event?.stream_started_manually_at]);
 
   function copyToClipboard(text: string, label: string) {
     navigator.clipboard.writeText(text);
@@ -839,62 +903,6 @@ export default function EventDetailPage() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [recordingDownloads]);
 
-  // Track loaded cover image dimensions for the 1:1 crop overlay
-  const [coverDimensions, setCoverDimensions] = useState<{ width: number; height: number } | null>(null);
-
-  /**
-   * CoverPreviewWithCrop — shows the full image at its natural aspect ratio
-   * with semi-transparent dark overlays on the non-square edges.
-   * Landscape photos get side bars; portrait photos get top/bottom bars.
-   * This previews the 1:1 crop region that the watch page actually displays.
-   */
-  function CoverPreviewWithCrop({ src, borderColor = 'border-[var(--mc-border)]' }: { src: string; borderColor?: string }) {
-    const [dims, setDims] = useState<{ w: number; h: number } | null>(null);
-
-    // Determine overlay bar sizes as percentages
-    let topBar = '0%', bottomBar = '0%', leftBar = '0%', rightBar = '0%';
-    if (dims) {
-      if (dims.w > dims.h) {
-        // Landscape: side bars, square height = 100%, square width = (h/w)*100%
-        const barWidth = ((dims.w - dims.h) / dims.w / 2) * 100;
-        leftBar = `${barWidth}%`;
-        rightBar = `${barWidth}%`;
-      } else if (dims.h > dims.w) {
-        // Portrait: top/bottom bars, square width = 100%, square height = (w/h)*100%
-        const barHeight = ((dims.h - dims.w) / dims.h / 2) * 100;
-        topBar = `${barHeight}%`;
-        bottomBar = `${barHeight}%`;
-      }
-      // Square: no bars needed
-    }
-
-    return (
-      <div className={`relative w-96 max-w-full rounded-lg ${borderColor} border overflow-hidden`}>
-        <img
-          src={src}
-          alt="Cover preview"
-          className="w-full h-auto block"
-          onLoad={(e) => {
-            const img = e.currentTarget;
-            setDims({ w: img.naturalWidth, h: img.naturalHeight });
-          }}
-        />
-        {dims && (
-          <>
-            {/* Top bar (portrait photos) */}
-            <div className="absolute top-0 left-0 right-0 pointer-events-none" style={{ height: topBar, background: 'rgba(0,0,0,0.6)' }} />
-            {/* Bottom bar (portrait photos) */}
-            <div className="absolute bottom-0 left-0 right-0 pointer-events-none" style={{ height: bottomBar, background: 'rgba(0,0,0,0.6)' }} />
-            {/* Left bar (landscape photos) */}
-            <div className="absolute top-0 left-0 bottom-0 pointer-events-none" style={{ width: leftBar, background: 'rgba(0,0,0,0.6)' }} />
-            {/* Right bar (landscape photos) */}
-            <div className="absolute top-0 right-0 bottom-0 pointer-events-none" style={{ width: rightBar, background: 'rgba(0,0,0,0.6)' }} />
-          </>
-        )}
-      </div>
-    );
-  }
-
   if (loading) {
     return (
       <div className="min-h-screen bg-[var(--mc-bg)] text-[var(--mc-text-2)] flex items-center justify-center">
@@ -1390,6 +1398,8 @@ export default function EventDetailPage() {
                           ? { color: 'bg-red-500', label: 'Error', tooltip: 'Something went wrong preparing this download' }
                           : { color: 'bg-gray-400', label: 'Queued', tooltip: 'Waiting to start MP4 preparation' };
 
+                      const isReady = rec.status === 'ready' && !!rec.url;
+
                       return (
                         <tr key={rec.uid} className="border-b border-[var(--mc-border)] last:border-0">
                           {/* File: truncated filename, full name on hover */}
@@ -1424,12 +1434,9 @@ export default function EventDetailPage() {
                             )}
                           </td>
 
-                          {/* Download button: active only when ready and URL is present.
-                              Inlining the rec.url check (rather than using a precomputed
-                              boolean) lets TypeScript flow-narrow rec.url from string|null
-                              to string for the href prop. */}
+                          {/* Download button: active only when ready. Grayed out otherwise. */}
                           <td className="py-3 text-right">
-                            {rec.status === 'ready' && rec.url ? (
+                            {isReady ? (
                               <a
                                 href={rec.url}
                                 download={rec.filename}
