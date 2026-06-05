@@ -373,15 +373,16 @@ function updateUI() {
 
   // Determine what mode we should be in
   const newMode = determinePlaybackMode();
-    console.log('Mode:', newMode, '| days since event:', 
+  console.log('Mode:', newMode, '| days since event:',
     (new Date() - new Date(eventData.stream_started_manually_at)) / (1000 * 60 * 60 * 24),
     '| hasRecordings:', eventData.recordings?.length,
     '| status:', eventData.status
   );
+
   // Always render on first load (playbackMode is null), then only on state changes
   if (newMode !== playbackMode || playbackMode === null) {
     console.log(`Playback mode changed v4: ${playbackMode} -> ${newMode}`);
-    
+
     // Clear any auto-advance mechanisms when switching modes
     if (currentStreamPlayer) {
       window.removeEventListener('message', currentStreamPlayer);
@@ -389,42 +390,50 @@ function updateUI() {
     }
     if (advanceCheckInterval) {
       clearInterval(advanceCheckInterval);
-      clearTimeout(advanceCheckInterval); // In case it's a timeout instead of interval
+      clearTimeout(advanceCheckInterval);
       advanceCheckInterval = null;
     }
-    
+
     playbackMode = newMode;
     document.querySelectorAll('.state').forEach(el => el.classList.add('hidden'));
-    
+
     // Update status badge
     updateStatusBadge();
-    
+
     switch (newMode) {
       case 'LIVE':
         liveSessionId++; // Force iframe reload on each LIVE transition
         showLive();
+        gtag('event', 'stream_state', { event_category: 'engagement', stream_status: 'live' });
         break;
       case 'PROCESSING':
         showProcessing();
+        gtag('event', 'stream_state', { event_category: 'engagement', stream_status: 'processing' });
         break;
       case 'LAST_RECORDING':
         showLastRecording();
+        gtag('event', 'stream_state', { event_category: 'engagement', stream_status: 'replay' });
         break;
       case 'SEQUENTIAL':
         showSequentialPlayback();
+        gtag('event', 'stream_state', { event_category: 'engagement', stream_status: 'replay' });
         break;
       case 'COUNTDOWN':
         showCountdown();
+        gtag('event', 'stream_state', { event_category: 'engagement', stream_status: 'countdown' });
         break;
       case 'ENDED':
         showCountdownState('ENDED');
+        gtag('event', 'stream_state', { event_category: 'engagement', stream_status: 'ended' });
         break;
       case 'EXPIRED':
         showCountdownState('EXPIRED');
+        gtag('event', 'stream_state', { event_category: 'engagement', stream_status: 'expired' });
         break;
       case 'WAITING':
       default:
         showCountdownState('WAITING');
+        gtag('event', 'stream_state', { event_category: 'engagement', stream_status: 'waiting' });
         break;
     }
   }
@@ -600,6 +609,11 @@ function showLive() {
   // Show QR code in the live player footer so viewers can share the stream
   renderQrBlock(true, liveEl.querySelector('.mc-player-footer'));
   liveEl.classList.remove('hidden');
+  // GA4: viewer entered live stream
+  gtag('event', 'stream_viewed', {
+    event_category: 'engagement',
+    event_label: slug
+  });
 }
 
 // Unmute hint — a non-blocking toast that draws attention to the player's
