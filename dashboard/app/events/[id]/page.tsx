@@ -1374,7 +1374,7 @@ export default function EventDetailPage() {
                 so a segment doesn't appear until ~5 min after OBS disconnects. */}
             {!loadingDownloads && recordingDownloads && recordingDownloads.length === 0 && (
               <div className="bg-[var(--mc-surface-2)] rounded-lg p-4 text-sm text-[var(--mc-text-2)]">
-                No recordings are available yet. Cloudflare finalizes each segment about 5 minutes
+                No recordings are available yet. MomentCast finalizes each segment about 5 minutes
                 after the stream stops or disconnects, so check back in a few minutes.
               </div>
             )}
@@ -1400,7 +1400,7 @@ export default function EventDetailPage() {
                         rec.status === 'ready'
                           ? { color: 'bg-green-500', label: 'Ready', tooltip: 'Ready to download' }
                           : rec.status === 'inprogress'
-                          ? { color: 'bg-blue-500', label: `Preparing ${Math.round(rec.percentComplete)}%`, tooltip: 'Cloudflare is generating the MP4 file' }
+                          ? { color: 'bg-blue-500', label: `Preparing ${Math.round(rec.percentComplete)}%`, tooltip: 'MomentCast is generating the MP4 file' }
                           : rec.status === 'unsupported'
                           ? { color: 'bg-red-500', label: 'Not downloadable', tooltip: 'Recording exceeds 4 hours; view on the watch page instead' }
                           : rec.status === 'error'
@@ -1472,7 +1472,7 @@ export default function EventDetailPage() {
                               <div className="mt-3 text-left max-w-md ml-auto bg-[var(--mc-surface-2)] border border-[var(--mc-border)] rounded-lg p-4 space-y-3">
                                 <p className="text-xs text-[var(--mc-text-1)] leading-relaxed">
                                   <span className="font-semibold">This recording exceeds 4 hours.</span>{' '}
-                                  Cloudflare does not generate MP4 downloads for recordings this long.
+                                  MomentCast does not generate MP4 downloads for recordings this long.
                                   You can still download it using FFmpeg, a free command-line tool.
                                 </p>
 
