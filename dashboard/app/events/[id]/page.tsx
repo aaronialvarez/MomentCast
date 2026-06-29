@@ -152,6 +152,15 @@ export default function EventDetailPage() {
   const [downloadError, setDownloadError] = useState<string | null>(null);
   // Minutes-to-hours helper (DB stores minutes, UI shows hours)
   const toHours = (minutes: number) => Math.round((minutes / 60) * 10) / 10;
+  // Cloudflare Stream customer subdomain. Tied to the MomentCast Cloudflare
+  // account, not the streamer's account. Stable for the lifetime of this
+  // Cloudflare account and safe to hardcode (every playback URL already exposes
+  // it publicly). Only update if the platform migrates to a different CF account.
+  const CF_CUSTOMER_SUBDOMAIN = 'customer-r5vkm8rpzqtdt9cz';
+  const buildHlsUrl = (uid: string) =>
+    `https://${CF_CUSTOMER_SUBDOMAIN}.cloudflarestream.com/${uid}/manifest/video.m3u8`;
+  const buildFfmpegCmd = (uid: string, filename: string) =>
+    `ffmpeg -i "${buildHlsUrl(uid)}" -c copy "${filename}"`;
   // Same timezone list as create-event page
   const timezoneOptions = [
     { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
@@ -1436,7 +1445,7 @@ export default function EventDetailPage() {
                               Inlining the rec.url check (rather than using a precomputed
                               boolean) lets TypeScript flow-narrow rec.url from string|null
                               to string for the href prop. */}
-                          <td className="py-3 text-right">
+                          <td className="py-3 text-right align-top">
                             {rec.status === 'ready' && rec.url ? (
                               <a
                                 href={rec.url}
@@ -1452,6 +1461,72 @@ export default function EventDetailPage() {
                               >
                                 Download
                               </button>
+                            )}
+
+                            {/* FFmpeg fallback — only for recordings Cloudflare won't generate
+                                an MP4 for (over 4 hours). Renders in-cell beneath the greyed
+                                button. Left-aligned and width-capped so the long URL/command
+                                don't blow out the table. Copy labels keyed by uid so multiple
+                                unsupported rows don't share one "Copied!" state. */}
+                            {rec.status === 'unsupported' && (
+                              <div className="mt-3 text-left max-w-md ml-auto bg-[var(--mc-surface-2)] border border-[var(--mc-border)] rounded-lg p-4 space-y-3">
+                                <p className="text-xs text-[var(--mc-text-1)] leading-relaxed">
+                                  <span className="font-semibold">This recording exceeds 4 hours.</span>{' '}
+                                  Cloudflare does not generate MP4 downloads for recordings this long.
+                                  You can still download it using FFmpeg, a free command-line tool.
+                                </p>
+
+                                {/* HLS URL */}
+                                <div>
+                                  <p className="text-xs font-medium text-[var(--mc-text-2)] mb-1.5">HLS URL</p>
+                                  <div className="flex gap-2 items-center">
+                                    <input
+                                      type="text"
+                                      readOnly
+                                      value={buildHlsUrl(rec.uid)}
+                                      className="flex-1 px-3 py-1.5 bg-[var(--mc-surface)] border border-[var(--mc-border)] rounded font-mono text-xs text-[var(--mc-text-1)] min-w-0"
+                                    />
+                                    <button
+                                      onClick={() => copyToClipboard(buildHlsUrl(rec.uid), `hls-${rec.uid}`)}
+                                      className="px-3 py-1.5 bg-[var(--mc-gold)] hover:bg-[var(--mc-gold-hover)] text-white text-xs font-semibold rounded transition-colors whitespace-nowrap"
+                                    >
+                                      {copied === `hls-${rec.uid}` ? 'Copied!' : 'Copy URL'}
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {/* FFmpeg command */}
+                                <div>
+                                  <p className="text-xs font-medium text-[var(--mc-text-2)] mb-1.5">FFmpeg Command</p>
+                                  <div className="flex gap-2 items-center">
+                                    <input
+                                      type="text"
+                                      readOnly
+                                      value={buildFfmpegCmd(rec.uid, rec.filename)}
+                                      className="flex-1 px-3 py-1.5 bg-[var(--mc-surface)] border border-[var(--mc-border)] rounded font-mono text-xs text-[var(--mc-text-1)] min-w-0"
+                                    />
+                                    <button
+                                      onClick={() => copyToClipboard(buildFfmpegCmd(rec.uid, rec.filename), `ffmpeg-${rec.uid}`)}
+                                      className="px-3 py-1.5 bg-[var(--mc-gold)] hover:bg-[var(--mc-gold-hover)] text-white text-xs font-semibold rounded transition-colors whitespace-nowrap"
+                                    >
+                                      {copied === `ffmpeg-${rec.uid}` ? 'Copied!' : 'Copy Command'}
+                                    </button>
+                                  </div>
+                                </div>
+
+                                {/* FFmpeg install note */}
+                                <p className="text-xs text-[var(--mc-text-3)]">
+                                  Don&apos;t have FFmpeg?{' '}
+                                  <a
+                                    href="https://ffmpeg.org/download.html"
+                                    target="_blank"
+                                    rel="noopener noreferrer"
+                                    className="text-[var(--mc-gold)] hover:underline"
+                                  >
+                                    Download it free at ffmpeg.org
+                                  </a>
+                                </p>
+                              </div>
                             )}
                           </td>
                         </tr>
