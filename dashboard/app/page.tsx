@@ -107,6 +107,7 @@ export default function DashboardHome() {
           .from('events')
           .select('id, slug, title, scheduled_date, status, stream_state, timezone')
           .eq('user_id', authUser.id)
+          .eq('is_test', false) // Test event lives on its own dashboard card, not this list
           .in('status', ['live', 'ready', 'scheduled'])
           .order('scheduled_date', { ascending: true });
 
@@ -190,6 +191,7 @@ export default function DashboardHome() {
       .select('id, slug, title, scheduled_date, status, stream_state, timezone')
       .eq('user_id', targetUserId)
       .eq('status', 'ended')
+      .eq('is_test', false)
       .order('scheduled_date', { ascending: false })
       .range(offset, offset + ENDED_EVENTS_PER_PAGE - 1);
     
@@ -245,6 +247,7 @@ export default function DashboardHome() {
         .select('id, slug, title, scheduled_date, status, stream_state, timezone')
         .eq('user_id', authUser.id)
         .eq('status', 'cancelled')
+        .eq('is_test', false)
         .order('scheduled_date', { ascending: false });
 
       if (error) {
@@ -801,13 +804,21 @@ export default function DashboardHome() {
 
         {/* Create Event Button */}
         <div className="mb-8">
-          <button
-            onClick={() => router.push('/create-event')}
-            disabled={!user || user.credits < 1}
-            className="bg-[var(--mc-gold)] hover:bg-[var(--mc-gold-hover)] disabled:bg-[var(--mc-surface-2)] disabled:text-[var(--mc-text-3)] disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-lg transition-colors"
-          >
-            Create New Event
-          </button>
+          <div className="flex flex-wrap gap-3">
+            <button
+              onClick={() => router.push('/create-event')}
+              disabled={!user || user.credits < 1}
+              className="bg-[var(--mc-gold)] hover:bg-[var(--mc-gold-hover)] disabled:bg-[var(--mc-surface-2)] disabled:text-[var(--mc-text-3)] disabled:cursor-not-allowed text-white font-semibold py-3 px-6 rounded-lg transition-colors"
+            >
+              Create New Event
+            </button>
+            <button
+              onClick={() => router.push('/test-setup')}
+              className="border border-[var(--mc-border)] hover:bg-[var(--mc-surface-2)] text-[var(--mc-text-1)] font-semibold py-3 px-6 rounded-lg transition-colors"
+            >
+              Test Your Setup
+            </button>
+          </div>
           {user && user.credits < 1 && (
             <p className="text-[var(--mc-warning)] text-sm mt-2">
               You need credits to create an event.{' '}
