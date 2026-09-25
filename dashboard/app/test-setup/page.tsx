@@ -337,7 +337,8 @@ export default function TestSetupPage() {
         ) : (
           <div className="bg-[var(--mc-surface)] rounded-lg p-8 border border-[var(--mc-border)]">
             <p className="text-[var(--mc-text-2)] mb-6">
-              Check your OBS setup, camera, and audio before a real event, no credit used.
+              Check your camera, audio, and streaming setup before a real event, no credit used.
+              Works with any software that streams over RTMPS, OBS, Streamlabs, or similar.
               Sessions run up to 15 minutes once connected and auto-stop, nothing is saved,
               this is a gear check, not a recording. Up to 3 sessions per day, with a 15-minute
               wait between them.
@@ -389,8 +390,9 @@ export default function TestSetupPage() {
                     </>
                   ) : (
                     <p className="text-[var(--mc-text-2)]">
-                      Waiting for OBS to connect. Enter the details below, then hit Start
-                      Streaming in OBS. The 15-minute timer starts once it connects.
+                      Waiting for your streaming software to connect. Enter the RTMPS
+                      details below into your app and start streaming. The 15-minute timer
+                      starts once it connects.
                     </p>
                   )}
                 </div>
