@@ -370,11 +370,7 @@ export default function TestSetupPage() {
                   disabled={startDisabled}
                   className="w-full px-6 py-3 bg-[var(--mc-gold)] hover:bg-[var(--mc-gold-hover)] disabled:bg-[var(--mc-surface-2)] disabled:text-[var(--mc-text-3)] disabled:cursor-not-allowed text-white rounded-lg font-semibold transition-colors"
                 >
-                  {actionLoading
-                    ? 'Starting...'
-                    : cooldownActive
-                    ? `Available in ${formatMMSS(cooldownSeconds!)}`
-                    : 'Start Test Session'}
+                  {actionLoading ? 'Starting...' : 'Start Test Session'}
                 </button>
               </>
             ) : (
