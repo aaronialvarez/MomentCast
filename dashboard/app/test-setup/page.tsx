@@ -7,6 +7,7 @@ import { createBrowserClient } from '@supabase/ssr';
 interface TestEventData {
   eventId: string;
   slug: string;
+  liveInputId?: string;
   watchUrl: string;
   rtmpsUrl: string;
   rtmpsKey: string;
@@ -453,7 +454,7 @@ export default function TestSetupPage() {
                 </div>
 
                 <p className="text-[var(--mc-text-3)] text-xs mb-6 font-mono">
-                  Live Input ID: {testEvent?.eventId ? testEvent.slug : ''} — for support/debugging
+                  Live Input ID: {testEvent?.liveInputId} — for support/debugging
                 </p>
 
                 <button

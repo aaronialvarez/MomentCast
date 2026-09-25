@@ -597,8 +597,7 @@ function showLive() {
         watermark.id = 'test-watermark';
         watermark.className = 'mc-test-watermark';
         watermark.innerHTML = `
-          <span class="mc-test-watermark-dot"></span>
-          <span class="mc-test-watermark-text">Test Stream</span>
+          <span class="mc-test-watermark-text">MomentCast Test Stream</span>
         `;
         watermarkContainer.appendChild(watermark);
       }

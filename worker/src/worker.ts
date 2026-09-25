@@ -971,6 +971,7 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
       return new Response(JSON.stringify({
         eventId: event.id,
         slug: event.slug,
+        liveInputId: event.live_input_id,
         watchUrl: `https://go.momentcast.live/${event.slug}`,
         rtmpsUrl: event.rtmps_url,
         rtmpsKey: event.rtmps_key,
@@ -1044,6 +1045,7 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
       return new Response(JSON.stringify({
         eventId: event.id,
         slug: event.slug,
+        liveInputId: event.live_input_id,
         watchUrl: `https://go.momentcast.live/${event.slug}`,
         rtmpsUrl: event.rtmps_url,
         rtmpsKey: event.rtmps_key,
