@@ -452,6 +452,10 @@ export default function TestSetupPage() {
                   </p>
                 </div>
 
+                <p className="text-[var(--mc-text-3)] text-xs mb-6 font-mono">
+                  Live Input ID: {testEvent?.eventId ? testEvent.slug : ''} — for support/debugging
+                </p>
+
                 <button
                   onClick={handleStop}
                   disabled={actionLoading}
