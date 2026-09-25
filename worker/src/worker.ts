@@ -166,7 +166,8 @@ async function verifyJWT(token: string, env: WorkerEnv): Promise<string | null> 
  */
 async function createCloudflareStreamLiveInput(
   title: string,
-  env: WorkerEnv
+  env: WorkerEnv,
+  recordingMode: 'automatic' | 'off' = 'automatic'
 ): Promise<{ liveInputId: string; rtmpsUrl: string; rtmpsKey: string } | null> {
   try {
     const response = await fetch(
@@ -181,7 +182,7 @@ async function createCloudflareStreamLiveInput(
           meta: { name: title },
           //  preferLowLatency: true,
           recording: {
-            mode: 'automatic',
+            mode: recordingMode,
             timeoutSeconds: 300,  // 5 minutes - allows quick reconnects, finalizes recordings after disconnect
             requireSignedURLs: false,
             allowedOrigins: [],
@@ -209,6 +210,87 @@ async function createCloudflareStreamLiveInput(
     console.error('Failed to create Cloudflare Live Input:', error);
     return null;
   }
+}
+
+/**
+ * Utility: Get the user's permanent test event, creating it if it doesn't
+ * exist yet (lazy provisioning — no signup hook, first visit to the test
+ * page creates it). One test event per user, enforced by the
+ * events_one_test_per_user partial unique index in Postgres.
+ */
+async function getOrCreateTestEvent(
+  userId: string,
+  env: WorkerEnv,
+  supabase: any
+): Promise<{ event: any; error?: string }> {
+  const { data: existing } = await supabase
+    .from('events')
+    .select('id, slug, title, live_input_id, rtmps_url, rtmps_key, status, test_session_armed_at, test_session_connected_at, test_session_last_ended_at, test_sessions_today, test_sessions_day')
+    .eq('user_id', userId)
+    .eq('is_test', true)
+    .maybeSingle();
+
+  if (existing) {
+    return { event: existing };
+  }
+
+  // Recording must be 'automatic' — Cloudflare ties live HLS/DASH playback
+  // to this same setting; 'off' means no live viewing at all, not just no
+  // replay. 30-day auto-delete (Cloudflare's minimum) keeps storage bounded.
+  const cfResult = await createCloudflareStreamLiveInput('Test Your Setup', env, 'automatic');
+  if (!cfResult) {
+    return { event: null, error: 'Failed to create test live input' };
+  }
+
+  // Deterministic, collision-proof slug — never touches getUniqueSlug()
+  const slug = `test-${userId.slice(0, 8)}`;
+
+  const { data: inserted, error: insertError } = await supabase
+    .from('events')
+    .insert({
+      user_id: userId,
+      slug,
+      title: 'Test Your Setup',
+      scheduled_date: new Date().toISOString(), // unused for test rows; column is NOT NULL
+      timezone: 'America/Los_Angeles',
+      status: 'scheduled',
+      live_input_id: cfResult.liveInputId,
+      rtmps_url: cfResult.rtmpsUrl,
+      rtmps_key: cfResult.rtmpsKey,
+      is_test: true,
+    })
+    .select('id, slug, title, live_input_id, rtmps_url, rtmps_key, status, test_session_armed_at, test_session_connected_at, test_session_last_ended_at, test_sessions_today, test_sessions_day')
+    .single();
+
+  if (insertError) {
+    // Race: two tabs lazily created at once. events_one_test_per_user rejects
+    // the loser — clean up the orphaned Live Input, return the winner's row.
+    if (insertError.code === '23505') {
+      console.warn('Test event race detected, cleaning up duplicate Live Input:', cfResult.liveInputId);
+      try {
+        await fetch(
+          `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/stream/live_inputs/${cfResult.liveInputId}`,
+          { method: 'DELETE', headers: { 'Authorization': `Bearer ${env.CLOUDFLARE_STREAM_API_TOKEN}` } }
+        );
+      } catch (err) {
+        console.error('Failed to clean up duplicate test Live Input:', err);
+      }
+
+      const { data: winner } = await supabase
+        .from('events')
+        .select('id, slug, title, live_input_id, rtmps_url, rtmps_key, status, test_session_armed_at, test_session_connected_at, test_session_last_ended_at, test_sessions_today, test_sessions_day')
+        .eq('user_id', userId)
+        .eq('is_test', true)
+        .single();
+
+      return { event: winner };
+    }
+
+    console.error('Failed to insert test event:', insertError);
+    return { event: null, error: 'Failed to create test event' };
+  }
+
+  return { event: inserted };
 }
 
 /**
@@ -397,7 +479,7 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
         // Find event by live_input_id
         const { data: event, error } = await supabase
           .from('events')
-          .select('id, slug, status, stream_started_manually_at')
+          .select('id, slug, status, stream_started_manually_at, is_test')
           .eq('live_input_id', liveInputId)
           .single();
         
@@ -406,6 +488,35 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
         }
         
         if (event) {
+          // Test events have no stream_started_manually_at — that reads as
+          // 1970 below and would delete the live input on first connect.
+          // Exempt entirely; just record when this session actually
+          // connected, for the 15-min cap cron to key off later.
+          if (event.is_test) {
+            // status/stream_state must match what showLive() in script.js
+            // checks — same fields the real-event path sets a few lines down.
+            await supabase
+              .from('events')
+              .update({
+                status: 'live',
+                stream_state: 'active',
+                test_session_connected_at: new Date().toISOString(),
+              })
+              .eq('id', event.id);
+
+            console.log(`Test event ${event.slug} connected`);
+
+            return new Response(JSON.stringify({
+              received: true,
+              eventType,
+              liveInputId,
+              testEvent: true,
+            }), {
+              status: 200,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
+
           // Check if Live Input has expired (24 hours since start)
           const startedAt = new Date(event.stream_started_manually_at);
           const expiresAt = new Date(startedAt.getTime() + 24 * 60 * 60 * 1000);
@@ -505,12 +616,42 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
         
         const { data: event } = await supabase
           .from('events')
-          .select('id, slug, status, stream_started_manually_at')
+          .select('id, slug, status, stream_started_manually_at, is_test')
           .eq('live_input_id', liveInputId)
           .single();
         
         if (event) {
           console.log('Found event:', event.slug, 'current status:', event.status);
+          
+          // Test events never expire and never get marked 'ended' — they're
+          // reused indefinitely. Just clear the session timer so the cap
+          // cron stops tracking a session that already ended.
+          if (event.is_test) {
+            // Revert to the idle/countdown state — never 'ended', reusable
+            // indefinitely, but must not stay 'live' or the watch page shows
+            // a dead stream as still live until the next connect.
+            await supabase
+              .from('events')
+              .update({
+                status: 'scheduled',
+                stream_state: 'inactive',
+                test_session_connected_at: null,
+                test_session_last_ended_at: new Date().toISOString(),
+              })
+              .eq('id', event.id);
+
+            console.log(`Test event ${event.slug} disconnected`);
+
+            return new Response(JSON.stringify({
+              received: true,
+              eventType,
+              liveInputId,
+              testEvent: true,
+            }), {
+              status: 200,
+              headers: { ...corsHeaders, 'Content-Type': 'application/json' }
+            });
+          }
           
           // Check if 24 hours have passed since "Start Streaming" was clicked
           const startedAt = new Date(event.stream_started_manually_at);
@@ -724,23 +865,55 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
       const qrCodeDataUrl = generateQrDataUrl(watchUrl);
 
       // Create event — scheduled_date stores UTC, timezone stores the event's local tz
-      const { data: event, error: createError } = await supabase
+      const eventInsertPayload = {
+        user_id: userId,
+        slug,
+        title: body.title,
+        scheduled_date: scheduledDateUtc,
+        timezone: eventTimezone,  // Stored so watch page can display in correct tz
+        live_input_id: cfResult.liveInputId,
+        rtmps_url: cfResult.rtmpsUrl,
+        rtmps_key: cfResult.rtmpsKey,
+        tier: body.tier || 'standard',
+        viewer_hour_limit: 12000, // 200 viewing hours per credit (in minutes)
+        qr_code_data_url: qrCodeDataUrl, // base64 SVG for watch page sharing
+      };
+
+      let { data: event, error: createError } = await supabase
         .from('events')
-        .insert({
-          user_id: userId,
-          slug,
-          title: body.title,
-          scheduled_date: scheduledDateUtc,
-          timezone: eventTimezone,  // Stored so watch page can display in correct tz
-          live_input_id: cfResult.liveInputId,
-          rtmps_url: cfResult.rtmpsUrl,
-          rtmps_key: cfResult.rtmpsKey,
-          tier: body.tier || 'standard',
-          viewer_hour_limit: 12000, // 200 viewing hours per credit (in minutes)
-          qr_code_data_url: qrCodeDataUrl, // base64 SVG for watch page sharing
-        })
+        .insert(eventInsertPayload)
         .select()
         .single();
+
+      // getUniqueSlug() only checks conflicts within a ±180-day window of
+      // scheduled_date, but the `slug` column is globally unique. A title
+      // colliding with something outside that window (e.g. an old "Test"
+      // event) passes the window check but fails here. Retry once with a
+      // forced suffix instead of surfacing a 500 to the streamer.
+      if (createError?.code === '23505' && createError?.message?.includes('events_slug_key')) {
+        console.warn('Slug collision outside getUniqueSlug window, retrying with suffix:', slug);
+        const safeChars = 'bdfghjkmnpqrstvwxyz23456789';
+        let num = Date.now() % (safeChars.length ** 3);
+        let suffix = '';
+        for (let i = 0; i < 3; i++) {
+          suffix = safeChars[num % safeChars.length] + suffix;
+          num = Math.floor(num / safeChars.length);
+        }
+        const retrySlug = `${slug}-${suffix}`;
+        eventInsertPayload.slug = retrySlug;
+        // QR was generated against the original (colliding) slug — regenerate
+        // so the stored/shared QR points at the real watch URL, not a dead one.
+        eventInsertPayload.qr_code_data_url = generateQrDataUrl(`https://go.momentcast.live/${retrySlug}`);
+
+        const retry = await supabase
+          .from('events')
+          .insert(eventInsertPayload)
+          .select()
+          .single();
+
+        event = retry.data;
+        createError = retry.error;
+      }
 
       if (createError) {
         console.error('Event creation error:', createError);
@@ -779,13 +952,158 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
       });
     }
 
+        // GET /api/test-event - Fetch (or lazily create) the user's permanent test event
+    if (pathname === '/api/test-event' && method === 'GET') {
+      const token = extractToken(request.headers.get('authorization'));
+      if (!token) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
+      }
+      const userId = await verifyJWT(token, env);
+      if (!userId) {
+        return new Response(JSON.stringify({ error: 'Invalid token' }), { status: 401, headers: corsHeaders });
+      }
+
+      const { event, error } = await getOrCreateTestEvent(userId, env, supabase);
+      if (error || !event) {
+        return new Response(JSON.stringify({ error: error || 'Failed to load test event' }), { status: 500, headers: corsHeaders });
+      }
+
+      return new Response(JSON.stringify({
+        eventId: event.id,
+        slug: event.slug,
+        watchUrl: `https://go.momentcast.live/${event.slug}`,
+        rtmpsUrl: event.rtmps_url,
+        rtmpsKey: event.rtmps_key,
+        armedAt: event.test_session_armed_at,
+        connectedAt: event.test_session_connected_at,
+      }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // POST /api/test-event/start - Arm the test event: enable the Live Input, no time gate
+    if (pathname === '/api/test-event/start' && method === 'POST') {
+      const token = extractToken(request.headers.get('authorization'));
+      if (!token) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
+      }
+      const userId = await verifyJWT(token, env);
+      if (!userId) {
+        return new Response(JSON.stringify({ error: 'Invalid token' }), { status: 401, headers: corsHeaders });
+      }
+
+      const { event, error } = await getOrCreateTestEvent(userId, env, supabase);
+      if (error || !event) {
+        return new Response(JSON.stringify({ error: error || 'Failed to load test event' }), { status: 500, headers: corsHeaders });
+      }
+
+      // Cooldown: 15 minutes since the last session ended
+      const COOLDOWN_MS = 15 * 60 * 1000;
+      if (event.test_session_last_ended_at) {
+        const elapsed = Date.now() - new Date(event.test_session_last_ended_at).getTime();
+        if (elapsed < COOLDOWN_MS) {
+          const retryAfterSeconds = Math.ceil((COOLDOWN_MS - elapsed) / 1000);
+          return new Response(JSON.stringify({
+            error: 'Please wait before starting another test session',
+            retryAfterSeconds,
+          }), { status: 429, headers: corsHeaders });
+        }
+      }
+
+      // Daily cap: 3 sessions per UTC day, resets automatically on date change
+      const todayUtc = new Date().toISOString().slice(0, 10);
+      const sessionsToday = event.test_sessions_day === todayUtc ? event.test_sessions_today : 0;
+      const DAILY_LIMIT = 3;
+      if (sessionsToday >= DAILY_LIMIT) {
+        const tomorrowUtc = new Date(new Date().setUTCHours(24, 0, 0, 0)).toISOString();
+        return new Response(JSON.stringify({
+          error: 'Daily test limit reached (3 sessions)',
+          resetsAt: tomorrowUtc,
+        }), { status: 429, headers: corsHeaders });
+      }
+
+      // Re-enable in case a prior session was capped or manually stopped
+      try {
+        await fetch(
+          `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/stream/live_inputs/${event.live_input_id}`,
+          {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${env.CLOUDFLARE_STREAM_API_TOKEN}` },
+            body: JSON.stringify({ enabled: true }),
+          }
+        );
+      } catch (err) {
+        console.error('Failed to enable test Live Input:', err);
+        return new Response(JSON.stringify({ error: 'Failed to arm test event' }), { status: 500, headers: corsHeaders });
+      }
+
+      await supabase.from('events').update({
+        test_session_armed_at: new Date().toISOString(),
+        test_sessions_today: sessionsToday + 1,
+        test_sessions_day: todayUtc,
+      }).eq('id', event.id);
+
+      return new Response(JSON.stringify({
+        eventId: event.id,
+        slug: event.slug,
+        watchUrl: `https://go.momentcast.live/${event.slug}`,
+        rtmpsUrl: event.rtmps_url,
+        rtmpsKey: event.rtmps_key,
+        armedAt: new Date().toISOString(),
+      }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
+    // POST /api/test-event/stop - Disable the Live Input (kicks any active connection), clear session state
+    if (pathname === '/api/test-event/stop' && method === 'POST') {
+      const token = extractToken(request.headers.get('authorization'));
+      if (!token) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: corsHeaders });
+      }
+      const userId = await verifyJWT(token, env);
+      if (!userId) {
+        return new Response(JSON.stringify({ error: 'Invalid token' }), { status: 401, headers: corsHeaders });
+      }
+
+      const { data: event } = await supabase
+        .from('events')
+        .select('id, live_input_id')
+        .eq('user_id', userId)
+        .eq('is_test', true)
+        .maybeSingle();
+
+      if (!event) {
+        return new Response(JSON.stringify({ error: 'No test event found' }), { status: 404, headers: corsHeaders });
+      }
+
+      try {
+        await fetch(
+          `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/stream/live_inputs/${event.live_input_id}`,
+          {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${env.CLOUDFLARE_STREAM_API_TOKEN}` },
+            body: JSON.stringify({ enabled: false }),
+          }
+        );
+      } catch (err) {
+        console.error('Failed to disable test Live Input:', err);
+      }
+
+      await supabase.from('events').update({
+        status: 'scheduled',
+        stream_state: 'inactive',
+        test_session_armed_at: null,
+        test_session_connected_at: null,
+        test_session_last_ended_at: new Date().toISOString(),
+      }).eq('id', event.id);
+
+      return new Response(JSON.stringify({ stopped: true }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+    }
+
     // GET /api/events/:slug - Get event details (public)
     if (pathname.match(/^\/api\/events\/[a-z0-9-]+$/) && method === 'GET') {
       const slug = pathname.split('/').pop();
 
       const { data: event, error } = await supabase
         .from('events')
-        .select('id, user_id, title, scheduled_date, timezone, status, stream_state, live_input_id, recordings, merged_video_id, viewer_hours_consumed, viewer_hour_limit, stream_started_manually_at, last_stream_activity, qr_code_data_url, cover_image_url')
+        .select('id, user_id, title, scheduled_date, timezone, status, stream_state, live_input_id, recordings, merged_video_id, viewer_hours_consumed, viewer_hour_limit, stream_started_manually_at, last_stream_activity, qr_code_data_url, cover_image_url, is_test')
         .eq('slug', slug)
         .single();
 
@@ -959,6 +1277,13 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
       if (getError || !event) {
         return new Response(JSON.stringify({ error: 'Event not found' }), {
           status: 404,
+          headers: corsHeaders,
+        });
+      }
+
+      if (event.is_test) {
+        return new Response(JSON.stringify({ error: 'Use /api/test-event/start for test events' }), {
+          status: 400,
           headers: corsHeaders,
         });
       }
@@ -1150,6 +1475,13 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
         });
       }
 
+      if (event.is_test) {
+        return new Response(JSON.stringify({ error: 'Test events cannot be rescheduled' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       // Check if event can be rescheduled
       if (!event.can_be_rescheduled) {
         return new Response(JSON.stringify({ 
@@ -1234,6 +1566,13 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
       if (getError || !event) {
         return new Response(JSON.stringify({ error: 'Event not found' }), {
           status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (event.is_test) {
+        return new Response(JSON.stringify({ error: 'Test events cannot be cancelled' }), {
+          status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
@@ -1493,7 +1832,7 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
       // Get event
       const { data: event, error: getError } = await supabase
         .from('events')
-        .select('id, user_id, status, stream_started_at')
+        .select('id, user_id, status, stream_started_at, is_test')
         .eq('slug', slug)
         .single();
 
@@ -1508,6 +1847,13 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
         return new Response(
           JSON.stringify({ error: 'Unauthorized' }),
           { status: 403, headers: corsHeaders }
+        );
+      }
+
+      if (event.is_test) {
+        return new Response(
+          JSON.stringify({ error: 'Test event status is managed automatically' }),
+          { status: 400, headers: corsHeaders }
         );
       }
 
@@ -1570,13 +1916,20 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
       // Verify ownership and check that streaming hasn't started
       const { data: event, error: getError } = await supabase
         .from('events')
-        .select('id, user_id, status, stream_credentials_revealed')
+        .select('id, user_id, status, stream_credentials_revealed, is_test')
         .eq('slug', slug)
         .single();
 
       if (getError || !event || event.user_id !== userId) {
         return new Response(JSON.stringify({ error: 'Event not found' }), {
           status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (event.is_test) {
+        return new Response(JSON.stringify({ error: 'Test event title cannot be changed' }), {
+          status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
@@ -1642,13 +1995,19 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
       // Verify ownership
       const { data: event, error: getError } = await supabase
         .from('events')
-        .select('id, user_id')
+        .select('id, user_id, is_test')
         .eq('slug', slug)
         .single();
 
       if (getError || !event || event.user_id !== userId) {
         return new Response(JSON.stringify({ error: 'Event not found' }), {
           status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+      if (event.is_test) {
+        return new Response(JSON.stringify({ error: 'Test events do not support cover photos' }), {
+          status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
@@ -2125,13 +2484,20 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
       // so a live event with finalized segments is a valid candidate.
       const { data: event, error: getError } = await supabase
         .from('events')
-        .select('id, slug, user_id, status, live_input_id, stream_credentials_revealed')
+        .select('id, slug, user_id, status, live_input_id, stream_credentials_revealed, is_test')
         .eq('slug', slug)
         .single();
 
       if (getError || !event || event.user_id !== userId) {
         return new Response(JSON.stringify({ error: 'Event not found' }), {
           status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (event.is_test) {
+        return new Response(JSON.stringify({ error: 'Downloads are not available for test events' }), {
+          status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
@@ -2296,13 +2662,20 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
       // Verify ownership
       const { data: event, error: getError } = await supabase
         .from('events')
-        .select('id, slug, user_id, status, live_input_id')
+        .select('id, slug, user_id, status, live_input_id, is_test')
         .eq('slug', slug)
         .single();
 
       if (getError || !event || event.user_id !== userId) {
         return new Response(JSON.stringify({ error: 'Event not found' }), {
           status: 404,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (event.is_test) {
+        return new Response(JSON.stringify({ error: 'Downloads are not available for test events' }), {
+          status: 400,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
       }
@@ -2526,6 +2899,49 @@ export default {
       console.log('📊 Running viewer-hours sync...');
       await syncViewerHours(env, supabase);
       console.log('✅ Viewer-hours sync completed');
+
+      // === Cap test-event sessions at 15 minutes connected ===
+      console.log('🧪 Checking for test sessions over the cap...');
+      const TEST_SESSION_CAP_MS = 15 * 60 * 1000;
+      const { data: overCapped } = await supabase
+        .from('events')
+        .select('id, slug, live_input_id, test_session_connected_at')
+        .eq('is_test', true)
+        .not('test_session_connected_at', 'is', null);
+
+      if (overCapped && overCapped.length > 0) {
+        const now = Date.now();
+        for (const evt of overCapped) {
+          const connectedAt = new Date(evt.test_session_connected_at).getTime();
+          if (now - connectedAt > TEST_SESSION_CAP_MS) {
+            console.log(`⏱️ Test event ${evt.slug} exceeded 15-min cap, disabling`);
+            try {
+              await fetch(
+                `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/stream/live_inputs/${evt.live_input_id}`,
+                {
+                  method: 'PUT',
+                  headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${env.CLOUDFLARE_STREAM_API_TOKEN}` },
+                  body: JSON.stringify({ enabled: false }),
+                }
+              );
+            } catch (err) {
+              console.error(`Failed to disable capped test input for ${evt.slug}:`, err);
+            }
+
+            await supabase
+              .from('events')
+              .update({
+                status: 'scheduled',
+                stream_state: 'inactive',
+                test_session_armed_at: null,
+                test_session_connected_at: null,
+                test_session_last_ended_at: new Date().toISOString(),
+              })
+              .eq('id', evt.id);
+          }
+        }
+      }
+      console.log('✅ Test session cap check completed');
     }
   }
 } as ExportedHandler<WorkerEnv>;

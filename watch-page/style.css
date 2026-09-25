@@ -772,6 +772,43 @@ body::after {
   z-index: 20;
 }
 
+/* Test-stream watermark badge. pointer-events:none so it never blocks the
+   Cloudflare player's own controls (mute, fullscreen) underneath it. */
+.mc-test-watermark {
+  position: absolute;
+  top: 12px;
+  left: 12px;
+  z-index: 4;
+  pointer-events: none;
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  background: rgba(0, 0, 0, 0.55);
+  border: 1px solid var(--gold);
+  border-radius: 999px;
+  padding: 0.35rem 0.85rem;
+  backdrop-filter: blur(4px);
+  -webkit-backdrop-filter: blur(4px);
+}
+
+.mc-test-watermark-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--gold);
+  flex-shrink: 0;
+}
+
+.mc-test-watermark-text {
+  font-family: var(--font-body);
+  font-size: 0.7rem;
+  font-weight: 600;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+  color: var(--gold);
+  white-space: nowrap;
+}
+
 /* Unmute hint */
 .mc-unmute-hint {
   position: absolute;

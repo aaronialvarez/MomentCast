@@ -441,6 +441,13 @@ function updateUI() {
 
 // Show countdown state
 function showCountdown() {
+  // Test events have no real scheduled time — route straight to the
+  // is_test-aware WAITING view instead of counting down to a meaningless date.
+  if (eventData.is_test) {
+    showCountdownState('WAITING');
+    return;
+  }
+
   const countdownEl = document.getElementById('countdown');
   const titleEl = document.getElementById('event-title');
   const scheduledTimeEl = document.getElementById('scheduled-time');
@@ -575,6 +582,29 @@ function showLive() {
     }
   } else if (!liveInputId) {
     console.error('No live_input_id found in eventData:', eventData);
+  }
+
+  // Test-stream watermark — cosmetic label only; the actual abuse control is
+  // enabled:false on the Live Input server-side, not this. Runs on every
+  // showLive() call (polling), so it adds/removes itself correctly rather
+  // than assuming is_test never changes mid-session.
+  const watermarkContainer = streamEl?.parentElement;
+  if (watermarkContainer) {
+    let watermark = document.getElementById('test-watermark');
+    if (eventData.is_test) {
+      if (!watermark) {
+        watermark = document.createElement('div');
+        watermark.id = 'test-watermark';
+        watermark.className = 'mc-test-watermark';
+        watermark.innerHTML = `
+          <span class="mc-test-watermark-dot"></span>
+          <span class="mc-test-watermark-text">Test Stream</span>
+        `;
+        watermarkContainer.appendChild(watermark);
+      }
+    } else if (watermark) {
+      watermark.remove();
+    }
   }
 
   // Check if stream is disconnected but recording is finalizing
@@ -1124,11 +1154,17 @@ function showCountdownState(mode) {
 
   // Message config per mode
   const config = {
-    WAITING: {
-      date: `Scheduled for ${heldOn}`,
-      title: 'Event starting soon\u2026',
-      subtitle: ''
-    },
+    WAITING: eventData.is_test
+      ? {
+          date: '',
+          title: 'Test stream not started yet',
+          subtitle: 'This page updates automatically once streaming begins.'
+        }
+      : {
+          date: `Scheduled for ${heldOn}`,
+          title: 'Event starting soon\u2026',
+          subtitle: ''
+        },
     ENDED: {
       date: `Held on ${heldOn}`,
       title: 'This event has ended',
