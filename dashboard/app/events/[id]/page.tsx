@@ -1207,7 +1207,7 @@ export default function EventDetailPage() {
                 rel="noopener noreferrer"
                 className="inline-block px-6 py-3 bg-[var(--mc-gold)] hover:bg-[var(--mc-gold-hover)] text-white rounded-lg font-medium transition-colors"
               >
-                View Recordings →
+                Watch Replay →
               </a>
             </div>
           </div>

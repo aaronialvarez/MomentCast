@@ -304,7 +304,7 @@ export default function CreateEventPage() {
                     </>
                   ) : (
                     <>
-                      ℹ This event may use ~{estCreditsNeeded} credits ({estViewingHours.toLocaleString()} hrs).{' '}
+                      ℹ This event may need ~{estCreditsNeeded} credits ({estViewingHours.toLocaleString()} hrs).{' '}
                       <span className="font-medium">Start with 1 credit (200 hrs) and add more anytime</span> from the event page if needed. No need to over-allocate upfront.
                     </>
                   )}

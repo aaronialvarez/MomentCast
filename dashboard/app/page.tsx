@@ -63,11 +63,11 @@ export default function DashboardHome() {
   const [purchasing, setPurchasing] = useState(false);
   const [purchaseMessage, setPurchaseMessage] = useState<string | null>(null);
 
-  // Credit pricing tiers — launch promo (15% off $35 regular)
+  // Credit pricing tiers — launch promo (23% off $39 regular)
   const CREDIT_TIERS = [
-    { id: 'single',  credits: 1,  regular: 35.00, promo: 29.99, label: '1 Credit' },
-    { id: 'pro5',    credits: 5,  regular: 175.00, promo: 137.99, label: '5 Credits', badge: 'Most Popular' },
-    { id: 'studio10', credits: 10, regular: 350.00, promo: 259.99, label: '10 Credits', badge: 'Best Value' },
+    { id: 'single',  credits: 1,  regular: 39.00, promo: 30.00, label: '1 Credit' },
+    { id: 'pro5',    credits: 5,  regular: 195.00, promo: 142.50, label: '5 Credits', badge: 'Most Popular' },
+    { id: 'studio10', credits: 10, regular: 390.00, promo: 270.00, label: '10 Credits', badge: 'Best Value' },
   ] as const;
 
   useEffect(() => {
