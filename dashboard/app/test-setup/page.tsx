@@ -13,6 +13,7 @@ interface TestEventData {
   rtmpsKey: string;
   armedAt?: string | null;
   connectedAt?: string | null;
+  sessionsRemainingToday?: number;
 }
 
 const SESSION_CAP_SECONDS = 15 * 60;
@@ -302,10 +303,12 @@ export default function TestSetupPage() {
       clearPolling();
       setSessionSecondsLeft(null);
       setTestEvent((prev) => (prev ? { ...prev, armedAt: null, connectedAt: null } : prev));
-      // Only a session that actually connected costs a cooldown on the
-      // server — a stop before anything streamed is a free cancel.
+      // Only a session that actually connected costs a cooldown or moves
+      // the daily count — a stop before anything streamed is a free cancel,
+      // so there's nothing new to fetch in that case.
       if (data.counted) {
         setCooldownSeconds(SESSION_CAP_SECONDS);
+        refresh().catch((err) => console.error('Post-stop refresh error:', err));
       }
     } catch (err) {
       console.error('Test event stop error:', err);
@@ -344,8 +347,16 @@ export default function TestSetupPage() {
               Check your camera, audio, and streaming setup before a real event, no credit used.
               Works with any software that streams over RTMPS, OBS, Streamlabs, or similar.
               Sessions run up to 15 minutes once connected and auto-stop, nothing is saved,
-              this is a gear check, not a recording. Up to 3 sessions per day, with a 15-minute
-              wait between them.
+              this is a gear check, not a recording.{' '}
+              {typeof testEvent?.sessionsRemainingToday === 'number' ? (
+                <>
+                  You have <strong>{testEvent.sessionsRemainingToday} of 3</strong> test
+                  {testEvent.sessionsRemainingToday === 1 ? ' session' : ' sessions'} left today,
+                  with a 15-minute wait between them.
+                </>
+              ) : (
+                'Up to 3 sessions per day, with a 15-minute wait between them.'
+              )}
             </p>
 
             {error && (

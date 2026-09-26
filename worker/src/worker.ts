@@ -993,6 +993,9 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
         return new Response(JSON.stringify({ error: error || 'Failed to load test event' }), { status: 500, headers: corsHeaders });
       }
 
+      const todayUtcGet = new Date().toISOString().slice(0, 10);
+      const usedTodayGet = event.test_sessions_day === todayUtcGet ? event.test_sessions_today : 0;
+
       return new Response(JSON.stringify({
         eventId: event.id,
         slug: event.slug,
@@ -1002,6 +1005,7 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
         rtmpsKey: event.rtmps_key,
         armedAt: event.test_session_armed_at,
         connectedAt: event.test_session_connected_at,
+        sessionsRemainingToday: Math.max(0, 3 - usedTodayGet),
       }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
@@ -1075,6 +1079,7 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
         rtmpsUrl: event.rtmps_url,
         rtmpsKey: event.rtmps_key,
         armedAt: new Date().toISOString(),
+        sessionsRemainingToday: Math.max(0, 3 - sessionsToday),
       }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
