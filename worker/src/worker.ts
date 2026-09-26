@@ -294,6 +294,22 @@ async function getOrCreateTestEvent(
 }
 
 /**
+ * Utility: compute the next daily test-session count, rolling over to 0 if
+ * the stored day no longer matches today (UTC). Called only where a session
+ * that actually connected ends — never on arm, and never on a stop that
+ * happened before anything connected — so clicking Start then Stop without
+ * streaming never costs a daily session or starts the cooldown.
+ */
+function incrementDailyTestSessionCount(
+  currentToday: number,
+  currentDay: string | null
+): { sessionsToday: number; sessionsDay: string } {
+  const todayUtc = new Date().toISOString().slice(0, 10);
+  const baseline = currentDay === todayUtc ? currentToday : 0;
+  return { sessionsToday: baseline + 1, sessionsDay: todayUtc };
+}
+
+/**
  * Utility: Sync viewer_hours_consumed for all active events
  * Queries Cloudflare Stream GraphQL API for minutesViewed per recording UID,
  * then writes the totals (as hours, 1 decimal) back to each event row.
@@ -616,7 +632,7 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
         
         const { data: event } = await supabase
           .from('events')
-          .select('id, slug, status, stream_started_manually_at, is_test')
+          .select('id, slug, status, stream_started_manually_at, is_test, test_sessions_today, test_sessions_day')
           .eq('live_input_id', liveInputId)
           .single();
         
@@ -627,6 +643,13 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
           // reused indefinitely. Just clear the session timer so the cap
           // cron stops tracking a session that already ended.
           if (event.is_test) {
+            // A real disconnect only fires here after a real connect — this
+            // is where the daily count and cooldown clock actually start.
+            const { sessionsToday, sessionsDay } = incrementDailyTestSessionCount(
+              event.test_sessions_today,
+              event.test_sessions_day
+            );
+
             // Revert to the idle/countdown state — never 'ended', reusable
             // indefinitely, but must not stay 'live' or the watch page shows
             // a dead stream as still live until the next connect.
@@ -637,6 +660,8 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
                 stream_state: 'inactive',
                 test_session_connected_at: null,
                 test_session_last_ended_at: new Date().toISOString(),
+                test_sessions_today: sessionsToday,
+                test_sessions_day: sessionsDay,
               })
               .eq('id', event.id);
 
@@ -1036,10 +1061,10 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
         return new Response(JSON.stringify({ error: 'Failed to arm test event' }), { status: 500, headers: corsHeaders });
       }
 
+      // Counting and the cooldown both happen when a *connected* session
+      // ends, not here — arming alone shouldn't cost anything.
       await supabase.from('events').update({
         test_session_armed_at: new Date().toISOString(),
-        test_sessions_today: sessionsToday + 1,
-        test_sessions_day: todayUtc,
       }).eq('id', event.id);
 
       return new Response(JSON.stringify({
@@ -1066,7 +1091,7 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
 
       const { data: event } = await supabase
         .from('events')
-        .select('id, live_input_id')
+        .select('id, live_input_id, test_session_connected_at, test_sessions_today, test_sessions_day')
         .eq('user_id', userId)
         .eq('is_test', true)
         .maybeSingle();
@@ -1088,15 +1113,30 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
         console.error('Failed to disable test Live Input:', err);
       }
 
-      await supabase.from('events').update({
+      // Only a session that actually connected costs a daily count or a
+      // cooldown. Stopping something that was armed but never streamed to
+      // is a free cancel.
+      const wasConnected = !!event.test_session_connected_at;
+      const updatePayload: Record<string, any> = {
         status: 'scheduled',
         stream_state: 'inactive',
         test_session_armed_at: null,
         test_session_connected_at: null,
-        test_session_last_ended_at: new Date().toISOString(),
-      }).eq('id', event.id);
+      };
 
-      return new Response(JSON.stringify({ stopped: true }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+      if (wasConnected) {
+        const { sessionsToday, sessionsDay } = incrementDailyTestSessionCount(
+          event.test_sessions_today,
+          event.test_sessions_day
+        );
+        updatePayload.test_session_last_ended_at = new Date().toISOString();
+        updatePayload.test_sessions_today = sessionsToday;
+        updatePayload.test_sessions_day = sessionsDay;
+      }
+
+      await supabase.from('events').update(updatePayload).eq('id', event.id);
+
+      return new Response(JSON.stringify({ stopped: true, counted: wasConnected }), { status: 200, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
     }
 
     // GET /api/events/:slug - Get event details (public)
@@ -2907,7 +2947,7 @@ export default {
       const TEST_SESSION_CAP_MS = 15 * 60 * 1000;
       const { data: overCapped } = await supabase
         .from('events')
-        .select('id, slug, live_input_id, test_session_connected_at')
+        .select('id, slug, live_input_id, test_session_connected_at, test_sessions_today, test_sessions_day')
         .eq('is_test', true)
         .not('test_session_connected_at', 'is', null);
 
@@ -2930,6 +2970,14 @@ export default {
               console.error(`Failed to disable capped test input for ${evt.slug}:`, err);
             }
 
+            // Cron-side disconnect (e.g. the webhook was missed) still
+            // counts as a real, connected session — same accounting as
+            // the normal disconnect path.
+            const { sessionsToday, sessionsDay } = incrementDailyTestSessionCount(
+              evt.test_sessions_today,
+              evt.test_sessions_day
+            );
+
             await supabase
               .from('events')
               .update({
@@ -2938,6 +2986,8 @@ export default {
                 test_session_armed_at: null,
                 test_session_connected_at: null,
                 test_session_last_ended_at: new Date().toISOString(),
+                test_sessions_today: sessionsToday,
+                test_sessions_day: sessionsDay,
               })
               .eq('id', evt.id);
           }

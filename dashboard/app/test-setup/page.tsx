@@ -296,14 +296,17 @@ export default function TestSetupPage() {
         throw new Error(data.error || 'Failed to stop test session');
       }
 
+      const data = await response.json();
+
       clearSessionTick();
       clearPolling();
       setSessionSecondsLeft(null);
       setTestEvent((prev) => (prev ? { ...prev, armedAt: null, connectedAt: null } : prev));
-      // We just stopped it ourselves, so the cooldown clock started right
-      // now on the server — show the full 15 minutes immediately rather
-      // than waiting for a future 429 to tell us.
-      setCooldownSeconds(SESSION_CAP_SECONDS);
+      // Only a session that actually connected costs a cooldown on the
+      // server — a stop before anything streamed is a free cancel.
+      if (data.counted) {
+        setCooldownSeconds(SESSION_CAP_SECONDS);
+      }
     } catch (err) {
       console.error('Test event stop error:', err);
       setError(err instanceof Error ? err.message : 'Failed to stop test session');
