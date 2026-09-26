@@ -581,7 +581,6 @@ export default function DashboardHome() {
                 {CREDIT_TIERS.map((tier) => {
                   const perCredit = (tier.promo / tier.credits).toFixed(2);
                   const isSelected = selectedTier === tier.id;
-                  const regularPer = (tier.regular / tier.credits).toFixed(2);
                   
                   return (
                     <div
@@ -616,7 +615,6 @@ export default function DashboardHome() {
                         {tier.credits > 1 && (
                           <p className="text-sm text-[var(--mc-text-2)] mt-1">
                             ${perCredit}/credit
-                            <span className="text-[var(--mc-text-3)] line-through ml-1.5">${regularPer}</span>
                           </p>
                         )}
                       </div>
