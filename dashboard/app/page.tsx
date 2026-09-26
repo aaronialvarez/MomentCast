@@ -608,9 +608,6 @@ export default function DashboardHome() {
                           <span className="text-2xl font-bold text-[var(--mc-text-1)]">
                             ${tier.promo.toFixed(2)}
                           </span>
-                          <span className="text-sm text-[var(--mc-text-3)] line-through">
-                            ${tier.regular.toFixed(2)}
-                          </span>
                         </div>
                         {tier.credits > 1 && (
                           <p className="text-sm text-[var(--mc-text-2)] mt-1">
