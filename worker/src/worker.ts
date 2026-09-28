@@ -1297,7 +1297,12 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
       // Fetch recordings from Cloudflare Stream if event is ready or ended
       let recordings = event.recordings || []; // Use stored recordings as fallback
       
-      if ((event.status === 'ready' || event.status === 'ended') && event.live_input_id) {
+      // Recordings are deleted from Cloudflare ~30 days after creation, so past 32 days
+      // there is nothing to fetch. The watch page shows its EXPIRED state at day 30 anyway.
+      const eventRefDate = event.stream_started_manually_at || event.scheduled_date;
+      const eventAgeDays = (Date.now() - new Date(eventRefDate).getTime()) / (24 * 60 * 60 * 1000);
+
+      if ((event.status === 'ready' || event.status === 'ended') && event.live_input_id && eventAgeDays <= 32) {
         try {
           const recordingsResponse = await fetch(
             `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/stream/live_inputs/${event.live_input_id}/videos`,

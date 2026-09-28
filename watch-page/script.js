@@ -479,6 +479,9 @@ function showCountdown() {
 
   updateCountdown(scheduledDate);
   renderQrBlock(true); // Show QR code during countdown
+  // The #countdown element is shared with the ended/expired states, so reset the eyebrow
+  const eyebrowReset = document.getElementById('event-eyebrow');
+  if (eyebrowReset) eyebrowReset.textContent = 'Upcoming Event';
   applyCoverBackground(countdownEl); // Full-bleed cover photo behind countdown
   renderCountdownLogo(); // Show photographer logo in pre-event states
   countdownEl.classList.remove('hidden');
@@ -1178,6 +1181,14 @@ function showCountdownState(mode) {
 
   const { date, title, subtitle } = config[mode] || config.WAITING;
 
+  // Eyebrow above the title: "Upcoming Event" only makes sense before the event.
+  const eyebrowEl = document.getElementById('event-eyebrow');
+  if (eyebrowEl) {
+    eyebrowEl.textContent = mode === 'WAITING'
+      ? (eventData.is_test ? 'Test Stream' : 'Upcoming Event')
+      : 'Past Event';
+  }
+
   // Replace the entire timer block — no more timer grid or "Event starts in" heading
   const timerBlock = countdownEl.querySelector('.countdown-timer');
   if (timerBlock) {
@@ -1249,10 +1260,8 @@ function showError(message = 'Event not found') {
   
   // Show error
   const errorEl = document.getElementById('error');
-  const errorMessage = errorEl.querySelector('p');
-  if (errorMessage) {
-    errorMessage.textContent = message;
-  }
+  // The static markup already has the eyebrow, headline and message. The old code wrote
+  // the message into the first <p>, which is the "MomentCast" eyebrow, so leave it alone.
   errorEl.classList.remove('hidden');
 }
 
