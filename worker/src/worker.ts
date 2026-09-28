@@ -31,64 +31,38 @@ function generateQrDataUrl(url: string): string {
 /**
  * Utility: Generate URL-safe slug from title
  */
+// Articles, conjunctions, and prepositions (English + Spanish) dropped from slugs.
+// ASCII only: the comparison runs after accent stripping.
+const SLUG_STOPWORDS = new Set([
+  'a', 'an', 'the', 'and', 'or', 'of', 'at', 'in', 'on', 'for', 'to', 'with',
+  'el', 'la', 'los', 'las', 'un', 'una', 'y', 'de', 'del', 'en', 'con', 'para',
+]);
+
 function generateSlug(title: string): string {
-  return title
+  const full = title
     .toLowerCase()
     .trim()
     .normalize('NFD').replace(/[\u0300-\u036f]/g, '') // Remove accents (for Spanish characters)
     .replace(/[^a-z0-9]+/g, '-')
-    .replace(/^-+|-+$/g, '')
-    .replace(/--+/g, '-')
-    .substring(0, 50);
+    .replace(/^-+|-+$/g, '');
+
+  // Drop stopwords so the 50-char budget goes to meaningful words.
+  const filtered = full.split('-').filter((w) => !SLUG_STOPWORDS.has(w)).join('-');
+
+  // Title was nothing but stopwords ("The", "Y"): keep the unfiltered slug.
+  // Truncate last, then strip any trailing hyphen the cut leaves behind.
+  return (filtered || full).substring(0, 50).replace(/-+$/, '');
 }
 
 /**
- * Utility: Get unique slug with time-window collision detection
- * Checks for conflicts within ±180 days of event date
- * Returns clean slug if no conflicts, minimal suffix if conflict exists
+ * Utility: 3-char suffix, consonants and digits only (no offensive words).
+ * Random, not time-derived, so concurrent requests and retries don't repeat.
+ * 19,683 combinations. Modulo bias from 256 % 27 is irrelevant at this scale.
  */
-async function getUniqueSlug(
-  title: string,
-  scheduledDate: string,
-  supabase: any
-): Promise<string> {
-  const baseSlug = generateSlug(title);
-  const eventDate = new Date(scheduledDate);
-  
-  // Define time window: ±180 days from event date
-  const windowStart = new Date(eventDate.getTime() - 180 * 24 * 60 * 60 * 1000);
-  const windowEnd = new Date(eventDate.getTime() + 180 * 24 * 60 * 60 * 1000);
-  
-  // Check for conflicts in time window
-  const { data: conflicts, error } = await supabase
-    .from('events')
-    .select('slug')
-    .eq('slug', baseSlug)
-    .gte('scheduled_date', windowStart.toISOString())
-    .lte('scheduled_date', windowEnd.toISOString());
-  
-  if (error) {
-    console.error('Slug conflict check error:', error);
-  }
-  
-  // No temporal conflicts = use clean slug
-  if (!conflicts || conflicts.length === 0) {
-    return baseSlug;
-  }
-  
-  // Conflict exists - generate family-safe 3-char suffix
-  // Uses consonants and numbers only to avoid forming offensive words
+function randomSuffix(): string {
   const safeChars = 'bdfghjkmnpqrstvwxyz23456789';
-  const timestamp = Date.now();
-  let num = timestamp % (safeChars.length ** 3); // 13,824 combinations
-  let suffix = '';
-  
-  for (let i = 0; i < 3; i++) {
-    suffix = safeChars[num % safeChars.length] + suffix;
-    num = Math.floor(num / safeChars.length);
-  }
-  
-  return `${baseSlug}-${suffix}`;
+  const bytes = crypto.getRandomValues(new Uint8Array(3));
+  return Array.from(bytes, (b) => safeChars[b % safeChars.length]).join('');
 }
 
 /**
@@ -101,6 +75,10 @@ async function getUniqueSlug(
  */
 async function resolveSlug(title: string, supabase: any): Promise<string> {
   const baseSlug = generateSlug(title);
+
+  // Titles with no [a-z0-9] characters (emoji, non-Latin scripts) slugify to ''.
+  // Skip the lookup and go straight to a suffixed fallback.
+  if (!baseSlug) return `event-${randomSuffix()}`;
 
   const { data: existing, error: lookupError } = await supabase
     .from('events')
@@ -117,15 +95,8 @@ async function resolveSlug(title: string, supabase: any): Promise<string> {
   // Slug is free
   if (!existing) return baseSlug;
 
-  // Slug is held: 3-char suffix, consonants and digits only (no offensive words)
-  const safeChars = 'bdfghjkmnpqrstvwxyz23456789';
-  let num = Date.now() % (safeChars.length ** 3); // 19,683 combinations
-  let suffix = '';
-  for (let i = 0; i < 3; i++) {
-    suffix = safeChars[num % safeChars.length] + suffix;
-    num = Math.floor(num / safeChars.length);
-  }
-  return `${baseSlug}-${suffix}`;
+  // Slug is held: add a random 3-char suffix
+  return `${baseSlug}-${randomSuffix()}`;
 }
 
 /**
@@ -293,12 +264,12 @@ async function getOrCreateTestEvent(
   // Recording must be 'automatic' — Cloudflare ties live HLS/DASH playback
   // to this same setting; 'off' means no live viewing at all, not just no
   // replay. 30-day auto-delete (Cloudflare's minimum) keeps storage bounded.
-  const cfResult = await createCloudflareStreamLiveInput('Test Your Setup', env, 'automatic');
+  const cfResult = await createCloudflareStreamLiveInput(`Setup Test - ${userId.slice(0, 8)}`, env, 'automatic');
   if (!cfResult) {
     return { event: null, error: 'Failed to create test live input' };
   }
 
-  // Deterministic, collision-proof slug — never touches getUniqueSlug()
+  // Deterministic, collision-proof slug — never touches resolveSlug()
   const slug = `test-${userId.slice(0, 8)}`;
 
   const { data: inserted, error: insertError } = await supabase
@@ -994,23 +965,17 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
         .select()
         .single();
 
-      // getUniqueSlug() only checks conflicts within a ±180-day window of
-      // scheduled_date, but the `slug` column is globally unique. A title
-      // colliding with something outside that window (e.g. an old "Test"
-      // event) passes the window check but fails here. Retry once with a
-      // forced suffix instead of surfacing a 500 to the streamer.
-      if (createError?.code === '23505' && createError?.message?.includes('events_slug_key')) {
-        console.warn('Slug collision outside getUniqueSlug window, retrying with suffix:', slug);
-        const safeChars = 'bdfghjkmnpqrstvwxyz23456789';
-        let num = Date.now() % (safeChars.length ** 3);
-        let suffix = '';
-        for (let i = 0; i < 3; i++) {
-          suffix = safeChars[num % safeChars.length] + suffix;
-          num = Math.floor(num / safeChars.length);
-        }
-        const retrySlug = `${slug}-${suffix}`;
+      // resolveSlug() checks for a held slug just before this insert, but two events created
+      // in the same instant can both see it as free, and the `slug` column is globally unique.
+      // The loser lands here. Retry up to 3 times, each with a fresh random suffix on the
+      // original slug, instead of surfacing a 500.
+      for (let attempt = 1; attempt <= 3; attempt++) {
+        if (createError?.code !== '23505' || !createError?.message?.includes('events_slug_key')) break;
+
+        const retrySlug = `${slug}-${randomSuffix()}`;
+        console.warn(`Slug collision at insert (attempt ${attempt}), retrying with:`, retrySlug);
         eventInsertPayload.slug = retrySlug;
-        // QR was generated against the original (colliding) slug — regenerate
+        // QR was generated against the colliding slug, so regenerate it
         // so the stored/shared QR points at the real watch URL, not a dead one.
         eventInsertPayload.qr_code_data_url = generateQrDataUrl(`https://go.momentcast.live/${retrySlug}`);
 

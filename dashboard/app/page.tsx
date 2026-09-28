@@ -36,6 +36,53 @@ interface CreditTransaction {
   events?: { title: string; slug: string; original_slug: string | null } | null;
 }
 
+interface LoadError {
+  step: 'auth' | 'user' | 'events' | 'unknown';
+  kind: 'network' | 'server';
+  message: string;
+  code?: string;
+  status?: number;
+  userId?: string;
+  at: string;
+}
+
+function isNetworkError(e: any): boolean {
+  const msg = String(e?.message ?? e ?? '');
+  return (
+    e?.name === 'AuthRetryableFetchError' ||
+    /failed to fetch|networkerror|load failed|network request failed/i.test(msg) ||
+    (typeof navigator !== 'undefined' && navigator.onLine === false)
+  );
+}
+
+function buildLoadError(step: LoadError['step'], e: any, userId?: string): LoadError {
+  return {
+    step,
+    kind: isNetworkError(e) ? 'network' : 'server',
+    message: String(e?.message ?? e ?? 'Unknown error'),
+    code: e?.code,
+    status: e?.status,
+    userId,
+    at: new Date().toISOString(),
+  };
+}
+
+// No tokens, no email. Safe to paste into a support email.
+function formatDebugInfo(e: LoadError): string {
+  return [
+    'MomentCast dashboard error',
+    `Time: ${e.at}`,
+    `Step: ${e.step}`,
+    `Kind: ${e.kind}`,
+    `Message: ${e.message}`,
+    e.code && `Code: ${e.code}`,
+    e.status && `Status: ${e.status}`,
+    e.userId && `User: ${e.userId}`,
+    `Online: ${navigator.onLine}`,
+    `UA: ${navigator.userAgent}`,
+  ].filter(Boolean).join('\n');
+}
+
 export default function DashboardHome() {
   const router = useRouter();
   const [supabase] = useState(() => createClient());
@@ -47,7 +94,9 @@ export default function DashboardHome() {
   const [loadingMoreEnded, setLoadingMoreEnded] = useState(false);
   const [hasMoreEnded, setHasMoreEnded] = useState(true);
   const [endedPage, setEndedPage] = useState(0);
-  const [error, setError] = useState<string | null>(null);
+  const [loadError, setLoadError] = useState<LoadError | null>(null);
+  const [reloadKey, setReloadKey] = useState(0);
+  const [copied, setCopied] = useState(false);
 
   // Logo upload state
   const [logoUploading, setLogoUploading] = useState(false);
@@ -79,14 +128,25 @@ export default function DashboardHome() {
     async function loadDashboard() {
       console.log('🚀 Dashboard v2.0 - Loading with optimized queries');
       
+      let step: LoadError['step'] = 'auth';
+      let uid: string | undefined;
+
       try {
         const { data: { user: authUser }, error: authError } = await supabase.auth.getUser();
         
+        if (authError && isNetworkError(authError)) {
+          setLoadError(buildLoadError('auth', authError));
+          setLoading(false);
+          return;
+        }
+
         if (authError || !authUser) {
           window.location.href = '/login';
           return;
         }
 
+        uid = authUser.id;
+        step = 'user';
         // Fetch user data
         const { data: userData, error: userError } = await supabase
           .from('users')
@@ -96,7 +156,7 @@ export default function DashboardHome() {
 
         if (userError) {
           console.error('User fetch error:', userError);
-          setError('Failed to load user data');
+          setLoadError(buildLoadError('user', userError, uid));
           setLoading(false);
           return;
         }
@@ -105,6 +165,7 @@ export default function DashboardHome() {
         console.log('✅ User loaded:', userData.email);
 
         // Fetch ALL upcoming/active events (no limit needed)
+        step = 'events';
         console.log('📊 Fetching active events...');
         const startTime = performance.now();
         
@@ -121,7 +182,7 @@ export default function DashboardHome() {
 
         if (activeError) {
           console.error('Events fetch error:', activeError);
-          setError('Failed to load events');
+          setLoadError(buildLoadError('events', activeError, uid));
           setLoading(false);
           return;
         }
@@ -167,13 +228,20 @@ export default function DashboardHome() {
 
       } catch (err) {
         console.error('Dashboard load error:', err);
-        setError('Failed to load dashboard');
+        setLoadError(buildLoadError(step, err, uid));
         setLoading(false);
       }
     }
 
     loadDashboard();
-  }, [supabase, router]);
+  }, [supabase, router, reloadKey]);
+
+  function handleRetry() {
+    setLoadError(null);
+    setCopied(false);
+    setLoading(true);
+    setReloadKey((k) => k + 1);
+  }
 
   async function loadEndedEvents(userId?: string) {
     if (loadingMoreEnded || !hasMoreEnded) return;
@@ -378,9 +446,7 @@ export default function DashboardHome() {
   /**
    * Purchase credits via Stripe Checkout.
    * Creates a Checkout Session on the Worker, then redirects to Stripe.
-   * Falls back to direct Supabase write in test mode (toggle below).
    */
-  const TEST_MODE = false; // Set true to bypass Stripe and add credits directly
 
   async function handlePurchase(tierId: string) {
     if (!user) return;
@@ -392,33 +458,7 @@ export default function DashboardHome() {
     setPurchaseMessage(null);
 
     try {
-      if (TEST_MODE) {
-        // --- TEST MODE: add credits directly (no Stripe) ---
-        const { data: { user: authUser } } = await supabase.auth.getUser();
-        if (!authUser) throw new Error('Not authenticated');
-
-        const newBalance = user.credits + tier.credits;
-        const { error: updateError } = await supabase
-          .from('users')
-          .update({ credits: newBalance })
-          .eq('id', authUser.id);
-
-        if (updateError) throw new Error(updateError.message);
-
-        await supabase.from('credit_transactions').insert({
-          user_id: authUser.id,
-          amount: tier.credits,
-          type: 'purchase',
-          event_id: null,
-        });
-
-        setUser({ ...user, credits: newBalance });
-        setPurchaseMessage(`Added ${tier.credits} credit${tier.credits > 1 ? 's' : ''}! New balance: ${newBalance}`);
-        setSelectedTier(null);
-        if (showCreditHistory) loadCreditHistory();
-        console.log(`✅ Test purchase: +${tier.credits} credits, balance now ${newBalance}`);
-      } else {
-        // --- PRODUCTION: Stripe Checkout ---
+        // --- Stripe Checkout ---
         const { data: { session } } = await supabase.auth.getSession();
         if (!session?.access_token) throw new Error('Not authenticated');
 
@@ -440,46 +480,11 @@ export default function DashboardHome() {
         // Redirect to Stripe Checkout
         window.location.href = data.url;
         return; // Don't reset purchasing state — we're navigating away
-      }
     } catch (err: any) {
       console.error('Purchase error:', err);
       setPurchaseMessage(`Error: ${err.message}`);
     } finally {
       setPurchasing(false);
-    }
-  }
-
-  /**
-   * Test-mode credit removal: for testing the deduction flow.
-   * Removes 1 credit from balance. Will be removed in Phase 2.
-   */
-  async function handleTestRemoveCredit() {
-    if (!user || user.credits < 1) return;
-
-    try {
-      const { data: { user: authUser } } = await supabase.auth.getUser();
-      if (!authUser) return;
-
-      const newBalance = user.credits - 1;
-      await supabase
-        .from('users')
-        .update({ credits: newBalance })
-        .eq('id', authUser.id);
-
-      await supabase
-        .from('credit_transactions')
-        .insert({
-          user_id: authUser.id,
-          amount: -1,
-          type: 'test_deduction',
-          event_id: null,
-        });
-
-      setUser({ ...user, credits: newBalance });
-      if (showCreditHistory) loadCreditHistory();
-      console.log(`✅ Test deduction: -1 credit, balance now ${newBalance}`);
-    } catch (err) {
-      console.error('Test deduction error:', err);
     }
   }
 
@@ -496,19 +501,49 @@ export default function DashboardHome() {
     );
   }
 
-  if (error && !user) {
+  if (loadError && !user) {
+    const isNetwork = loadError.kind === 'network';
+    const debugText = formatDebugInfo(loadError);
     return (
-      <div className="min-h-screen bg-[var(--mc-bg)] text-[var(--mc-text-1)] flex items-center justify-center">
-        <div className="max-w-md text-center">
+      <div className="min-h-screen bg-[var(--mc-bg)] text-[var(--mc-text-1)] flex items-center justify-center p-6">
+        <div className="max-w-md w-full text-center">
           <div className="bg-[var(--mc-live-bg)] text-[var(--mc-live)] p-6 rounded-lg mb-4 border border-red-200">
-            {error}
+            <p className="font-semibold">
+              {isNetwork ? "Can't reach the server" : 'Failed to load dashboard'}
+            </p>
+            <p className="text-sm mt-2">
+              {isNetwork
+                ? 'Check your connection or VPN, then retry. Your session is still active.'
+                : 'Retry in a moment. If it keeps happening, copy the details below and send them to support.'}
+            </p>
           </div>
-          <button
-            onClick={() => router.push('/login')}
-            className="px-6 py-3 bg-[var(--mc-gold)] hover:bg-[var(--mc-gold-hover)] text-white rounded-lg font-medium transition-colors"
-          >
-            Back to Login
-          </button>
+
+          <pre className="text-left text-xs font-mono bg-[var(--mc-surface)] border border-[var(--mc-border)] rounded-lg p-3 mb-4 overflow-x-auto whitespace-pre-wrap">
+            {debugText}
+          </pre>
+
+          <div className="flex flex-wrap gap-3 justify-center">
+            <button
+              onClick={handleRetry}
+              className="px-6 py-3 bg-[var(--mc-gold)] hover:bg-[var(--mc-gold-hover)] text-white rounded-lg font-medium transition-colors"
+            >
+              Retry
+            </button>
+            <button
+              onClick={() => navigator.clipboard.writeText(debugText).then(() => setCopied(true))}
+              className="px-6 py-3 border border-[var(--mc-border)] rounded-lg font-medium"
+            >
+              {copied ? 'Copied' : 'Copy details'}
+            </button>
+            {!isNetwork && (
+              <button
+                onClick={() => router.push('/login')}
+                className="px-6 py-3 border border-[var(--mc-border)] rounded-lg font-medium"
+              >
+                Back to Login
+              </button>
+            )}
+          </div>
         </div>
       </div>
     );
@@ -565,22 +600,6 @@ export default function DashboardHome() {
           {/* Buy Credits Panel (expandable) */}
           {showBuyCredits && (
             <div className="mt-6 pt-6 border-t border-[var(--mc-border)]">
-              {/* TEST MODE banner — only visible when TEST_MODE = true */}
-              {TEST_MODE && (
-              <div className="bg-[var(--mc-warning-bg)] border border-yellow-300 rounded-lg px-4 py-2.5 mb-5 flex items-center justify-between">
-                <span className="text-[var(--mc-warning)] text-sm font-medium">
-                  🧪 Test Mode — credits are added directly (no payment). Set TEST_MODE = false for Stripe.
-                </span>
-                <button
-                  onClick={handleTestRemoveCredit}
-                  disabled={!user || user.credits < 1}
-                  className="text-xs px-3 py-1 bg-white border border-yellow-300 rounded text-[var(--mc-warning)] hover:bg-yellow-50 disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
-                >
-                  Remove 1 Credit (test)
-                </button>
-              </div>
-              )}
-
               {/* Tier Cards */}
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
                 {CREDIT_TIERS.map((tier) => {

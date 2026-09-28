@@ -19,6 +19,60 @@ export default function LoginPage() {
   )
 }
 
+function isNetworkError(e: any): boolean {
+  const msg = String(e?.message ?? e ?? '')
+  return (
+    e?.name === 'AuthRetryableFetchError' ||
+    /failed to fetch|networkerror|load failed|network request failed/i.test(msg) ||
+    (typeof navigator !== 'undefined' && navigator.onLine === false)
+  )
+}
+
+// Never includes email or tokens. Safe to paste into a support email.
+function describeAuthError(step: string, e: any, fallback: string): { message: string; details: string } {
+  const network = isNetworkError(e)
+  const raw = String(e?.message ?? e ?? 'Unknown error')
+  const details = [
+    'MomentCast login error',
+    `Time: ${new Date().toISOString()}`,
+    `Step: ${step}`,
+    `Kind: ${network ? 'network' : 'auth'}`,
+    `Message: ${raw}`,
+    e?.code && `Code: ${e.code}`,
+    e?.status && `Status: ${e.status}`,
+    `Online: ${navigator.onLine}`,
+    `UA: ${navigator.userAgent}`,
+  ].filter(Boolean).join('\n')
+
+  return {
+    message: network
+      ? "Can't reach the server. Check your connection or VPN and try again."
+      : (e instanceof Error ? e.message : fallback),
+    details,
+  }
+}
+
+function ErrorBox({ error, details }: { error: string | null; details: string | null }) {
+  const [copied, setCopied] = useState(false)
+  if (!error) return null
+  return (
+    <div className="bg-[var(--mc-live-bg)] text-[var(--mc-live)] p-4 rounded-lg text-sm border border-red-200">
+      <p>{error}</p>
+      {details && (
+        <button
+          type="button"
+          onClick={() => {
+            navigator.clipboard.writeText(details).then(() => setCopied(true))
+          }}
+          className="mt-2 underline text-xs"
+        >
+          {copied ? 'Copied' : 'Copy details for support'}
+        </button>
+      )}
+    </div>
+  )
+}
+
 function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
@@ -30,6 +84,7 @@ function LoginForm() {
   const [password, setPassword] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [errorDetails, setErrorDetails] = useState<string | null>(null)
 
   // Pick up error from auth callback redirect (?error=auth_failed)
   useEffect(() => {
@@ -41,6 +96,7 @@ function LoginForm() {
   // Clear error when switching views
   function switchView(newView: View) {
     setError(null)
+    setErrorDetails(null)
     setView(newView)
   }
 
@@ -59,7 +115,9 @@ function LoginForm() {
       window.location.href = '/'
     } catch (err) {
       console.error('Login error:', err)
-      setError(err instanceof Error ? err.message : 'Failed to sign in')
+      const d = describeAuthError('sign_in', err, 'Failed to sign in')
+      setError(d.message)
+      setErrorDetails(d.details)
       setLoading(false)
     }
   }
@@ -84,7 +142,9 @@ function LoginForm() {
       setView('check_email')
     } catch (err) {
       console.error('Signup error:', err)
-      setError(err instanceof Error ? err.message : 'Failed to sign up')
+      const d = describeAuthError('sign_up', err, 'Failed to sign up')
+      setError(d.message)
+      setErrorDetails(d.details)
     } finally {
       setLoading(false)
     }
@@ -104,7 +164,9 @@ function LoginForm() {
       setView('reset_sent')
     } catch (err) {
       console.error('Password reset error:', err)
-      setError(err instanceof Error ? err.message : 'Failed to send reset email')
+      const d = describeAuthError('password_reset', err, 'Failed to send reset email')
+      setError(d.message)
+      setErrorDetails(d.details)
     } finally {
       setLoading(false)
     }
@@ -127,7 +189,9 @@ function LoginForm() {
       if (error) throw error
     } catch (err) {
       console.error('Google sign-in error:', err)
-      setError(err instanceof Error ? err.message : 'Failed to sign in with Google')
+      const d = describeAuthError('google_oauth', err, 'Failed to sign in with Google')
+      setError(d.message)
+      setErrorDetails(d.details)
       setLoading(false)
     }
   }
@@ -187,11 +251,7 @@ function LoginForm() {
             />
           </div>
 
-          {error && (
-            <div className="bg-[var(--mc-live-bg)] text-[var(--mc-live)] p-4 rounded-lg text-sm border border-red-200">
-              {error}
-            </div>
-          )}
+          <ErrorBox error={error} details={errorDetails} />
 
           <button
             type="submit"
@@ -296,11 +356,7 @@ function LoginForm() {
           </div>
         )}
 
-        {error && (
-          <div className="bg-[var(--mc-live-bg)] text-[var(--mc-live)] p-4 rounded-lg text-sm border border-red-200">
-            {error}
-          </div>
-        )}
+        <ErrorBox error={error} details={errorDetails} />
 
         <button
           type="submit"
