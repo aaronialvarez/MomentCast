@@ -341,6 +341,11 @@ export default function CreateEventPage() {
             <p className="text-xs text-[var(--mc-text-3)] text-center mt-4">
               1 credit will be deducted. Fully refundable if you cancel before streaming starts.
             </p>
+
+            {/* Retention notice: Cloudflare deletes recordings 30 days after they are created */}
+            <p className="text-xs text-[var(--mc-text-3)] text-center mt-2">
+              Recordings are kept for 30 days after your event, then permanently deleted. Download your MP4s from the event page before then.
+            </p>
           </form>
         )}
       </div>
