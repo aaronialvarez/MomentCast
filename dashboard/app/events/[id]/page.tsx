@@ -21,6 +21,21 @@ interface Event {
   stream_started_manually_at?: string;
   can_be_rescheduled: boolean;
   timezone?: string;
+  viewer_hours_consumed?: number | string | null;
+  // Set once the slug is released (90 days after the event, or at cancel time).
+  // The live slug column then holds a released_<id> placeholder.
+  slug_released_at?: string | null;
+  original_slug?: string | null;
+}
+
+// Cloudflare deletes recordings 30 days after they are created (deleteRecordingAfterDays: 30).
+const RECORDING_RETENTION_DAYS = 30;
+
+// Event age in days, using the same reference date as the worker:
+// stream start if the event streamed, otherwise the scheduled date.
+function eventAgeDays(e: { stream_started_manually_at?: string; scheduled_date: string }): number {
+  const ref = e.stream_started_manually_at || e.scheduled_date;
+  return (Date.now() - new Date(ref).getTime()) / (24 * 60 * 60 * 1000);
 }
 
 /**
@@ -938,6 +953,16 @@ export default function EventDetailPage() {
     );
   }
 
+  // Lifecycle: recordings expire 30 days after the event; the slug is released at 90 days
+  // (or immediately on cancel). Plain consts, no hooks, so this is safe after the early returns.
+  const recordingsExpired = eventAgeDays(event) > RECORDING_RETENTION_DAYS;
+  const recordingsExpireOn = new Date(
+    new Date(event.stream_started_manually_at || event.scheduled_date).getTime() +
+      RECORDING_RETENTION_DAYS * 24 * 60 * 60 * 1000
+  );
+  const formatDay = (d: Date) =>
+    d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
+
   return (
     <div className="min-h-screen bg-[var(--mc-bg)] text-[var(--mc-text-1)]">
       {/* Header */}
@@ -1020,12 +1045,12 @@ export default function EventDetailPage() {
             className={`inline-block px-4 py-2 rounded-full text-sm font-medium border ${
               event.status === 'live'
                 ? 'bg-[var(--mc-live-bg)] text-[var(--mc-live)] border-red-200'
-                : event.status === 'ended'
+                : event.status === 'ended' || (event.slug_released_at && event.status !== 'cancelled')
                 ? 'bg-[var(--mc-surface-2)] text-[var(--mc-text-3)] border-[var(--mc-border)]'
                 : 'bg-[var(--mc-info-bg)] text-[var(--mc-info)] border-blue-200'
             }`}
           >
-            {event.status.toUpperCase()}
+            {event.slug_released_at && event.status !== 'cancelled' ? 'EXPIRED' : event.status.toUpperCase()}
           </span>
         </div>
 
@@ -1138,7 +1163,8 @@ export default function EventDetailPage() {
           </div>
         )}
 
-        {/* Watch URL */}
+        {/* Watch URL: hidden once the slug is released, because it no longer resolves to this event */}
+        {!event.slug_released_at && (
         <div className="bg-[var(--mc-surface)] rounded-lg p-6 mb-6 border border-[var(--mc-border)]">
           <h2 className="text-xl font-semibold mb-4">Watch Page URL</h2>
           <div className="flex gap-2">
@@ -1159,6 +1185,7 @@ export default function EventDetailPage() {
             Share this URL with your guests to watch the live stream
           </p>
         </div>
+        )}
 
         {/* Streaming Details */}
         {event.status === 'cancelled' ? (
@@ -1199,13 +1226,17 @@ export default function EventDetailPage() {
                 }
               </p>
               <p className="text-[var(--mc-text-1)] font-medium mb-4">
-                Recordings are available at the watch page
+                {event.slug_released_at
+                  ? "This event's watch page has been released"
+                  : recordingsExpired
+                  ? `Recordings expired on ${formatDay(recordingsExpireOn)}`
+                  : `Recordings are available at the watch page until ${formatDay(recordingsExpireOn)}, then permanently deleted`}
               </p>
               <a 
                 href={`https://go.momentcast.live/${event.slug}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="inline-block px-6 py-3 bg-[var(--mc-gold)] hover:bg-[var(--mc-gold-hover)] text-white rounded-lg font-medium transition-colors"
+                className={`inline-block px-6 py-3 bg-[var(--mc-gold)] hover:bg-[var(--mc-gold-hover)] text-white rounded-lg font-medium transition-colors ${recordingsExpired ? 'hidden' : ''}`}
               >
                 Watch Replay →
               </a>
@@ -1549,7 +1580,12 @@ export default function EventDetailPage() {
             </div>
             <div>
               <p className="text-[var(--mc-text-2)] text-sm">Slug</p>
-              <p className="font-mono text-sm">{event.slug}</p>
+              <p className="font-mono text-sm">
+                {event.original_slug || event.slug}
+                {event.slug_released_at && (
+                  <span className="ml-2 font-sans text-xs text-[var(--mc-text-3)]">(released)</span>
+                )}
+              </p>
             </div>
           </div>
 
