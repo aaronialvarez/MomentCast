@@ -257,6 +257,16 @@ export default function EventDetailPage() {
     async function fetchAnalytics() {
       if (!event || !event.slug) return;
 
+      // Released events: the slug no longer resolves on the worker, so read the banked
+      // total from the event row instead of calling /analytics.
+      if (event.slug_released_at) {
+        setAnalytics({
+          viewerHoursUsed: Number(event.viewer_hours_consumed) || 0,
+          viewerHoursLimit: toHours(event.viewer_hour_limit),
+        });
+        return;
+      }
+
       try {
         const { data: { session } } = await supabase.auth.getSession();
         if (!session) return;
@@ -897,6 +907,9 @@ export default function EventDetailPage() {
     if (!event) return;
     if (!event.stream_credentials_revealed) return;
     if (event.status === 'cancelled') return;
+    // Recordings are deleted 30 days after the event, and a released slug no longer
+    // resolves on the worker, so skip the downloads calls entirely.
+    if (event.slug_released_at || eventAgeDays(event) > RECORDING_RETENTION_DAYS) return;
     setLoadingDownloads(true);
     fetchDownloadStatus()
       .then((recs) => {
@@ -1007,7 +1020,7 @@ export default function EventDetailPage() {
             <div className="flex items-center gap-3">
               <h1 className="text-3xl font-bold text-white">{event.title}</h1>
               {/* Edit button — only show before streaming has started */}
-              {!event.stream_credentials_revealed && event.status !== 'ended' && (
+              {!event.stream_credentials_revealed && event.status !== 'ended' && event.status !== 'cancelled' && !event.slug_released_at && (
                 <button
                   onClick={() => { setEditedTitle(event.title); setEditingTitle(true); setTitleError(null); }}
                   className="p-1.5 bg-white/10 hover:bg-white/20 rounded-lg transition-colors text-white"
@@ -1085,7 +1098,7 @@ export default function EventDetailPage() {
         )}
 
         {/* Cover Photo - hidden for cancelled events */}
-        {event.status !== 'cancelled' && (
+        {event.status !== 'cancelled' && !event.slug_released_at && (
           <div className="bg-[var(--mc-surface)] rounded-lg p-6 mb-6 border border-[var(--mc-border)]">
             <h2 className="text-xl font-semibold mb-2">Cover Photo</h2>
             <p className="text-[var(--mc-text-2)] text-sm mb-4">
@@ -1388,6 +1401,17 @@ export default function EventDetailPage() {
               MP4 files of your event recordings, for archiving or editing. Only you can see these.
             </p>
 
+            {/* Retention notice: before day 30 warn, after day 30 explain */}
+            {recordingsExpired ? (
+              <div className="bg-[var(--mc-surface-2)] rounded-lg p-4 text-sm text-[var(--mc-text-2)]">
+                Recordings expired on {formatDay(recordingsExpireOn)}. MomentCast keeps recordings for {RECORDING_RETENTION_DAYS} days after the event, then permanently deletes them.
+              </div>
+            ) : (
+              <p className="text-[var(--mc-text-3)] text-xs mb-4">
+                Recordings are permanently deleted on or about {formatDay(recordingsExpireOn)}. Download what you want to keep before then.
+              </p>
+            )}
+
             {downloadError && (
               <div className="bg-[var(--mc-live-bg)] text-[var(--mc-live)] p-3 rounded-lg mb-4 text-sm border border-red-200">
                 {downloadError}
@@ -1595,7 +1619,9 @@ export default function EventDetailPage() {
               <p className="text-[var(--mc-text-2)] text-sm font-medium">Viewing Hours</p>
               {analytics && (
                 <p className="text-sm text-[var(--mc-text-3)]">
-                  {(analytics.viewerHoursLimit - analytics.viewerHoursUsed).toFixed(1)} hours remaining
+                  {event.slug_released_at
+                    ? 'Final total'
+                    : `${(analytics.viewerHoursLimit - analytics.viewerHoursUsed).toFixed(1)} hours remaining`}
                 </p>
               )}
             </div>
@@ -1627,7 +1653,7 @@ export default function EventDetailPage() {
                 </p>
 
                 {/* Warning at 80%+ usage */}
-                {analytics.viewerHoursUsed / analytics.viewerHoursLimit >= 0.8 && (
+                {!event.slug_released_at && analytics.viewerHoursUsed / analytics.viewerHoursLimit >= 0.8 && (
                   <p className={`mt-1 text-xs font-medium ${
                     analytics.viewerHoursUsed / analytics.viewerHoursLimit >= 0.9
                       ? 'text-[var(--mc-live)]'
@@ -1646,7 +1672,7 @@ export default function EventDetailPage() {
             )}
 
             {/* Add More Hours / Buy Credits button — only for non-ended/cancelled events */}
-            {event.status !== 'ended' && event.status !== 'cancelled' && (
+            {event.status !== 'ended' && event.status !== 'cancelled' && !event.slug_released_at && (
               <div className="mt-4">
                 {userCredits !== null && userCredits < 1 ? (
                   /* No credits: show buy button */
