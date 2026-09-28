@@ -345,7 +345,7 @@ export default function TestSetupPage() {
           <div className="bg-[var(--mc-surface)] rounded-lg p-8 border border-[var(--mc-border)]">
             <p className="text-[var(--mc-text-2)] mb-6">
               Check your camera, audio, and streaming setup before a real event, no credit used.
-              Works with any software that streams over RTMPS, OBS, Streamlabs, or similar.
+              Works with any encoder that streams H.264/AAC over RTMPS.
               Sessions run up to 15 minutes once connected and auto-stop, nothing is saved,
               this is a gear check, not a recording.{' '}
               {typeof testEvent?.sessionsRemainingToday === 'number' ? (

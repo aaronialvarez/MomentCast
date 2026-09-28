@@ -27,8 +27,9 @@ interface CreditTransaction {
   type: string;
   event_id: string | null;
   created_at: string;
-  // Joined from events table
-  events?: { title: string; slug: string } | null;
+  // Joined from events table. original_slug is set once an event's slug has been
+  // released (the live slug column then holds a released_<id> placeholder).
+  events?: { title: string; slug: string; original_slug: string | null } | null;
 }
 
 export default function DashboardHome() {
@@ -220,7 +221,7 @@ export default function DashboardHome() {
 
       const { data, error } = await supabase
         .from('credit_transactions')
-        .select('id, amount, type, event_id, created_at, stripe_session_id, events(title, slug)')
+        .select('id, amount, type, event_id, created_at, stripe_session_id, events(title, slug, original_slug)')
         .eq('user_id', authUser.id)
         .order('created_at', { ascending: false })
         .limit(50);
@@ -724,7 +725,7 @@ export default function DashboardHome() {
                         <td className="px-4 py-3 text-right font-mono text-xs text-[var(--mc-text-3)]">
                           {(tx as any).stripe_session_id
                             ? (tx as any).stripe_session_id.slice(-8).toUpperCase()
-                            : tx.events?.slug || '—'}
+                            : tx.events?.original_slug || tx.events?.slug || '—'}
                         </td>
                       </tr>
                     ))}

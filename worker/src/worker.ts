@@ -2,6 +2,12 @@ import { createClient } from '@supabase/supabase-js';
 import type { WorkerEnv, Event, User, CreateEventRequest, CreateEventResponse } from './types';
 import QRCode from 'qrcode-svg';
 
+// Days after an event's start before its URL slug is released for reuse.
+// Must stay >= 32: Cloudflare deletes recordings ~30-31 days after creation, and
+// releasing sooner could hand the slug to a stranger while the old replay still plays.
+// The SQL function release_expired_slugs() enforces the same floor.
+const SLUG_COOLDOWN_DAYS = 90;
+
 /**
  * Utility: Generate QR code as a base64 SVG data URL.
  * Uses qrcode-svg (pure JS, no Canvas/DOM — safe for Cloudflare Workers).
@@ -82,6 +88,43 @@ async function getUniqueSlug(
     num = Math.floor(num / safeChars.length);
   }
   
+  return `${baseSlug}-${suffix}`;
+}
+
+/**
+ * Utility: Resolve the URL slug for a new event.
+ * The slug column is globally unique, so a slug that exists is a slug that is held.
+ * Slugs free up when release_expired_slugs() tombstones them after SLUG_COOLDOWN_DAYS,
+ * regardless of owner, or immediately when an event is cancelled.
+ *  - Slug free: use the clean slug.
+ *  - Slug held: add a 3-char family-safe suffix (consonants and digits only).
+ */
+async function resolveSlug(title: string, supabase: any): Promise<string> {
+  const baseSlug = generateSlug(title);
+
+  const { data: existing, error: lookupError } = await supabase
+    .from('events')
+    .select('id')
+    .eq('slug', baseSlug)
+    .maybeSingle();
+
+  if (lookupError) {
+    // Fall through to the clean slug. If it is actually taken, the insert hits
+    // events_slug_key and the existing retry block in POST /api/events adds a suffix.
+    console.error('resolveSlug lookup error:', lookupError);
+  }
+
+  // Slug is free
+  if (!existing) return baseSlug;
+
+  // Slug is held: 3-char suffix, consonants and digits only (no offensive words)
+  const safeChars = 'bdfghjkmnpqrstvwxyz23456789';
+  let num = Date.now() % (safeChars.length ** 3); // 19,683 combinations
+  let suffix = '';
+  for (let i = 0; i < 3; i++) {
+    suffix = safeChars[num % safeChars.length] + suffix;
+    num = Math.floor(num / safeChars.length);
+  }
   return `${baseSlug}-${suffix}`;
 }
 
@@ -315,10 +358,11 @@ function incrementDailyTestSessionCount(
  * then writes the totals (as hours, 1 decimal) back to each event row.
  */
 async function syncViewerHours(env: WorkerEnv, supabase: any): Promise<void> {
-  // Fetch events that could have viewable recordings
-  const { data: events, error } = await supabase
+  // Fetch events that could have viewable recordings.
+  // stream_started_manually_at / scheduled_date feed the age filter below.
+  const { data: fetched, error } = await supabase
     .from('events')
-    .select('id, slug, recordings, viewer_hours_consumed')
+    .select('id, slug, recordings, viewer_hours_consumed, stream_started_manually_at, scheduled_date')
     .in('status', ['live', 'ready', 'ended'])
     .not('recordings', 'is', null);
 
@@ -327,8 +371,18 @@ async function syncViewerHours(env: WorkerEnv, supabase: any): Promise<void> {
     return;
   }
 
-  if (!events || events.length === 0) {
-    console.log('syncViewerHours: no events with recordings found');
+  // Recordings are deleted from Cloudflare ~30 days after creation, so nothing
+  // accrues past that point. Skipping older events keeps the GraphQL query small
+  // and stops us touching rows whose data has aged out.
+  const SYNC_MAX_AGE_DAYS = 32;
+  const cutoffMs = Date.now() - SYNC_MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
+  const events = (fetched || []).filter((e: any) => {
+    const ref = e.stream_started_manually_at || e.scheduled_date;
+    return ref && new Date(ref).getTime() >= cutoffMs;
+  });
+
+  if (events.length === 0) {
+    console.log('syncViewerHours: no events in sync window');
     return;
   }
 
@@ -400,7 +454,14 @@ async function syncViewerHours(env: WorkerEnv, supabase: any): Promise<void> {
     });
 
     const data = await response.json() as any;
-    const groups = data.data?.viewer?.accounts?.[0]?.streamMinutesViewedAdaptiveGroups;
+
+    // Abort on any API failure. Without this, an error response yields zero
+    // minutes for every event and the write-back below wipes real data.
+    if (!response.ok || data.errors?.length || !data.data?.viewer?.accounts?.[0]) {
+      console.error('syncViewerHours: GraphQL failure, aborting run without writing:', response.status, JSON.stringify(data.errors));
+      return;
+    }
+    const groups = data.data.viewer.accounts[0].streamMinutesViewedAdaptiveGroups;
 
     if (groups && groups.length > 0) {
       for (const group of groups) {
@@ -413,14 +474,17 @@ async function syncViewerHours(env: WorkerEnv, supabase: any): Promise<void> {
       }
     }
 
-    // Write back to each event (only if value actually changed)
+    // Write back to each event (only if the value increased)
     let updatedCount = 0;
     for (const event of events) {
       const totalMinutes = eventMinutes.get(event.id) || 0;
       const hours = Math.round((totalMinutes / 60) * 10) / 10;
       const currentHours = event.viewer_hours_consumed || 0;
 
-      if (hours !== currentHours) {
+      // Monotonic: only ever raise the stored value. The 31-day GraphQL window
+      // slides forward, so a lower computed number means views aged out of the
+      // window, not that they were undone. Historic hours must never decrease.
+      if (hours > currentHours) {
         const { error: updateError } = await supabase
           .from('events')
           .update({ viewer_hours_consumed: hours })
@@ -882,8 +946,8 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
         );
       }
 
-      // Generate unique slug with time-window collision detection
-      const slug = await getUniqueSlug(body.title, scheduledDateUtc, supabase);
+      // Resolve slug: clean if free, 3-char suffix if held (see resolveSlug)
+      const slug = await resolveSlug(body.title, supabase);
 
       // Generate QR code for the watch page URL (once, stored forever)
       const watchUrl = `https://go.momentcast.live/${slug}`;
@@ -1668,13 +1732,20 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
         }
       }
 
-      // 2. Update event status to cancelled
+      // 2. Update event status to cancelled and release the slug immediately.
+      // A cancelled event never streamed (credentials were never revealed), so no
+      // replay exists and there is nothing for the 90-day cooldown to protect.
+      // Same tombstone format as release_expired_slugs(); the daily cleanup pass
+      // deletes the cover file using original_slug.
       const { error: updateError } = await supabase
         .from('events')
         .update({
           status: 'cancelled',
           stream_state: 'inactive',
           live_input_id: null,  // Clear since we deleted it
+          original_slug: event.slug,
+          slug: `released_${event.id}`,
+          slug_released_at: new Date().toISOString(),
           updated_at: new Date().toISOString(),
         })
         .eq('id', event.id);
@@ -2137,7 +2208,7 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
       // Get event
       const { data: event, error: getError } = await supabase
         .from('events')
-        .select('id, user_id, live_input_id, recordings, viewer_hours_consumed, viewer_hour_limit')
+        .select('id, user_id, live_input_id, recordings, viewer_hours_consumed, viewer_hour_limit, stream_started_manually_at, scheduled_date')
         .eq('slug', slug)
         .single();
 
@@ -2145,6 +2216,22 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
         return new Response(
           JSON.stringify({ error: 'Unauthorized' }),
           { status: 403, headers: corsHeaders }
+        );
+      }
+
+      // Past the sync window, Cloudflare's 31-day query can no longer see this
+      // event's views, so a live query would return 0. Serve the banked value
+      // from the database and skip the Cloudflare call entirely.
+      // Keep in sync with SYNC_MAX_AGE_DAYS in syncViewerHours().
+      const refDate = event.stream_started_manually_at || event.scheduled_date;
+      const ageDays = refDate ? (Date.now() - new Date(refDate).getTime()) / (24 * 60 * 60 * 1000) : 0;
+      if (ageDays > 32) {
+        return new Response(
+          JSON.stringify({
+            viewerHoursUsed: event.viewer_hours_consumed || 0,
+            frozen: true,
+          }),
+          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
         );
       }
 
@@ -2219,6 +2306,10 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
         
         viewerHours = Math.round((viewerMinutes / 60) * 10) / 10;
       }
+
+      // Inside the window, never report less than what the sync job has already
+      // banked. Also covers events with no recordings yet (live query = 0).
+      viewerHours = Math.max(viewerHours, event.viewer_hours_consumed || 0);
 
       const limitWarning = viewerHours >= event.viewer_hour_limit
         ? 'limit-exceeded'
@@ -2897,6 +2988,74 @@ export default {
 
     // Route based on which cron trigger fired
     if (event.cron === '0 3 * * *') {
+      // === Release slugs of events past the cooldown ===
+      // Runs first and in its own try/catch: the cleanup below returns early when it
+      // has nothing to do, and a failure here must not block that cleanup.
+      try {
+        console.log(`🔓 Releasing slugs older than ${SLUG_COOLDOWN_DAYS} days...`);
+        const { data: releasedCount, error: releaseError } = await supabase
+          .rpc('release_expired_slugs', { cooldown_days: SLUG_COOLDOWN_DAYS });
+
+        if (releaseError) {
+          console.error('Slug release failed:', releaseError);
+        } else {
+          console.log(`✅ Released ${releasedCount} slug(s)`);
+        }
+
+        // Cleanup pass for released rows: delete the Live Input, delete the cover file,
+        // then null both columns. Idempotent: a row that fails here is retried tomorrow.
+        // Capped per run to stay under the Workers subrequest limit; a larger backlog
+        // drains over several days. Raise the limit if you're on a paid Workers plan.
+        const { data: releasedRows } = await supabase
+          .from('events')
+          .select('id, user_id, original_slug, live_input_id, cover_image_url')
+          .not('slug_released_at', 'is', null)
+          .or('live_input_id.not.is.null,cover_image_url.not.is.null')
+          .limit(15);
+
+        for (const rel of releasedRows || []) {
+          const updates: Record<string, any> = {};
+
+          if (rel.live_input_id) {
+            try {
+              const delRes = await fetch(
+                `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/stream/live_inputs/${rel.live_input_id}`,
+                { method: 'DELETE', headers: { 'Authorization': `Bearer ${env.CLOUDFLARE_STREAM_API_TOKEN}` } }
+              );
+              const delJson = await delRes.json() as any;
+              // Error 10009 = already deleted, which is the outcome we want
+              if (delJson.success || delJson.errors?.[0]?.code === 10009) {
+                updates.live_input_id = null;
+              } else {
+                console.error(`Failed to delete Live Input for released event ${rel.id}:`, delJson.errors);
+              }
+            } catch (err) {
+              console.error(`Error deleting Live Input for released event ${rel.id}:`, err);
+            }
+          }
+
+          if (rel.cover_image_url && rel.original_slug) {
+            // Covers live at covers/{user_id}/{slug}; older uploads carry an extension
+            const base = `${rel.user_id}/${rel.original_slug}`;
+            const { error: rmError } = await supabase.storage.from('covers').remove([
+              base,
+              ...['jpg', 'jpeg', 'png', 'webp'].map(ext => `${base}.${ext}`),
+            ]);
+            if (rmError) {
+              console.error(`Failed to delete cover for released event ${rel.id}:`, rmError);
+            } else {
+              updates.cover_image_url = null;
+            }
+          }
+
+          if (Object.keys(updates).length > 0) {
+            await supabase.from('events').update(updates).eq('id', rel.id);
+          }
+        }
+      } catch (err) {
+        console.error('Slug release step crashed:', err);
+      }
+
       // === Daily cleanup of expired Live Inputs ===
       console.log('🧹 Running daily cleanup of expired Live Inputs...');
 
