@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
-import { getBrowserTimezone, getTimezoneOptions } from '@/lib/timezones';
+import { getBrowserTimezone, getTimezoneOptions, resolveTimezone } from '@/lib/timezones';
 
 export default function CreateEventPage() {
   const router = useRouter();
@@ -24,7 +24,7 @@ export default function CreateEventPage() {
   useEffect(() => {
     const tz = getBrowserTimezone();
     setBrowserTz(tz);
-    setTimezone(tz);
+    setTimezone(resolveTimezone(tz));
   }, []);
 
   // Minimum datetime: now (prevents past event creation)

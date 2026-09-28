@@ -3,7 +3,7 @@
 import { memo, useEffect, useRef, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
-import { getTimezoneOptions } from '@/lib/timezones';
+import { getTimezoneOptions, resolveTimezone } from '@/lib/timezones';
 export const runtime = 'edge';
 
 interface Event {
@@ -1739,7 +1739,7 @@ export default function EventDetailPage() {
             <div className="mb-4">
               <label className="block text-sm font-medium mb-2">Timezone</label>
               <select
-                value={newTimezone || event.timezone || 'America/Los_Angeles'}
+                value={resolveTimezone(newTimezone || event.timezone || 'America/Los_Angeles')}
                 onChange={(e) => setNewTimezone(e.target.value)}
                 className="w-full px-4 py-2 bg-[var(--mc-surface-2)] border border-[var(--mc-border)] rounded text-[var(--mc-text-1)]"
               >
