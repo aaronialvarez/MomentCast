@@ -138,6 +138,19 @@ function extractToken(authHeader: string | null): string | null {
 }
 
 /**
+ * Utility: True if the string is a timezone Intl recognizes. Intl throws a RangeError for
+ * anything else, which would otherwise surface as a 500 from localDateTimeToUTC.
+ */
+function isValidTimezone(tz: string): boolean {
+  try {
+    new Intl.DateTimeFormat('en-US', { timeZone: tz });
+    return true;
+  } catch {
+    return false;
+  }
+}
+
+/**
  * Utility: Convert a naive datetime + IANA timezone to UTC ISO string.
  * Example: ("2026-04-04T16:00", "America/Los_Angeles") → "2026-04-04T23:00:00.000Z"
  * Uses Intl API (fully supported in Cloudflare Workers) to resolve DST-aware offsets.
@@ -919,6 +932,13 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
       // Default timezone to Pacific if not provided (backward compat)
       const eventTimezone = body.timezone || 'America/Los_Angeles';
 
+      if (!isValidTimezone(eventTimezone)) {
+        return new Response(JSON.stringify({ error: 'Invalid timezone' }), {
+          status: 400,
+          headers: corsHeaders,
+        });
+      }
+
       // Convert photographer's local datetime to UTC for storage
       // e.g. "2026-04-04T16:00" + "America/Los_Angeles" → "2026-04-04T23:00:00.000Z"
       const scheduledDateUtc = localDateTimeToUTC(body.scheduledDateTime, eventTimezone);
@@ -1334,10 +1354,12 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
         }
       }
 
-      // Check if viewer limit exceeded (only applies to live/replay viewing)
-      const viewerHoursConsumed = event.viewer_hours_consumed || 0;
-      const viewerHourLimit = event.viewer_hour_limit || 12000; // 200 viewing hours default
-      const limitExceeded = viewerHoursConsumed >= viewerHourLimit;
+      // Check if viewer limit exceeded (only applies to live/replay viewing).
+      // viewer_hours_consumed is in HOURS; viewer_hour_limit is stored in MINUTES
+      // (12000 = 200 hours). Convert before comparing.
+      const viewerHoursConsumed = Number(event.viewer_hours_consumed) || 0;
+      const viewerHourLimitMinutes = event.viewer_hour_limit || 12000; // 200 viewing hours default
+      const limitExceeded = viewerHoursConsumed >= viewerHourLimitMinutes / 60;
 
       // Fetch photographer's logo from users table
       let logoUrl: string | null = null;
@@ -1569,8 +1591,17 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
 
       if (newDateTime) {
         // New format: "2026-04-04T16:00" + "America/Los_Angeles"
-        eventTimezone = newTimezone || 'America/Los_Angeles';
-        scheduledDateUtc = localDateTimeToUTC(newDateTime, eventTimezone);
+        // Plain string type: newTimezone comes from an `any` body, so assigning it straight
+        // to the `string | undefined` eventTimezone would not narrow it for the calls below.
+        const tzForCalc: string = newTimezone || 'America/Los_Angeles';
+        if (!isValidTimezone(tzForCalc)) {
+          return new Response(JSON.stringify({ error: 'Invalid timezone' }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        eventTimezone = tzForCalc;
+        scheduledDateUtc = localDateTimeToUTC(newDateTime, tzForCalc);
       } else {
         // Legacy format: "2026-04-04" (backward compat)
         scheduledDateUtc = body.newDate;
@@ -2316,9 +2347,11 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
       // banked. Also covers events with no recordings yet (live query = 0).
       viewerHours = Math.max(viewerHours, event.viewer_hours_consumed || 0);
 
-      const limitWarning = viewerHours >= event.viewer_hour_limit
+      // viewer_hour_limit is stored in MINUTES (12000 = 200 h); viewerHours is in hours.
+      const limitHours = event.viewer_hour_limit / 60;
+      const limitWarning = viewerHours >= limitHours
         ? 'limit-exceeded'
-        : viewerHours >= event.viewer_hour_limit * 0.8
+        : viewerHours >= limitHours * 0.8
         ? 'limit-warning'
         : undefined;
 

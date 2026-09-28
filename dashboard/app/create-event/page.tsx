@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
+import { getBrowserTimezone, getTimezoneOptions } from '@/lib/timezones';
 
 export default function CreateEventPage() {
   const router = useRouter();
@@ -13,23 +14,18 @@ export default function CreateEventPage() {
     )
   );
 
-  // Common US timezones (covers continental US + Hawaii)
-  // Expandable later for national rollout
-  const timezoneOptions = [
-    { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
-    { value: 'America/Denver', label: 'Mountain Time (MT)' },
-    { value: 'America/Chicago', label: 'Central Time (CT)' },
-    { value: 'America/New_York', label: 'Eastern Time (ET)' },
-    { value: 'Pacific/Honolulu', label: 'Hawaii Time (HT)' },
-    { value: 'America/Anchorage', label: 'Alaska Time (AKT)' },
-  ];
+  // Timezone picker: curated IANA list from lib/timezones.ts. The browser's own zone is
+  // added to the list when it is missing, so a streamer outside the list still defaults to
+  // the right zone. It is set in an effect so the server and client render the same first paint.
+  const [browserTz, setBrowserTz] = useState<string | null>(null);
+  const [timezone, setTimezone] = useState('America/Los_Angeles');
+  const timezoneOptions = getTimezoneOptions(browserTz);
 
-  // Default to photographer's browser timezone, fallback to Pacific
-  const [timezone, setTimezone] = useState(() => {
-    const browserTz = Intl.DateTimeFormat().resolvedOptions().timeZone;
-    const isSupported = timezoneOptions.some(tz => tz.value === browserTz);
-    return isSupported ? browserTz : 'America/Los_Angeles';
-  });
+  useEffect(() => {
+    const tz = getBrowserTimezone();
+    setBrowserTz(tz);
+    setTimezone(tz);
+  }, []);
 
   // Minimum datetime: now (prevents past event creation)
   const [minDateTime] = useState(() => {

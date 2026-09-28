@@ -3,6 +3,7 @@
 import { memo, useEffect, useRef, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
+import { getTimezoneOptions } from '@/lib/timezones';
 export const runtime = 'edge';
 
 interface Event {
@@ -176,15 +177,9 @@ export default function EventDetailPage() {
     `https://${CF_CUSTOMER_SUBDOMAIN}.cloudflarestream.com/${uid}/manifest/video.m3u8`;
   const buildFfmpegCmd = (uid: string, filename: string) =>
     `ffmpeg -i "${buildHlsUrl(uid)}" -c copy "${filename}"`;
-  // Same timezone list as create-event page
-  const timezoneOptions = [
-    { value: 'America/Los_Angeles', label: 'Pacific Time (PT)' },
-    { value: 'America/Denver', label: 'Mountain Time (MT)' },
-    { value: 'America/Chicago', label: 'Central Time (CT)' },
-    { value: 'America/New_York', label: 'Eastern Time (ET)' },
-    { value: 'Pacific/Honolulu', label: 'Hawaii Time (HT)' },
-    { value: 'America/Anchorage', label: 'Alaska Time (AKT)' },
-  ];
+  // Same shared list as the create-event page; also includes this event's own zone if it
+  // is not in the curated list, so the reschedule dropdown never loses the current value.
+  const timezoneOptions = getTimezoneOptions(event?.timezone ?? null);
   // Minimum datetime for rescheduling: now (prevents past dates)
   const minRescheduleDateTime = (() => {
     const now = new Date();
@@ -1621,7 +1616,7 @@ export default function EventDetailPage() {
                 <p className="text-sm text-[var(--mc-text-3)]">
                   {event.slug_released_at
                     ? 'Final total'
-                    : `${(analytics.viewerHoursLimit - analytics.viewerHoursUsed).toFixed(1)} hours remaining`}
+                    : `${Math.max(0, analytics.viewerHoursLimit - analytics.viewerHoursUsed).toFixed(1)} hours remaining`}
                 </p>
               )}
             </div>
