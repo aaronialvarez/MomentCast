@@ -19,6 +19,10 @@ interface Event {
   status: 'scheduled' | 'live' | 'ended' | 'cancelled' | 'ready';
   stream_state: 'inactive' | 'active' | 'paused' | 'finalized';
   timezone?: string;
+  // Set once the slug has been released (90 days after the event, or at cancel time).
+  // The live slug column then holds a released_<id> placeholder, so never show it.
+  slug_released_at?: string | null;
+  original_slug?: string | null;
 }
 
 interface CreditTransaction {
@@ -106,7 +110,7 @@ export default function DashboardHome() {
         
         const { data: activeEvents, error: activeError } = await supabase
           .from('events')
-          .select('id, slug, title, scheduled_date, status, stream_state, timezone')
+          .select('id, slug, title, scheduled_date, status, stream_state, timezone, slug_released_at, original_slug')
           .eq('user_id', authUser.id)
           .eq('is_test', false) // Test event lives on its own dashboard card, not this list
           .in('status', ['live', 'ready', 'scheduled'])
@@ -189,7 +193,7 @@ export default function DashboardHome() {
     
     const { data: moreEndedEvents, error } = await supabase
       .from('events')
-      .select('id, slug, title, scheduled_date, status, stream_state, timezone')
+      .select('id, slug, title, scheduled_date, status, stream_state, timezone, slug_released_at, original_slug')
       .eq('user_id', targetUserId)
       .eq('status', 'ended')
       .eq('is_test', false)
@@ -863,21 +867,26 @@ export default function DashboardHome() {
                               timeZone: (event as any).timezone || 'America/Los_Angeles'
                             })}
                           </p>
-                          <p className="text-[var(--mc-text-3)] text-xs mt-2">
-                            Watch URL: <span className="font-mono">{event.slug}</span>
-                          </p>
+                          {/* Hide the URL once released: it no longer resolves to this event */}
+                          {!event.slug_released_at && (
+                            <p className="text-[var(--mc-text-3)] text-xs mt-2">
+                              Watch URL: <span className="font-mono">{event.slug}</span>
+                            </p>
+                          )}
                         </div>
                         <div className="flex flex-col items-end gap-2">
                           <span
                             className={`px-3 py-1 rounded-full text-sm font-medium ${
-                              event.status === 'live'
+                              event.slug_released_at
+                                ? 'bg-[var(--mc-surface-2)] text-[var(--mc-text-3)]'
+                                : event.status === 'live'
                                 ? 'bg-[var(--mc-live-bg)] text-[var(--mc-live)]'
                                 : event.status === 'ready'
                                 ? 'bg-[var(--mc-success-bg)] text-[var(--mc-success)]'
                                 : 'bg-[var(--mc-info-bg)] text-[var(--mc-info)]'
                             }`}
                           >
-                            {event.status.toUpperCase()}
+                            {event.slug_released_at ? 'EXPIRED' : event.status.toUpperCase()}
                           </span>
                           {event.stream_state === 'active' && (
                             <span className="px-3 py-1 rounded-full text-sm font-medium bg-[var(--mc-live-bg)] text-[var(--mc-live)]">
@@ -917,12 +926,15 @@ export default function DashboardHome() {
                                 timeZone: (event as any).timezone || 'America/Los_Angeles'
                               })}
                             </p>
-                            <p className="text-[var(--mc-text-3)] text-xs mt-2">
-                              Watch URL: <span className="font-mono">{event.slug}</span>
-                            </p>
+                            {/* Hide the URL once released: it no longer resolves to this event */}
+                            {!event.slug_released_at && (
+                              <p className="text-[var(--mc-text-3)] text-xs mt-2">
+                                Watch URL: <span className="font-mono">{event.slug}</span>
+                              </p>
+                            )}
                           </div>
                           <span className="px-3 py-1 rounded-full text-sm font-medium bg-[var(--mc-surface-2)] text-[var(--mc-text-3)]">
-                            ENDED
+                            {event.slug_released_at ? 'EXPIRED' : 'ENDED'}
                           </span>
                         </div>
                       </div>
