@@ -192,7 +192,7 @@
   <section id="pricing" class="mc-pricing">
     <div class="mc-container">
       <p class="mc-kicker">Simple, Transparent Pricing</p>
-      <h2 class="mc-section-title">One Price. No Surprises.</h2>
+      <h2 class="mc-section-title">Pay for the Hours You Use.</h2>
       <p class="mc-section-sub">No monthly fees. No per-viewer charges. No hidden costs.</p>
 
       <div class="mc-pricing-card">
@@ -216,8 +216,51 @@
         <p class="mc-pricing-note">Credits never expire. Buy in bulk and save up to 10%.</p>
       </div>
 
+      <!-- Viewing hours estimator. Slider caps (4 hrs, 150 viewers) hold the maximum at
+           600 hours (3 credits). The note under the result covers longer or larger events.
+           To change a cap, edit the max attribute on the matching input. -->
+      <div class="mc-estimator" id="estimator">
+        <h3 class="mc-estimator-title">How many hours will your event need?</h3>
+        <p class="mc-estimator-sub">Most weddings and quinceañeras stream to a few dozen people. Move the sliders to see what yours costs.</p>
+
+        <div class="mc-est-row">
+          <div class="mc-est-label">
+            <span>Hours of live streaming</span>
+            <strong id="est-duration-out">2.0 hours</strong>
+          </div>
+          <input type="range" id="est-duration" min="0.5" max="4" step="0.5" value="2" aria-label="Hours of live streaming">
+          <div class="mc-est-scale"><span>0.5 hr</span><span>4 hrs</span></div>
+        </div>
+
+        <div class="mc-est-row">
+          <div class="mc-est-label">
+            <span>Expected live viewers</span>
+            <strong id="est-viewers-out">80</strong>
+          </div>
+          <input type="range" id="est-viewers" min="10" max="150" step="10" value="80" aria-label="Expected live viewers">
+          <div class="mc-est-scale"><span>10</span><span>150</span></div>
+        </div>
+
+        <div class="mc-est-result">
+          <div class="mc-est-hours">
+            <span>Estimated viewing hours</span>
+            <strong id="est-hours-out">160 hrs</strong>
+          </div>
+          <div class="mc-est-cost">
+            <span class="mc-est-cost-label" id="est-credits-out">1 credit</span>
+            <span class="mc-est-cost-value" id="est-price-out">$30</span>
+          </div>
+          <p class="mc-est-detail" id="est-detail-out"></p>
+          <p class="mc-est-note">Streaming longer or to a bigger crowd? Add 200 hours for $30 anytime from your dashboard, even mid-event. List price shown. Bulk credits save up to 10%.</p>
+        </div>
+      </div>
+
       <div class="mc-pricing-compare">
-        <p>Competitors charge <strong>$69 to $99+ per event</strong> with no flexibility if your event grows. MomentCast gives you the premium experience at half the cost, with your brand on every page and the ability to scale viewing hours on the fly.</p>
+        <!-- Positioning: right-sized entry price, not "cheaper at every size". A flat-rate
+             platform wins on price at roughly 460+ viewing hours, so this copy makes no claim
+             past the entry price. Verify the $69 figure against current competitor pricing
+             before deploying, and reverify periodically. -->
+        <p>Flat-rate platforms start around <strong>$69 per event</strong> and bundle thousands of viewing hours, most of which a wedding never uses. MomentCast starts at <strong>$30</strong>. A typical event with a few dozen live guests fits in one credit, and if yours grows, you add 200 hours at a time, even mid-event.</p>
       </div>
     </div>
   </section>
@@ -345,6 +388,55 @@
       <p>&copy; 2026 MomentCast. All rights reserved.</p>
     </div>
   </footer>
+
+  <script>
+    // Pricing estimator. Same math as the dashboard's create-event page:
+    // hours = duration x viewers, 200 hours per credit, $30 per credit at list price.
+    // Wrapped in an IIFE so nothing leaks to the global scope.
+    (function () {
+      var HOURS_PER_CREDIT = 200;
+      var PRICE_PER_CREDIT = 30;
+
+      var dur = document.getElementById('est-duration');
+      var view = document.getElementById('est-viewers');
+      if (!dur || !view) return; // markup missing: do nothing rather than throw
+
+      var durOut = document.getElementById('est-duration-out');
+      var viewOut = document.getElementById('est-viewers-out');
+      var hoursOut = document.getElementById('est-hours-out');
+      var creditsOut = document.getElementById('est-credits-out');
+      var priceOut = document.getElementById('est-price-out');
+      var detailOut = document.getElementById('est-detail-out');
+
+      function render() {
+        var d = parseFloat(dur.value);
+        var v = parseInt(view.value, 10);
+        var hours = Math.round(d * v);
+        var credits = Math.max(1, Math.ceil(hours / HOURS_PER_CREDIT));
+
+        // Leftover hours across all credits, and how many extra viewers that absorbs
+        // if each watched the full stream. d is never below 0.5, so no divide-by-zero.
+        var headroom = credits * HOURS_PER_CREDIT - hours;
+        var extraViewers = Math.floor(headroom / d);
+
+        durOut.textContent = d.toFixed(1) + ' hour' + (d !== 1 ? 's' : '');
+        viewOut.textContent = v;
+        hoursOut.textContent = hours.toLocaleString('en-US') + ' hrs';
+        creditsOut.textContent = credits + ' credit' + (credits !== 1 ? 's' : '');
+        priceOut.textContent = '$' + (credits * PRICE_PER_CREDIT);
+
+        var detail = headroom + ' hour' + (headroom !== 1 ? 's' : '') + ' of headroom for replays';
+        if (extraViewers >= 1) {
+          detail += ' or for ' + extraViewers + ' more unexpected live viewer' + (extraViewers !== 1 ? 's' : '');
+        }
+        detailOut.textContent = detail + '.';
+      }
+
+      dur.addEventListener('input', render);
+      view.addEventListener('input', render);
+      render();
+    })();
+  </script>
 
 </body>
 </html>
