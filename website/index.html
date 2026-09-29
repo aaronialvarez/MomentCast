@@ -77,7 +77,9 @@
         <a href="https://app.momentcast.live" target="_blank" class="mc-btn mc-btn-primary">Get Started</a>
         <a href="#how-it-works" class="mc-btn mc-btn-ghost">See How It Works</a>
       </div>
-      <p class="mc-hero-proof">Trusted by working photographers in Southern California</p>
+      <!-- Free test is the lowest-friction entry point, so it appears here and in the bottom CTA.
+           Same claim rules as the CTA: "no credit needed" only, no "nothing is saved" yet. -->
+      <p class="mc-hero-proof">Free 15-minute test stream, no credit needed. Trusted by working photographers in Southern California.</p>
     </div>
 
     <div class="mc-hero-mockup">
@@ -235,7 +237,7 @@
         <div class="mc-est-row">
           <div class="mc-est-label">
             <span>Expected live viewers</span>
-            <strong id="est-viewers-out">80</strong>
+            <strong id="est-viewers-out">50</strong>
           </div>
           <input type="range" id="est-viewers" min="10" max="150" step="10" value="80" aria-label="Expected live viewers">
           <div class="mc-est-scale"><span>10</span><span>150</span></div>
@@ -251,7 +253,7 @@
             <span class="mc-est-cost-value" id="est-price-out">$30</span>
           </div>
           <p class="mc-est-detail" id="est-detail-out"></p>
-          <p class="mc-est-note">Streaming longer or to a bigger crowd? Add 200 hours for $30 anytime from your dashboard, even mid-event. List price shown. Bulk credits save up to 10%.</p>
+          <p class="mc-est-note">Streaming longer or to a bigger crowd? Add 200 hours for 1 credit anytime from your dashboard, even mid-event. List price shown. Bulk credits save up to 10%.</p>
         </div>
       </div>
 
@@ -260,7 +262,7 @@
              platform wins on price at roughly 460+ viewing hours, so this copy makes no claim
              past the entry price. Verify the $69 figure against current competitor pricing
              before deploying, and reverify periodically. -->
-        <p>Flat-rate platforms start around <strong>$69 per event</strong> and bundle thousands of viewing hours, most of which a wedding never uses. MomentCast starts at <strong>$30</strong>. A typical event with a few dozen live guests fits in one credit, and if yours grows, you add 200 hours at a time, even mid-event.</p>
+        <p>Flat-rate platforms start around <strong>$69 per event</strong> and bundle thousands of viewing hours, most of which are never used. MomentCast starts at <strong>$30</strong>. A typical event with a few dozen live guests fits in one credit, and if yours grows, you add 200 hours at a time, even mid-event.</p>
       </div>
     </div>
   </section>
@@ -351,8 +353,11 @@
   <section class="mc-cta">
     <div class="mc-container">
       <h2 class="mc-cta-title">Ready to Offer Live Streaming<br>to Your Clients?</h2>
-      <p class="mc-cta-sub">Sign in to explore the dashboard. When you're ready, your first event is just one credit away.</p>
-      <a href="https://app.momentcast.live" target="_blank" class="mc-btn mc-btn-primary mc-btn-lg">Explore the Dashboard</a>
+      <!-- Free test stream is the low-commitment entry point. Keep the claim to "no credit spent":
+           do not add "nothing is saved" until test-session recordings are actively deleted
+           (see the TODO in the Features section). -->
+      <p class="mc-cta-sub">Sign in and run a free 15-minute test stream. No credit spent. When you're ready, your first event is one credit away.</p>
+      <a href="https://app.momentcast.live" target="_blank" class="mc-btn mc-btn-primary mc-btn-lg">Try a Free Test Stream</a>
     </div>
   </section>
 
