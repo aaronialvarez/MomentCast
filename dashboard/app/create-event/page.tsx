@@ -257,6 +257,13 @@ export default function CreateEventPage() {
                 <p className="text-xs text-[var(--mc-text-3)] mt-1">
                   Total time the stream will be live, not the full event duration.
                 </p>
+                {/* 4-hour MP4 limit: Cloudflare cannot generate an MP4 for a single recording
+                    over 4 hours. Always visible so streamers who leave the slider at the default
+                    still see it; it shifts to the warning color once the estimate passes 4 hours.
+                    Mentions FFmpeg because the event page offers it as the fallback. */}
+                <p className={`text-xs mt-1 ${estDuration > 4 ? 'text-[var(--mc-warning)] font-medium' : 'text-[var(--mc-text-3)]'}`}>
+                  A recording over 4 hours can't be downloaded as MP4. Replay stays on your watch page, and you can save it with FFmpeg before it's deleted.
+                </p>
               </div>
 
               {/* Viewers slider */}
@@ -296,7 +303,7 @@ export default function CreateEventPage() {
                 }`}>
                   {estViewingHours <= HOURS_PER_CREDIT ? (
                     <>
-                      ✓ <span className="font-medium">1 credit covers this event.</span> You'll have {HOURS_PER_CREDIT - estViewingHours} hours of headroom.
+                      ✓ <span className="font-medium">1 credit covers this event.</span> You'll have {HOURS_PER_CREDIT - estViewingHours} hours of headroom for replays.
                     </>
                   ) : (
                     <>

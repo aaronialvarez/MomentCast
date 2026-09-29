@@ -831,6 +831,8 @@ export default function EventDetailPage() {
 
       const data = await response.json();
       const recs = (data.recordings || []) as RecordingDownload[];
+      // TEMP TEST: force the first row to look over 4 hours. REMOVE before shipping.
+      if (recs[0]) recs[0] = { ...recs[0], tooLongForMp4: true, status: 'unsupported', url: null };
       setRecordingDownloads(recs);
       return recs;
     } catch (err) {
@@ -1504,7 +1506,7 @@ export default function EventDetailPage() {
                               >
                                 Download
                               </a>
-                            ) : (
+                            ) : rec.status === 'unsupported' ? /* Over 4 hours: no Download control at all. The FFmpeg card below explains why and gives the alternative, so a greyed button with no reason is noise. */ null : (
                               <button
                                 disabled
                                 className="inline-block px-3 py-1.5 bg-[var(--mc-surface-2)] text-[var(--mc-text-3)] text-xs font-semibold rounded cursor-not-allowed whitespace-nowrap"
@@ -1520,10 +1522,13 @@ export default function EventDetailPage() {
                                 unsupported rows don't share one "Copied!" state. */}
                             {rec.status === 'unsupported' && (
                               <div className="mt-3 text-left max-w-md ml-auto bg-[var(--mc-surface-2)] border border-[var(--mc-border)] rounded-lg p-4 space-y-3">
+                                {/* Reuses recordingsExpireOn/formatDay (defined above the return) so this date
+                                    always matches the retention notice at the top of the card. */}
                                 <p className="text-xs text-[var(--mc-text-1)] leading-relaxed">
                                   <span className="font-semibold">This recording exceeds 4 hours.</span>{' '}
-                                  MomentCast does not generate MP4 downloads for recordings this long.
-                                  You can still download it using FFmpeg, a free command-line tool.
+                                  Recordings over 4 hours can't be downloaded as MP4. Replay stays on your
+                                  watch page until {formatDay(recordingsExpireOn)}. To keep a copy, save it
+                                  with FFmpeg, a free command-line tool, before then.
                                 </p>
 
                                 {/* HLS URL */}

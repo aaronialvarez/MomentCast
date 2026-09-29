@@ -8,6 +8,71 @@ import QRCode from 'qrcode-svg';
 // The SQL function release_expired_slugs() enforces the same floor.
 const SLUG_COOLDOWN_DAYS = 90;
 
+// Origins allowed to embed the Stream Player. Hostnames only, no scheme.
+// If you add a custom domain (e.g. live.aaronalvarez.com), it MUST be added here
+// or the player will refuse to load on that domain.
+// app.momentcast.live is included in case the dashboard previews streams.
+// Wildcards match subdomains only, never the apex, so both forms are listed.
+const ALLOWED_PLAYBACK_ORIGINS = [
+  'momentcast.live',
+  '*.momentcast.live',
+  'aaronalvarez.com',
+  '*.aaronalvarez.com',
+];
+
+/**
+ * Utility: Set allowedOrigins + publicDetails.share_link on recordings.
+ * share_link makes the player's share action copy the watch page URL instead of the
+ * Cloudflare-hosted one (which bypasses countdown, branding, and the viewer-hour gate).
+ * Best-effort: failures are logged, never thrown. Idempotent.
+ * Capped at 20 videos per call to stay under the Workers subrequest limit.
+ */
+async function lockDownRecordings(uids: string[], slug: string, env: WorkerEnv): Promise<void> {
+  const shareLink = `https://go.momentcast.live/${slug}`;
+  await Promise.all(uids.slice(0, 20).map(async (uid) => {
+    try {
+      const res = await fetch(
+        `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/stream/${uid}`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${env.CLOUDFLARE_STREAM_API_TOKEN}`,
+          },
+          body: JSON.stringify({
+            allowedOrigins: ALLOWED_PLAYBACK_ORIGINS,
+            publicDetails: { share_link: shareLink },
+          }),
+        }
+      );
+      if (!res.ok) {
+        console.error(`lockDownRecordings: ${uid} failed (${res.status}):`, await res.text());
+      }
+    } catch (err) {
+      console.error(`lockDownRecordings: ${uid} threw:`, err);
+    }
+  }));
+}
+
+/**
+ * Utility: List every recording on a Live Input and lock each one down.
+ * Used on connect so the in-progress recording is covered while viewers are watching.
+ */
+async function lockDownInputRecordings(liveInputId: string, slug: string, env: WorkerEnv): Promise<void> {
+  try {
+    const res = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/stream/live_inputs/${liveInputId}/videos`,
+      { headers: { 'Authorization': `Bearer ${env.CLOUDFLARE_STREAM_API_TOKEN}` } }
+    );
+    const data = await res.json() as any;
+    if (data.success && Array.isArray(data.result)) {
+      await lockDownRecordings(data.result.map((v: any) => v.uid).filter(Boolean), slug, env);
+    }
+  } catch (err) {
+    console.error('lockDownInputRecordings failed:', err);
+  }
+}
+
 /**
  * Utility: Generate QR code as a base64 SVG data URL.
  * Uses qrcode-svg (pure JS, no Canvas/DOM — safe for Cloudflare Workers).
@@ -212,7 +277,7 @@ async function createCloudflareStreamLiveInput(
             mode: recordingMode,
             timeoutSeconds: 300,  // 5 minutes - allows quick reconnects, finalizes recordings after disconnect
             requireSignedURLs: false,
-            allowedOrigins: [],
+            allowedOrigins: ALLOWED_PLAYBACK_ORIGINS,
           },
           deleteRecordingAfterDays: 30,
         }),
@@ -490,6 +555,68 @@ async function syncViewerHours(env: WorkerEnv, supabase: any): Promise<void> {
 }
 
 /**
+ * Utility: Return the user's Stripe Customer ID, creating the Customer on first use.
+ * One user = one Stripe Customer, reused across every checkout.
+ * - Idempotency-Key makes concurrent first-time calls resolve to the same Customer.
+ * - The DB write only lands if the column is still null, so a race loser never
+ *   overwrites the winner. If we lose, we re-read and return the winner's ID.
+ * Throws on Stripe failure; the caller's try/catch turns that into a 500.
+ */
+async function getOrCreateStripeCustomer(
+  userId: string,
+  email: string | null | undefined,
+  existingId: string | null | undefined,
+  env: WorkerEnv,
+  supabase: any
+): Promise<string> {
+  if (existingId) return existingId;
+
+  const params = new URLSearchParams({ 'metadata[user_id]': userId });
+  if (email) params.set('email', email);
+
+  const res = await fetch('https://api.stripe.com/v1/customers', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${env.STRIPE_SECRET_KEY}`,
+      'Content-Type': 'application/x-www-form-urlencoded',
+      'Idempotency-Key': `mc-customer-${userId}`,
+    },
+    body: params.toString(),
+  });
+  const customer = await res.json() as any;
+
+  if (!res.ok || !customer.id) {
+    throw new Error(`Stripe customer create failed (${res.status}): ${customer.error?.message || 'unknown'}`);
+  }
+
+  const { data: updated, error: saveError } = await supabase
+    .from('users')
+    .update({ stripe_customer_id: customer.id })
+    .eq('id', userId)
+    .is('stripe_customer_id', null)
+    .select('stripe_customer_id');
+
+  if (saveError) {
+    // Still usable for this checkout. Next call re-hits Stripe with the same
+    // idempotency key (24h window) and gets this same Customer back.
+    console.error('Failed to save stripe_customer_id:', saveError);
+    return customer.id;
+  }
+
+  // Zero rows updated = another request saved first. Use theirs.
+  if (!updated || updated.length === 0) {
+    const { data: winner } = await supabase
+      .from('users')
+      .select('stripe_customer_id')
+      .eq('id', userId)
+      .single();
+    if (winner?.stripe_customer_id) return winner.stripe_customer_id;
+  }
+
+  return customer.id;
+}
+
+/**
  * Main Router
  */
 async function handleRequest(request: Request, env: WorkerEnv): Promise<Response> {
@@ -638,6 +765,11 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
             });
           }
           
+          // Lock down the in-progress recording so share/embed behave during the live
+          // broadcast. If the recording doesn't exist yet at connect time, the
+          // disconnect handler below catches it.
+          await lockDownInputRecordings(liveInputId, event.slug, env);
+
           if (event.status !== 'live') {
             console.log('Updating event to live:', event.slug);
             // Update to live
@@ -763,6 +895,9 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
               console.error('Error fetching recordings before deletion:', err);
             }
             
+            // Final pass: recordings must be locked down before the Live Input is deleted
+            await lockDownRecordings(recordings.map((r: any) => r.uid).filter(Boolean), event.slug, env);
+
             // Save recordings to database and update status to 'ended'
             const { error: updateError } = await supabase
               .from('events')
@@ -844,6 +979,13 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
               ...existingRecordings,
               ...newRecordings.filter((r: any) => !existingUids.has(r.uid))
             ];
+
+            // Only recordings we haven't seen before need locking down
+            await lockDownRecordings(
+              newRecordings.filter((r: any) => !existingUids.has(r.uid)).map((r: any) => r.uid),
+              event.slug,
+              env
+            );
 
             const { error: updateError } = await supabase
               .from('events')
@@ -1256,6 +1398,9 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
             }
           }
           
+          // Lock down late recordings before the event flips to ended
+          await lockDownRecordings(recordings.map((r: any) => r.uid).filter(Boolean), slug as string, env);
+
           // Update event to ended status
           const { error: updateError } = await supabase
             .from('events')
@@ -2382,10 +2527,10 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
         });
       }
 
-      // Fetch user email for Stripe pre-fill
+      // Fetch user email (for creating the Stripe Customer) and any existing customer ID
       const { data: userData } = await supabase
         .from('users')
-        .select('email')
+        .select('email, stripe_customer_id')
         .eq('id', userId)
         .single();
 
@@ -2397,6 +2542,15 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
             status: 500, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
+
+        // Reuse the user's Stripe Customer, or create it on their first purchase
+        const stripeCustomerId = await getOrCreateStripeCustomer(
+          userId,
+          userData?.email,
+          userData?.stripe_customer_id,
+          env,
+          supabase
+        );
 
         // Create Stripe Checkout Session via REST API (no SDK needed in Workers)
         const stripeParams = new URLSearchParams({
@@ -2411,7 +2565,8 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
           'metadata[user_id]': userId,
           'metadata[tier_id]': body.tierId,
           'metadata[credits]': tier.credits.toString(),
-          ...(userData?.email ? { 'customer_email': userData.email } : {}),
+          // 'customer' and 'customer_email' are mutually exclusive in Checkout
+          'customer': stripeCustomerId,
         });
 
         console.log(`Stripe checkout request: key prefix=${env.STRIPE_SECRET_KEY.substring(0, 8)}..., tier=${body.tierId}`);
