@@ -831,8 +831,6 @@ export default function EventDetailPage() {
 
       const data = await response.json();
       const recs = (data.recordings || []) as RecordingDownload[];
-      // TEMP TEST: force the first row to look over 4 hours. REMOVE before shipping.
-      if (recs[0]) recs[0] = { ...recs[0], tooLongForMp4: true, status: 'unsupported', url: null };
       setRecordingDownloads(recs);
       return recs;
     } catch (err) {

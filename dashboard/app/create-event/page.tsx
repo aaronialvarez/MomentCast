@@ -49,10 +49,15 @@ export default function CreateEventPage() {
 
   // Viewing hours estimator sliders
   const [estDuration, setEstDuration] = useState(2);   // hours (0.5-12, step 0.1)
-  const [estViewers, setEstViewers] = useState(100);    // viewers (10-500)
+  const [estViewers, setEstViewers] = useState(80);    // viewers (10-500)
   const estViewingHours = Math.round(estDuration * estViewers);
   const estCreditsNeeded = Math.ceil(estViewingHours / 200);
   const HOURS_PER_CREDIT = 200;
+  // Leftover hours after the estimate, and how many more viewers that could absorb if each
+  // watched the full stream. estDuration is never below 0.5, so no divide-by-zero.
+  // Clamped at 0 because the message only renders when the estimate fits in one credit.
+  const headroomHours = Math.max(0, HOURS_PER_CREDIT - estViewingHours);
+  const extraViewers = Math.floor(headroomHours / estDuration);
 
   // Load user credits on mount
   useEffect(() => {
@@ -303,7 +308,11 @@ export default function CreateEventPage() {
                 }`}>
                   {estViewingHours <= HOURS_PER_CREDIT ? (
                     <>
-                      ✓ <span className="font-medium">1 credit covers this event.</span> You'll have {HOURS_PER_CREDIT - estViewingHours} hours of headroom for replays.
+                      ✓ <span className="font-medium">1 credit covers this event.</span> You'll have {headroomHours} hour{headroomHours !== 1 ? 's' : ''} of headroom for replays
+                      {/* Viewer clause only when at least one more viewer fits; otherwise the sentence ends after "replays". */}
+                      {extraViewers >= 1
+                        ? ` or for ${extraViewers} more unexpected live viewer${extraViewers !== 1 ? 's' : ''}.`
+                        : '.'}
                     </>
                   ) : (
                     <>
