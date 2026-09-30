@@ -1269,6 +1269,18 @@ function showLimitExceeded() {
   if (titleEl && eventData) {
     titleEl.textContent = eventData.title;
   }
+
+  // Test streams: the viewer is the streamer, so "contact the event host" makes no sense.
+  // The first .mc-limit-body is the main line, the second is the faint follow-up line.
+  if (eventData?.is_test) {
+    const bodyEls = limitEl.querySelectorAll('.mc-limit-body');
+    if (bodyEls[0]) {
+      bodyEls[0].textContent = 'This test stream has reached its viewing limit.';
+    }
+    if (bodyEls[1]) {
+      bodyEls[1].textContent = 'Test viewing resets as older views roll off. Capacity returns gradually over a rolling 30-day window.';
+    }
+  }
   
   limitEl.classList.remove('hidden');
 }

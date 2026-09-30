@@ -9,9 +9,9 @@ import QRCode from 'qrcode-svg';
 const SLUG_COOLDOWN_DAYS = 90;
 
 // Viewing cap for each user's permanent test event, in MINUTES (viewer_hour_limit is stored in
-// minutes). 300 = 5 hours. syncViewerHours lets test rows fall as old views age out of the
+// minutes). 1500 = 25 hours. syncViewerHours lets test rows fall as old views age out of the
 // 30-day analytics window, so this is a rolling cap, not a lifetime one.
-const TEST_EVENT_VIEWER_LIMIT_MINUTES = 300;
+const TEST_EVENT_VIEWER_LIMIT_MINUTES = 1500;
 
 // Origins allowed to embed the Stream Player. Hostnames only, no scheme.
 // If you add a custom domain (e.g. live.aaronalvarez.com), it MUST be added here

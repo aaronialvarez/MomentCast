@@ -349,7 +349,7 @@ export default function TestSetupPage() {
               Sessions run up to 15 minutes once connected and auto-stop. Your latest test
               recording stays on your test watch page for 30 days, then it is deleted
               automatically. This is a gear check, not an archive, and test playback is
-              limited to 5 viewing hours per rolling 30 days.{' '}
+              limited to 25 viewing hours per rolling 30 days.{' '}
               {typeof testEvent?.sessionsRemainingToday === 'number' ? (
                 <>
                   You have <strong>{testEvent.sessionsRemainingToday} of 3</strong> test
@@ -462,6 +462,8 @@ export default function TestSetupPage() {
                   </div>
                   <p className="text-[var(--mc-text-2)] text-sm mt-1">
                     Open this in another tab or browser to see what your test stream looks like.
+                    This link is for your own testing, so please don&apos;t share it. Test playback
+                    is capped, and a shared link can use up your viewing time.
                   </p>
                 </div>
 
