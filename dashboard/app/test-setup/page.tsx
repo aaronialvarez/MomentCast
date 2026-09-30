@@ -346,8 +346,10 @@ export default function TestSetupPage() {
             <p className="text-[var(--mc-text-2)] mb-6">
               Check your camera, audio, and streaming setup before a real event, no credit used.
               Works with any encoder that streams H.264/AAC over RTMPS.
-              Sessions run up to 15 minutes once connected and auto-stop, nothing is saved,
-              this is a gear check, not a recording.{' '}
+              Sessions run up to 15 minutes once connected and auto-stop. Your latest test
+              recording stays on your test watch page for 30 days, then it is deleted
+              automatically. This is a gear check, not an archive, and test playback is
+              limited to 5 viewing hours per rolling 30 days.{' '}
               {typeof testEvent?.sessionsRemainingToday === 'number' ? (
                 <>
                   You have <strong>{testEvent.sessionsRemainingToday} of 3</strong> test

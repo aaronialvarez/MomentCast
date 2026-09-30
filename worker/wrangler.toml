@@ -22,4 +22,6 @@ persist = true
 head_sampling_rate = 1
 
 [triggers]
-crons = ["0 3 * * *", "*/10 * * * *"]  # Daily cleanup at 3 AM UTC + viewer-hours sync every 10 min
+# Hourly (0 * * * *): MailerLite retry for confirmed signups the webhook missed
+# Every 5 min (*/5 * * * *): cap test-event sessions at 15 min connected
+crons = ["0 3 * * *", "*/10 * * * *", "*/5 * * * *", "0 * * * *"]  # Daily cleanup at 3 AM UTC + viewer-hours sync every 10 min

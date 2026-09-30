@@ -8,6 +8,11 @@ import QRCode from 'qrcode-svg';
 // The SQL function release_expired_slugs() enforces the same floor.
 const SLUG_COOLDOWN_DAYS = 90;
 
+// Viewing cap for each user's permanent test event, in MINUTES (viewer_hour_limit is stored in
+// minutes). 300 = 5 hours. syncViewerHours lets test rows fall as old views age out of the
+// 30-day analytics window, so this is a rolling cap, not a lifetime one.
+const TEST_EVENT_VIEWER_LIMIT_MINUTES = 300;
+
 // Origins allowed to embed the Stream Player. Hostnames only, no scheme.
 // If you add a custom domain (e.g. live.aaronalvarez.com), it MUST be added here
 // or the player will refuse to load on that domain.
@@ -350,6 +355,7 @@ async function getOrCreateTestEvent(
       rtmps_url: cfResult.rtmpsUrl,
       rtmps_key: cfResult.rtmpsKey,
       is_test: true,
+      viewer_hour_limit: TEST_EVENT_VIEWER_LIMIT_MINUTES, // column default is 5000, which would be ~83 hours
     })
     .select('id, slug, title, live_input_id, rtmps_url, rtmps_key, status, test_session_armed_at, test_session_connected_at, test_session_last_ended_at, test_sessions_today, test_sessions_day')
     .single();
@@ -402,6 +408,50 @@ function incrementDailyTestSessionCount(
 }
 
 /**
+ * Utility: Snapshot a test event's recordings from Cloudflare.
+ * Real events merge and never shrink. Test events REPLACE their list with whatever Cloudflare
+ * still holds, so recordings auto-deleted at 30 days drop out and syncViewerHours only meters
+ * recordings that exist. Locks down only uids not already stored (idempotent, saves subrequests).
+ * Returns null when the fetch fails so the caller leaves the stored list untouched.
+ */
+async function snapshotTestRecordings(
+  liveInputId: string,
+  slug: string,
+  knownUids: Set<string>,
+  env: WorkerEnv
+): Promise<any[] | null> {
+  try {
+    const res = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/stream/live_inputs/${liveInputId}/videos`,
+      { headers: { 'Authorization': `Bearer ${env.CLOUDFLARE_STREAM_API_TOKEN}` } }
+    );
+    const data = await res.json() as any;
+    if (!res.ok || !data.success || !Array.isArray(data.result)) return null;
+
+    const recordings = data.result.map((video: any) => ({
+      uid: video.uid,
+      status: video.status?.state,
+      duration: video.duration,
+      created: video.created,
+      thumbnail: video.thumbnail,
+      playback: { hls: video.playback?.hls, dash: video.playback?.dash },
+      readyToStream: video.readyToStream,
+      state: video.status,
+    }));
+
+    await lockDownRecordings(
+      recordings.map((r: any) => r.uid).filter((uid: string) => uid && !knownUids.has(uid)),
+      slug,
+      env
+    );
+    return recordings;
+  } catch (err) {
+    console.error('snapshotTestRecordings failed:', err);
+    return null;
+  }
+}
+
+/**
  * Utility: Sync viewer_hours_consumed for all active events
  * Queries Cloudflare Stream GraphQL API for minutesViewed per recording UID,
  * then writes the totals (as hours, 1 decimal) back to each event row.
@@ -411,8 +461,9 @@ async function syncViewerHours(env: WorkerEnv, supabase: any): Promise<void> {
   // stream_started_manually_at / scheduled_date feed the age filter below.
   const { data: fetched, error } = await supabase
     .from('events')
-    .select('id, slug, recordings, viewer_hours_consumed, stream_started_manually_at, scheduled_date')
-    .in('status', ['live', 'ready', 'ended'])
+    .select('id, slug, recordings, viewer_hours_consumed, stream_started_manually_at, scheduled_date, is_test')
+    // Test rows sit at status 'scheduled' between sessions, so the status filter alone would skip them
+    .or('status.in.(live,ready,ended),is_test.eq.true')
     .not('recordings', 'is', null);
 
   if (error) {
@@ -426,6 +477,9 @@ async function syncViewerHours(env: WorkerEnv, supabase: any): Promise<void> {
   const SYNC_MAX_AGE_DAYS = 32;
   const cutoffMs = Date.now() - SYNC_MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
   const events = (fetched || []).filter((e: any) => {
+    // Test rows: scheduled_date is the row's creation time, so age-filtering would freeze
+    // them 32 days after signup. Their recording list is already limited to what Cloudflare holds.
+    if (e.is_test) return true;
     const ref = e.stream_started_manually_at || e.scheduled_date;
     return ref && new Date(ref).getTime() >= cutoffMs;
   });
@@ -493,32 +547,41 @@ async function syncViewerHours(env: WorkerEnv, supabase: any): Promise<void> {
   };
 
   try {
-    const response = await fetch('https://api.cloudflare.com/client/v4/graphql', {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${env.CLOUDFLARE_STREAM_API_TOKEN}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(graphqlQuery)
-    });
+    // The query returns one row per uid, capped by `limit`, so a single query silently drops
+    // every uid past the cap. Batch the uids (50 per query, limit 100 leaves headroom).
+    // Any failure aborts the whole run before the write-back, so a partial pass can never
+    // lower a stored value.
+    const UID_BATCH_SIZE = 50;
+    for (let i = 0; i < allUids.length; i += UID_BATCH_SIZE) {
+      graphqlQuery.variables.uids = allUids.slice(i, i + UID_BATCH_SIZE);
 
-    const data = await response.json() as any;
+      const response = await fetch('https://api.cloudflare.com/client/v4/graphql', {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${env.CLOUDFLARE_STREAM_API_TOKEN}`,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(graphqlQuery)
+      });
 
-    // Abort on any API failure. Without this, an error response yields zero
-    // minutes for every event and the write-back below wipes real data.
-    if (!response.ok || data.errors?.length || !data.data?.viewer?.accounts?.[0]) {
-      console.error('syncViewerHours: GraphQL failure, aborting run without writing:', response.status, JSON.stringify(data.errors));
-      return;
-    }
-    const groups = data.data.viewer.accounts[0].streamMinutesViewedAdaptiveGroups;
+      const data = await response.json() as any;
 
-    if (groups && groups.length > 0) {
-      for (const group of groups) {
-        const uid = group.dimensions?.uid;
-        const minutes = group.sum?.minutesViewed || 0;
-        if (uid && uidToEventId.has(uid)) {
-          const eventId = uidToEventId.get(uid)!;
-          eventMinutes.set(eventId, (eventMinutes.get(eventId) || 0) + minutes);
+      // Abort on any API failure. Without this, an error response yields zero
+      // minutes for every event and the write-back below wipes real data.
+      if (!response.ok || data.errors?.length || !data.data?.viewer?.accounts?.[0]) {
+        console.error('syncViewerHours: GraphQL failure, aborting run without writing:', response.status, JSON.stringify(data.errors));
+        return;
+      }
+      const groups = data.data.viewer.accounts[0].streamMinutesViewedAdaptiveGroups;
+
+      if (groups && groups.length > 0) {
+        for (const group of groups) {
+          const uid = group.dimensions?.uid;
+          const minutes = group.sum?.minutesViewed || 0;
+          if (uid && uidToEventId.has(uid)) {
+            const eventId = uidToEventId.get(uid)!;
+            eventMinutes.set(eventId, (eventMinutes.get(eventId) || 0) + minutes);
+          }
         }
       }
     }
@@ -533,7 +596,11 @@ async function syncViewerHours(env: WorkerEnv, supabase: any): Promise<void> {
       // Monotonic: only ever raise the stored value. The 31-day GraphQL window
       // slides forward, so a lower computed number means views aged out of the
       // window, not that they were undone. Historic hours must never decrease.
-      if (hours > currentHours) {
+      // Test rows are the exception to the monotonic rule: their cap is "viewing in the last
+      // ~30 days", so the value must fall as old views leave the window. Otherwise one heavy
+      // month would lock the test page forever.
+      const shouldWrite = event.is_test ? hours !== currentHours : hours > currentHours;
+      if (shouldWrite) {
         const { error: updateError } = await supabase
           .from('events')
           .update({ viewer_hours_consumed: hours })
@@ -617,9 +684,139 @@ async function getOrCreateStripeCustomer(
 }
 
 /**
+ * Utility: Constant-time string compare, used for the webhook shared secret.
+ * A length mismatch returns early. The secret's length is not sensitive.
+ */
+function timingSafeEqual(a: string, b: string): boolean {
+  if (a.length !== b.length) return false;
+  let diff = 0;
+  for (let i = 0; i < a.length; i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+
+/**
+ * Utility: Add a confirmed user to the MailerLite group. Returns true on success.
+ * POST to the subscribers endpoint is an upsert, so a repeat call for the same email is safe.
+ * The auth header is Bearer, not Token. opted_in_at must be 'Y-m-d H:i:s' (ISO 8601 is rejected).
+ * Never throws: a MailerLite outage must not break signup or the webhook response.
+ */
+async function syncToMailerLite(
+  env: WorkerEnv,
+  user: { email: string; fullName: string; confirmedAt: string }
+): Promise<boolean> {
+  const confirmed = new Date(user.confirmedAt);
+  if (isNaN(confirmed.getTime())) {
+    console.error('syncToMailerLite: bad confirmedAt value:', user.confirmedAt);
+    return false;
+  }
+
+  // First word = first name, everything else = last name. Single-word names leave last_name empty.
+  const parts = (user.fullName || '').trim().split(/\s+/).filter(Boolean);
+
+  try {
+    const res = await fetch('https://connect.mailerlite.com/api/subscribers', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        'Authorization': `Bearer ${env.MAILERLITE_API_KEY}`,
+      },
+      body: JSON.stringify({
+        email: user.email,
+        fields: { name: parts[0] || '', last_name: parts.slice(1).join(' ') || '' },
+        groups: [env.MAILERLITE_GROUP_ID],
+        opted_in_at: confirmed.toISOString().replace('T', ' ').substring(0, 19),
+      }),
+    });
+
+    if (!res.ok) {
+      console.error('MailerLite sync failed:', res.status, await res.text());
+      return false;
+    }
+    await res.text(); // drain the body so the connection is released
+    return true;
+  } catch (err) {
+    console.error('MailerLite sync threw:', err);
+    return false;
+  }
+}
+
+/**
+ * Utility: Stamp public.users so this user is never synced or retried again.
+ * The stamp is the source of truth, not MailerLite. A subscriber deleted in
+ * MailerLite looks identical to one never synced, so asking MailerLite would re-add them.
+ */
+async function markMailerLiteSynced(userId: string, supabase: any): Promise<void> {
+  const { error } = await supabase
+    .from('users')
+    .update({ mailerlite_synced_at: new Date().toISOString() })
+    .eq('id', userId);
+  if (error) console.error('markMailerLiteSynced failed:', userId, error);
+}
+
+/**
+ * Utility: Hourly retry for confirmed users the webhook path never completed.
+ * Only touches users with mailerlite_synced_at IS NULL, confirmed in the last 7 days
+ * (filtering happens inside the get_unsynced_mailerlite_users SQL function).
+ * Subrequest budget on the Free plan is 50: 1 RPC + up to 3 per user (GET, POST, stamp).
+ * At 12 users that is 37.
+ */
+async function reconcileMailerLite(env: WorkerEnv, supabase: any): Promise<void> {
+  const MAX_USERS = 12;
+  const mlHeaders = {
+    'Content-Type': 'application/json',
+    'Accept': 'application/json',
+    'Authorization': `Bearer ${env.MAILERLITE_API_KEY}`,
+  };
+
+  const { data: users, error } = await supabase.rpc('get_unsynced_mailerlite_users', { max_rows: MAX_USERS });
+  if (error) {
+    console.error('Reconcile: RPC failed:', error);
+    return;
+  }
+
+  let added = 0;
+  for (const u of users || []) {
+    try {
+      // Belt and suspenders: if MailerLite already has them (including unsubscribed), just stamp.
+      const check = await fetch(
+        `https://connect.mailerlite.com/api/subscribers/${encodeURIComponent(u.email)}`,
+        { headers: mlHeaders }
+      );
+      const checkStatus = check.status;
+      await check.text(); // drain the body so the connection is released
+
+      if (checkStatus === 200) {
+        await markMailerLiteSynced(u.id, supabase);
+        console.log(`Reconcile: already in MailerLite, stamped ${u.id}`);
+        continue;
+      }
+      if (checkStatus !== 404) {
+        console.error(`Reconcile: unexpected MailerLite status ${checkStatus} for ${u.id}`);
+        continue; // leave unstamped, retry next hour
+      }
+
+      const ok = await syncToMailerLite(env, {
+        email: u.email,
+        fullName: u.full_name,
+        confirmedAt: u.email_confirmed_at,
+      });
+      if (ok) {
+        await markMailerLiteSynced(u.id, supabase);
+        added++;
+        console.log(`Reconcile: added missing subscriber ${u.id}`);
+      }
+    } catch (err) {
+      console.error(`Reconcile: error for ${u.id}:`, err);
+    }
+  }
+  console.log(`Reconcile done. Unsynced found: ${(users || []).length}, added: ${added}.`);
+}
+
+/**
  * Main Router
  */
-async function handleRequest(request: Request, env: WorkerEnv): Promise<Response> {
+async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionContext): Promise<Response> {
   const url = new URL(request.url);
   const pathname = url.pathname;
   const method = request.method;
@@ -640,6 +837,86 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
   const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
 
   try {
+    // POST /api/webhooks/supabase-auth - Supabase Database Webhook on auth.users (INSERT and UPDATE).
+    // Adds a user to MailerLite the moment their email is confirmed. Never for unconfirmed emails.
+    if (pathname === '/api/webhooks/supabase-auth' && method === 'POST') {
+      // Fail closed: no configured secret means nothing gets through.
+      const provided = request.headers.get('x-webhook-secret') || '';
+      if (!env.SUPABASE_WEBHOOK_SECRET || !timingSafeEqual(provided, env.SUPABASE_WEBHOOK_SECRET)) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), {
+          status: 401,
+          headers: corsHeaders,
+        });
+      }
+
+      const payload = await request.json() as any;
+      const record = payload?.record;
+      const oldRecord = payload?.old_record;
+      const isInsert = payload?.type === 'INSERT';
+      const isUpdate = payload?.type === 'UPDATE';
+
+      // Fire only at the moment of confirmation:
+      //  - UPDATE where email_confirmed_at went from null to a value (email signup)
+      //  - INSERT that already carries email_confirmed_at (Google OAuth)
+      // Every login also UPDATEs auth.users, so most calls exit right here.
+      const justConfirmed =
+        !!record?.email_confirmed_at && (isInsert || (isUpdate && !oldRecord?.email_confirmed_at));
+
+      if (!justConfirmed || !record?.id || !record?.email) {
+        return new Response(JSON.stringify({ received: true, skipped: true }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Stamp check first: makes a duplicate delivery harmless and guarantees a
+      // subscriber deleted from MailerLite is never re-added by this path.
+      const { data: syncRow, error: syncRowError } = await supabase
+        .from('users')
+        .select('mailerlite_synced_at')
+        .eq('id', record.id)
+        .maybeSingle();
+
+      if (syncRowError || !syncRow) {
+        // public.users row is created by the on_auth_user_created trigger, so this should not happen.
+        console.error('supabase-auth webhook: could not load public.users row for', record.id, syncRowError);
+        return new Response(JSON.stringify({ received: true, skipped: true }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      if (syncRow.mailerlite_synced_at) {
+        return new Response(JSON.stringify({ received: true, skipped: true, alreadySynced: true }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      const fullName = record.raw_user_meta_data?.full_name || record.raw_user_meta_data?.name || '';
+
+      // Non-blocking: respond to Supabase now, sync in the background. A failure leaves
+      // the stamp NULL and the hourly reconcile retries it.
+      ctx.waitUntil((async () => {
+        const ok = await syncToMailerLite(env, {
+          email: record.email,
+          fullName,
+          confirmedAt: record.email_confirmed_at,
+        });
+        if (ok) {
+          await markMailerLiteSynced(record.id, supabase);
+          console.log(`MailerLite: synced ${record.id}`);
+        } else {
+          console.error(`MailerLite: sync failed for ${record.id}, hourly reconcile will retry`);
+        }
+      })());
+
+      return new Response(JSON.stringify({ received: true }), {
+        status: 200,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      });
+    }
+
     // POST /api/webhooks/cloudflare - Handle Cloudflare Stream webhooks
     if (pathname === '/api/webhooks/cloudflare' && method === 'POST') {
       const body = await request.json() as any;
@@ -812,7 +1089,7 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
         
         const { data: event } = await supabase
           .from('events')
-          .select('id, slug, status, stream_started_manually_at, is_test, test_sessions_today, test_sessions_day')
+          .select('id, slug, status, stream_started_manually_at, is_test, test_sessions_today, test_sessions_day, recordings')
           .eq('live_input_id', liveInputId)
           .single();
         
@@ -830,6 +1107,15 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
               event.test_sessions_day
             );
 
+            // Snapshot recordings so watch-page replay works and syncViewerHours can meter
+            // test views. null means the Cloudflare fetch failed: keep the stored list as is.
+            const knownTestUids = new Set<string>(
+              (typeof event.recordings === 'string' ? JSON.parse(event.recordings) : event.recordings || [])
+                .map((r: any) => r.uid)
+            );
+            const testSnapshot = await snapshotTestRecordings(liveInputId, event.slug, knownTestUids, env);
+            const testRecordingsUpdate = testSnapshot ? { recordings: testSnapshot } : {};
+
             // Revert to the idle/countdown state — never 'ended', reusable
             // indefinitely, but must not stay 'live' or the watch page shows
             // a dead stream as still live until the next connect.
@@ -838,6 +1124,7 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
               .update({
                 status: 'scheduled',
                 stream_state: 'inactive',
+                ...testRecordingsUpdate,
                 test_session_connected_at: null,
                 test_session_last_ended_at: new Date().toISOString(),
                 test_sessions_today: sessionsToday,
@@ -1432,7 +1719,12 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
       const eventRefDate = event.stream_started_manually_at || event.scheduled_date;
       const eventAgeDays = (Date.now() - new Date(eventRefDate).getTime()) / (24 * 60 * 60 * 1000);
 
-      if ((event.status === 'ready' || event.status === 'ended') && event.live_input_id && eventAgeDays <= 32) {
+      // Test rows have no meaningful age (scheduled_date is the row's creation time) and
+      // Cloudflare's list only returns recordings that still exist, so refetch whenever
+      // the test is not live.
+      const refetchTestRecordings = !!event.is_test && event.status !== 'live' && !!event.live_input_id;
+
+      if (refetchTestRecordings || ((event.status === 'ready' || event.status === 'ended') && event.live_input_id && eventAgeDays <= 32)) {
         try {
           const recordingsResponse = await fetch(
             `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/stream/live_inputs/${event.live_input_id}/videos`,
@@ -1462,6 +1754,14 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
           console.error('Error fetching recordings:', err);
           // Fall back to stored recordings in database if fetch fails
         }
+      }
+
+      // Test events expose only their newest recording. Older ones stay stored until
+      // Cloudflare deletes them but are never linked from the watch page.
+      if (event.is_test && Array.isArray(recordings)) {
+        recordings = [...recordings]
+          .sort((a: any, b: any) => new Date(b.created).getTime() - new Date(a.created).getTime())
+          .slice(0, 1);
       }
 
       // Check if viewer limit exceeded (only applies to live/replay viewing).
@@ -2567,6 +2867,10 @@ async function handleRequest(request: Request, env: WorkerEnv): Promise<Response
           'metadata[credits]': tier.credits.toString(),
           // 'customer' and 'customer_email' are mutually exclusive in Checkout
           'customer': stripeCustomerId,
+          // Checkout does not write to an existing Customer by default. Without these,
+          // the Customer keeps only the email we created it with (no name, no country).
+          'customer_update[name]': 'auto',
+          'customer_update[address]': 'auto',
         });
 
         console.log(`Stripe checkout request: key prefix=${env.STRIPE_SECRET_KEY.substring(0, 8)}..., tier=${body.tierId}`);
@@ -3264,7 +3568,9 @@ export default {
       await syncViewerHours(env, supabase);
       console.log('✅ Viewer-hours sync completed');
 
+    } else if (event.cron === '*/5 * * * *') {
       // === Cap test-event sessions at 15 minutes connected ===
+      // Own 5-minute trigger: worst case a session runs 20 minutes instead of 25.
       console.log('🧪 Checking for test sessions over the cap...');
       const TEST_SESSION_CAP_MS = 15 * 60 * 1000;
       const { data: overCapped } = await supabase
@@ -3316,6 +3622,12 @@ export default {
         }
       }
       console.log('✅ Test session cap check completed');
+    } else if (event.cron === '0 * * * *') {
+      // === Hourly MailerLite retry for confirmed users the webhook missed ===
+      // Own branch on purpose: the 10-minute branch already spends subrequests on
+      // viewer-hours sync and the test-session cap.
+      console.log('📬 Running MailerLite reconcile...');
+      await reconcileMailerLite(env, supabase);
     }
   }
 } as ExportedHandler<WorkerEnv>;

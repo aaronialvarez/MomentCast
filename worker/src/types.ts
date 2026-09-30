@@ -121,4 +121,7 @@ export interface WorkerEnv {
   CLOUDFLARE_ACCOUNT_ID: string;
   CLOUDFLARE_STREAM_API_TOKEN: string;
   ENVIRONMENT: 'production' | 'staging' | 'development';
+  MAILERLITE_API_KEY: string;
+  MAILERLITE_GROUP_ID: string;
+  SUPABASE_WEBHOOK_SECRET: string; // shared secret sent by the Supabase Database Webhook
 }

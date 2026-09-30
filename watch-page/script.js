@@ -233,7 +233,13 @@ function renderQrBlock(visible, container) {
 }
 
 function getEventDate() {
-  const raw = eventData.stream_started_manually_at || eventData.scheduled_date;
+  let raw = eventData.stream_started_manually_at || eventData.scheduled_date;
+  if (eventData.is_test) {
+    // scheduled_date on a test row is just when the row was created. Show today while live,
+    // otherwise the date of the recording being replayed.
+    const isLiveNow = eventData.status === 'live' && eventData.stream_state === 'active';
+    raw = isLiveNow ? new Date().toISOString() : eventData.recordings?.[0]?.created;
+  }
   if (!raw) return null;
   const tz = getEventTimezone();
   return new Date(raw).toLocaleDateString('en-US', {
@@ -270,6 +276,16 @@ function determinePlaybackMode() {
   // Decision tree
   if (isLive) {
     return 'LIVE';
+  }
+
+  // Test events sit at status 'scheduled' between sessions, so they never reach the ended/ready
+  // branches below. Replay the newest recording (the API sends only one) once it is playable,
+  // show the processing state while it finalizes, and fall back to the waiting screen.
+  if (eventData.is_test) {
+    const testRecs = eventData.recordings || [];
+    if (testRecs.length === 0) return 'WAITING';
+    const anyReady = testRecs.some(r => r.readyToStream === true || r.status === 'ready' || r.state?.state === 'ready');
+    return anyReady ? 'SEQUENTIAL' : 'PROCESSING';
   }
 
   // Cancelled events show the same message as ended (no recording available)
@@ -895,7 +911,9 @@ function showSequentialPlayback() {
   }
   
   // Update progress text
-  const statusText = eventData.status === 'ended' ? 'Event Replay' : 'Event In Progress';
+  const statusText = eventData.is_test
+    ? 'Test Replay'
+    : (eventData.status === 'ended' ? 'Event Replay' : 'Event In Progress');
   progressBanner.innerHTML = `
     <span>${statusText} - Video <span id="current-video-num">${currentRecordingIndex + 1}</span> of ${allRecordings.length}</span>
     <span class="text-gray-400 ml-2">Auto-advancing</span>
