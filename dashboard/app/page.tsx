@@ -117,11 +117,11 @@ export default function DashboardHome() {
   const [purchasing, setPurchasing] = useState(false);
   const [purchaseMessage, setPurchaseMessage] = useState<string | null>(null);
 
-  // Credit pricing tiers — launch promo (23% off $39 regular)
+  // Credit pricing tiers 
   const CREDIT_TIERS = [
-    { id: 'single',  credits: 1,  regular: 39.00, promo: 30.00, label: '1 Credit' },
-    { id: 'pro5',    credits: 5,  regular: 195.00, promo: 142.50, label: '5 Credits', badge: 'Most Popular' },
-    { id: 'studio10', credits: 10, regular: 390.00, promo: 270.00, label: '10 Credits', badge: 'Best Value' },
+    { id: 'single',  credits: 1,  regular: 30.00, promo: 30.00, label: '1 Credit' },
+    { id: 'pro5',    credits: 5,  regular: 150.00, promo: 140.00, label: '5 Credits', badge: 'Most Popular' },
+    { id: 'studio10', credits: 10, regular: 300.00, promo: 260.00, label: '10 Credits', badge: 'Best Value' },
   ] as const;
 
   useEffect(() => {
@@ -339,10 +339,10 @@ export default function DashboardHome() {
     const file = e.target.files?.[0];
     if (!file || !user) return;
 
-    // Client-side validation: 100 KB max
-    const MAX_SIZE = 100 * 1024;
+    // Client-side validation: 200 KB max
+    const MAX_SIZE = 200 * 1024;
     if (file.size > MAX_SIZE) {
-      setLogoError('Logo must be under 100 KB');
+      setLogoError('Logo must be under 200 KB');
       return;
     }
 
@@ -806,7 +806,7 @@ export default function DashboardHome() {
                 className="hidden"
               />
             </label>
-            <span className="text-[var(--mc-text-3)] text-xs">PNG, JPG, SVG, or WebP. Max 100 KB.</span>
+            <span className="text-[var(--mc-text-3)] text-xs">PNG, JPG, SVG, or WebP. Max 200 KB.</span>
           </div>
 
           {/* Error message */}
@@ -833,7 +833,7 @@ export default function DashboardHome() {
             </button>
             <button
               onClick={() => router.push('/test-setup')}
-              className="border border-[var(--mc-border)] hover:bg-[var(--mc-surface-2)] text-[var(--mc-text-1)] font-semibold py-3 px-6 rounded-lg transition-colors"
+              className="border-2 border-[var(--mc-gold)] text-[var(--mc-gold)] hover:bg-[var(--mc-gold)] hover:text-white font-semibold py-3 px-6 rounded-lg transition-colors"
             >
               Test Your Setup
             </button>
