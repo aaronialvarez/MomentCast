@@ -1056,7 +1056,9 @@ function advanceToNextRecording(recordings) {
     // Update progress banner to show completion
     const progressBanner = document.getElementById('progress-banner');
     if (progressBanner) {
-      const statusText = eventData.status === 'ended' ? 'Event Replay' : 'Event Recording';
+      const statusText = eventData.is_test
+        ? 'Test Replay'
+        : (eventData.status === 'ended' ? 'Event Replay' : 'Event Recording');
       progressBanner.innerHTML = `
         <span>${statusText} - All ${recordings.length} videos complete</span>
         <span class="text-gray-400 ml-2">Refresh to replay</span>
