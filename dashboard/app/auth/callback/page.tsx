@@ -13,7 +13,9 @@ export default function AuthCallbackPage() {
     // Supabase client automatically detects the auth callback
     // parameters in the URL hash and exchanges them for a session
     supabase.auth.onAuthStateChange((event) => {
-      if (event === 'SIGNED_IN') {
+      // PASSWORD_RECOVERY fires instead of SIGNED_IN when the link was a PKCE
+      // recovery link. Treat both as "session ready" so old reset links don't hang.
+      if (event === 'SIGNED_IN' || event === 'PASSWORD_RECOVERY') {
         // Get the "next" param if present, default to dashboard
         const params = new URLSearchParams(window.location.search)
         const next = params.get('next') || '/'
