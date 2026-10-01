@@ -82,6 +82,7 @@ function LoginForm() {
   const [fullName, setFullName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [marketingOptIn, setMarketingOptIn] = useState(false)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [errorDetails, setErrorDetails] = useState<string | null>(null)
@@ -132,7 +133,11 @@ function LoginForm() {
         email,
         password,
         options: {
-          data: { full_name: fullName },
+          data: {
+            full_name: fullName,
+            marketing_opt_in: marketingOptIn,
+            marketing_opt_in_at: marketingOptIn ? new Date().toISOString() : null,
+          },
           emailRedirectTo: `${window.location.origin}/auth/callback`,
         },
       })
@@ -203,6 +208,9 @@ function LoginForm() {
         <h1 className="text-2xl font-semibold mb-4">Check your email</h1>
         <p className="text-[var(--mc-text-2)] mb-6">
           We sent a confirmation link to <strong>{email}</strong>. Click the link in your inbox to activate your account.
+        </p>
+        <p className="text-[var(--mc-text-3)] text-sm mb-6">
+          Nothing arrived? Check your spam folder. If you already have an account with this email, we don&apos;t send a new link. Sign in or use &ldquo;Forgot password?&rdquo; instead.
         </p>
         <button
           onClick={() => switchView('sign_in')}
@@ -342,6 +350,21 @@ function LoginForm() {
             required
           />
         </div>
+
+        {/* Marketing opt-in (sign-up only). Unchecked by default, never required. */}
+        {view === 'sign_up' && (
+          <label className="flex items-start gap-3 text-sm text-[var(--mc-text-2)] cursor-pointer text-left">
+            <input
+              type="checkbox"
+              checked={marketingOptIn}
+              onChange={(e) => setMarketingOptIn(e.target.checked)}
+              className="mt-1 h-4 w-4 accent-[var(--mc-gold)]"
+            />
+            <span>
+              Send me occasional tips and product updates from MomentCast. You can unsubscribe anytime.
+            </span>
+          </label>
+        )}
 
         {/* Forgot password link (sign-in only) */}
         {view === 'sign_in' && (

@@ -702,11 +702,12 @@ function timingSafeEqual(a: string, b: string): boolean {
  */
 async function syncToMailerLite(
   env: WorkerEnv,
-  user: { email: string; fullName: string; confirmedAt: string }
+  user: { email: string; fullName: string; optedInAt: string }
 ): Promise<boolean> {
-  const confirmed = new Date(user.confirmedAt);
+  // optedInAt is the moment the user ticked the marketing checkbox, not the email confirmation time.
+  const confirmed = new Date(user.optedInAt);
   if (isNaN(confirmed.getTime())) {
-    console.error('syncToMailerLite: bad confirmedAt value:', user.confirmedAt);
+    console.error('syncToMailerLite: bad optedInAt value:', user.optedInAt);
     return false;
   }
 
@@ -799,7 +800,7 @@ async function reconcileMailerLite(env: WorkerEnv, supabase: any): Promise<void>
       const ok = await syncToMailerLite(env, {
         email: u.email,
         fullName: u.full_name,
-        confirmedAt: u.email_confirmed_at,
+        optedInAt: u.marketing_opt_in_at,
       });
       if (ok) {
         await markMailerLiteSynced(u.id, supabase);
@@ -869,6 +870,17 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
         });
       }
 
+      // Consent gate: only users who ticked the signup checkbox go to MailerLite.
+      // Google signups and unchecked email signups exit here and are never synced.
+      const optedIn = record.raw_user_meta_data?.marketing_opt_in === true;
+      const optedInAt = record.raw_user_meta_data?.marketing_opt_in_at;
+      if (!optedIn || !optedInAt) {
+        return new Response(JSON.stringify({ received: true, skipped: true, noMarketingConsent: true }), {
+          status: 200,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
       // Stamp check first: makes a duplicate delivery harmless and guarantees a
       // subscriber deleted from MailerLite is never re-added by this path.
       const { data: syncRow, error: syncRowError } = await supabase
@@ -901,7 +913,7 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
         const ok = await syncToMailerLite(env, {
           email: record.email,
           fullName,
-          confirmedAt: record.email_confirmed_at,
+          optedInAt,
         });
         if (ok) {
           await markMailerLiteSynced(record.id, supabase);
