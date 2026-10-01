@@ -4,8 +4,9 @@ import { Suspense, useState } from 'react'
 import { useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase/client'
 
-// Landing page for the password-reset email link:
+// Landing page for emailed auth links (password reset and signup confirmation):
 //   https://app.momentcast.live/auth/confirm?token_hash=...&type=recovery
+//   https://app.momentcast.live/auth/confirm?token_hash=...&type=email
 //
 // Why a button instead of verifying on load: email scanners (Gmail, Yahoo, Outlook
 // Safe Links) prefetch every link in a message with a GET. If verifyOtp ran on page
@@ -47,8 +48,11 @@ function ConfirmForm() {
   // true once Supabase rejects the token (expired, already used, or tampered)
   const [linkDead, setLinkDead] = useState(false)
 
-  // Missing params or wrong type: nothing to verify, show the dead-link state
-  const malformed = !tokenHash || type !== 'recovery'
+  // Two link types are valid: password reset ('recovery') and signup confirmation ('email').
+  // Anything else, or a missing token, has nothing to verify: show the dead-link state.
+  const isRecovery = type === 'recovery'
+  const isSignup = type === 'email'
+  const malformed = !tokenHash || (!isRecovery && !isSignup)
 
   async function handleContinue() {
     if (!tokenHash) return
@@ -58,12 +62,13 @@ function ConfirmForm() {
     try {
       const { error } = await supabase.auth.verifyOtp({
         token_hash: tokenHash,
-        type: 'recovery',
+        type: isRecovery ? 'recovery' : 'email',
       })
       if (error) throw error
 
-      // Session cookie is set. Full navigation so the reset page boots with it.
-      window.location.href = '/reset-password'
+      // Session cookie is set. Full navigation so the next page boots with it.
+      // Reset links go to the new-password form; signup confirmations go to the dashboard.
+      window.location.href = isRecovery ? '/reset-password' : '/'
     } catch (err) {
       console.error('Recovery verify error:', err)
       if (isNetworkError(err)) {
@@ -81,10 +86,17 @@ function ConfirmForm() {
     return (
       <Shell>
         <h1 className="text-2xl font-semibold mb-4">This link has expired</h1>
-        <p className="text-[var(--mc-text-2)] mb-6">
-          Reset links work once and expire after one hour. Go back to sign in and choose
-          &ldquo;Forgot password?&rdquo; to get a new one.
-        </p>
+        {isSignup ? (
+          <p className="text-[var(--mc-text-2)] mb-6">
+            Confirmation links work once and expire after one hour. If you already confirmed,
+            sign in. If not, sign up again with the same email to get a new link.
+          </p>
+        ) : (
+          <p className="text-[var(--mc-text-2)] mb-6">
+            Reset links work once and expire after one hour. Go back to sign in and choose
+            &ldquo;Forgot password?&rdquo; to get a new one.
+          </p>
+        )}
         <a
           href="/login"
           className="block w-full px-6 py-3 bg-[var(--mc-gold)] hover:bg-[var(--mc-gold-hover)] text-white rounded-lg font-medium transition-colors"
@@ -98,9 +110,13 @@ function ConfirmForm() {
   // --- Ready: wait for a real click ---
   return (
     <Shell>
-      <h1 className="text-2xl font-semibold mb-4">Reset your password</h1>
+      <h1 className="text-2xl font-semibold mb-4">
+        {isSignup ? 'Confirm your email' : 'Reset your password'}
+      </h1>
       <p className="text-[var(--mc-text-2)] mb-6">
-        Continue to choose a new password for your MomentCast account.
+        {isSignup
+          ? 'Continue to activate your MomentCast account.'
+          : 'Continue to choose a new password for your MomentCast account.'}
       </p>
 
       {error && (
