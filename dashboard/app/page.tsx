@@ -98,6 +98,11 @@ export default function DashboardHome() {
   const [reloadKey, setReloadKey] = useState(0);
   const [copied, setCopied] = useState(false);
 
+  // Marketing opt-in prompt (shown once to users who have never answered)
+  const [showMarketingPrompt, setShowMarketingPrompt] = useState(false);
+  const [marketingSaving, setMarketingSaving] = useState(false);
+  const [marketingError, setMarketingError] = useState<string | null>(null);
+
   // Logo upload state
   const [logoUploading, setLogoUploading] = useState(false);
   const [logoError, setLogoError] = useState<string | null>(null);
@@ -162,6 +167,8 @@ export default function DashboardHome() {
         }
 
         setUser(userData);
+        // Ask only users who have never answered (true or false both count as answered)
+        setShowMarketingPrompt(typeof authUser.user_metadata?.marketing_opt_in !== 'boolean');
         console.log('✅ User loaded:', userData.email);
 
         // Fetch ALL upcoming/active events (no limit needed)
@@ -488,6 +495,33 @@ export default function DashboardHome() {
     }
   }
 
+  async function handleMarketingChoice(optIn: boolean) {
+    setMarketingSaving(true);
+    setMarketingError(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error('Not authenticated');
+
+      const response = await fetch('https://api.momentcast.live/api/marketing-optin', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${session.access_token}`,
+        },
+        body: JSON.stringify({ optIn }),
+      });
+      const data = await response.json() as { ok?: boolean; error?: string };
+      if (!response.ok || !data.ok) throw new Error(data.error || 'Could not save your choice');
+
+      setShowMarketingPrompt(false);
+    } catch (err: any) {
+      console.error('Marketing opt-in error:', err);
+      setMarketingError(err.message || 'Could not save your choice');
+    } finally {
+      setMarketingSaving(false);
+    }
+  }
+
   async function handleLogout() {
     await supabase.auth.signOut();
     window.location.href = '/login';
@@ -576,6 +610,36 @@ export default function DashboardHome() {
       {/* Account Settings Zone — slightly darker background */}
       <div className="bg-[var(--mc-surface)] border-b border-[var(--mc-border)]">
         <div className="max-w-6xl mx-auto px-8 py-8">
+        {/* Marketing opt-in prompt (one time, until answered) */}
+        {showMarketingPrompt && (
+          <div className="bg-[var(--mc-surface-2)] rounded-lg p-6 mb-8 border border-[var(--mc-gold)]/40">
+            <h2 className="text-xl font-semibold text-[var(--mc-text-1)]">Tips and product updates</h2>
+            <p className="text-[var(--mc-text-2)] text-sm mt-1">
+              Want occasional tips and product updates from MomentCast? You can unsubscribe anytime.
+              Your answer never affects your account or your events.
+            </p>
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              <button
+                onClick={() => handleMarketingChoice(true)}
+                disabled={marketingSaving}
+                className="px-5 py-2 bg-[var(--mc-gold)] hover:bg-[var(--mc-gold-hover)] disabled:opacity-50 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                {marketingSaving ? 'Saving...' : 'Yes, keep me posted'}
+              </button>
+              <button
+                onClick={() => handleMarketingChoice(false)}
+                disabled={marketingSaving}
+                className="px-5 py-2 border border-[var(--mc-border)] hover:bg-[var(--mc-surface)] disabled:opacity-50 rounded-lg text-sm font-medium transition-colors"
+              >
+                No thanks
+              </button>
+            </div>
+            {marketingError && (
+              <p className="text-[var(--mc-live)] text-sm mt-3">{marketingError}</p>
+            )}
+          </div>
+        )}
+
         {/* Credits Section */}
         <div className="bg-[var(--mc-surface-2)] rounded-lg p-6 mb-8 border border-[var(--mc-border)]">
           {/* Balance row */}

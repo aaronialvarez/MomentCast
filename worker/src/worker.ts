@@ -929,6 +929,69 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
       });
     }
 
+    // POST /api/marketing-optin - Authenticated. Body: { optIn: boolean }
+    // Records the user's marketing choice (Google signups never saw the signup checkbox).
+    // Opt-in: sync to MailerLite first, then write metadata. A MailerLite failure returns
+    // 502 and changes nothing, so the user can simply retry.
+    if (pathname === '/api/marketing-optin' && method === 'POST') {
+      const jsonHeaders = { ...corsHeaders, 'Content-Type': 'application/json' };
+
+      const token = extractToken(request.headers.get('authorization'));
+      const userId = token ? await verifyJWT(token, env) : null;
+      if (!userId) {
+        return new Response(JSON.stringify({ error: 'Unauthorized' }), { status: 401, headers: jsonHeaders });
+      }
+
+      const body = await request.json().catch(() => ({})) as { optIn?: unknown };
+      if (typeof body.optIn !== 'boolean') {
+        return new Response(JSON.stringify({ error: 'optIn must be true or false' }), { status: 400, headers: jsonHeaders });
+      }
+
+      const { data: authData, error: authErr } = await supabase.auth.admin.getUserById(userId);
+      const authUser = authData?.user;
+      if (authErr || !authUser?.email) {
+        console.error('marketing-optin: could not load auth user', userId, authErr);
+        return new Response(JSON.stringify({ error: 'Could not load account' }), { status: 500, headers: jsonHeaders });
+      }
+      const meta = authUser.user_metadata || {};
+
+      let optedInAt: string | null = null;
+      if (body.optIn) {
+        optedInAt = new Date().toISOString();
+
+        // Already stamped (synced earlier): only the consent record needs writing.
+        const { data: syncRow } = await supabase
+          .from('users')
+          .select('mailerlite_synced_at')
+          .eq('id', userId)
+          .maybeSingle();
+
+        if (!syncRow?.mailerlite_synced_at) {
+          const ok = await syncToMailerLite(env, {
+            email: authUser.email,
+            fullName: meta.full_name || meta.name || '',
+            optedInAt,
+          });
+          if (!ok) {
+            return new Response(JSON.stringify({ error: 'Could not subscribe right now. Please try again.' }), {
+              status: 502, headers: jsonHeaders,
+            });
+          }
+          await markMailerLiteSynced(userId, supabase);
+        }
+      }
+
+      const { error: updErr } = await supabase.auth.admin.updateUserById(userId, {
+        user_metadata: { ...meta, marketing_opt_in: body.optIn, marketing_opt_in_at: optedInAt },
+      });
+      if (updErr) {
+        console.error('marketing-optin: metadata update failed', userId, updErr);
+        return new Response(JSON.stringify({ error: 'Could not save your choice. Please try again.' }), { status: 500, headers: jsonHeaders });
+      }
+
+      return new Response(JSON.stringify({ ok: true, optIn: body.optIn }), { status: 200, headers: jsonHeaders });
+    }
+
     // POST /api/webhooks/cloudflare - Handle Cloudflare Stream webhooks
     if (pathname === '/api/webhooks/cloudflare' && method === 'POST') {
       const body = await request.json() as any;
