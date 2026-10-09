@@ -103,6 +103,12 @@ export default function DashboardHome() {
   const [marketingSaving, setMarketingSaving] = useState(false);
   const [marketingError, setMarketingError] = useState<string | null>(null);
 
+  // Delete account (danger zone)
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false);
+  const [deleteConfirmEmail, setDeleteConfirmEmail] = useState('');
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState<string | null>(null);
+
   // Logo upload state
   const [logoUploading, setLogoUploading] = useState(false);
   const [logoError, setLogoError] = useState<string | null>(null);
@@ -522,6 +528,42 @@ export default function DashboardHome() {
     }
   }
 
+  async function handleDeleteAccount() {
+    if (!user) return;
+    setDeleting(true);
+    setDeleteError(null);
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.access_token) throw new Error('Not authenticated');
+
+      // The worker deletes in passes (Cloudflare cleanup is batched). Repeat until done.
+      for (let pass = 0; pass < 25; pass++) {
+        const response = await fetch('https://api.momentcast.live/api/account/delete', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${session.access_token}`,
+          },
+          body: JSON.stringify({ confirmEmail: deleteConfirmEmail }),
+        });
+        const data = await response.json() as { done?: boolean; error?: string };
+        if (!response.ok) throw new Error(data.error || 'Could not delete your account');
+
+        if (data.done) {
+          // The account no longer exists, so a server-side sign out may fail. Ignore that.
+          try { await supabase.auth.signOut(); } catch { /* ignore */ }
+          window.location.href = '/login';
+          return;
+        }
+      }
+      throw new Error('Deletion is taking longer than expected. Please try again.');
+    } catch (err: any) {
+      console.error('Delete account error:', err);
+      setDeleteError(err.message || 'Could not delete your account');
+      setDeleting(false);
+    }
+  }
+
   async function handleLogout() {
     await supabase.auth.signOut();
     window.location.href = '/login';
@@ -876,6 +918,67 @@ export default function DashboardHome() {
           {/* Error message */}
           {logoError && (
             <p className="text-[var(--mc-live)] text-sm mt-2">{logoError}</p>
+          )}
+        </div>
+
+        {/* Danger zone */}
+        <div className="rounded-lg p-6 mb-8 border border-[var(--mc-live)]/40 bg-[var(--mc-surface-2)]">
+          <h2 className="text-xl font-semibold text-[var(--mc-live)]">Danger zone</h2>
+          <p className="text-[var(--mc-text-2)] text-sm mt-1">
+            Permanently delete your account, events, recordings, logo and email subscription.
+            Watch links stop working and this cannot be undone. Payment records are kept as
+            required for tax purposes.
+            {user && user.credits > 0 &&
+              ` Your ${user.credits} unused credit${user.credits === 1 ? '' : 's'} will be forfeited.`}
+          </p>
+
+          {!showDeleteAccount ? (
+            <button
+              onClick={() => setShowDeleteAccount(true)}
+              className="mt-4 px-4 py-2 border border-[var(--mc-live)] text-[var(--mc-live)] hover:bg-[var(--mc-live-bg)] rounded-lg text-sm font-medium transition-colors"
+            >
+              Delete my account
+            </button>
+          ) : (
+            <div className="mt-4 space-y-3">
+              <label className="block text-sm text-[var(--mc-text-2)]">
+                Type <span className="font-mono text-[var(--mc-text-1)]">{user?.email}</span> to confirm
+              </label>
+              <input
+                type="email"
+                value={deleteConfirmEmail}
+                onChange={(e) => setDeleteConfirmEmail(e.target.value)}
+                autoComplete="off"
+                disabled={deleting}
+                className="w-full max-w-md px-4 py-3 bg-[var(--mc-surface)] border border-[var(--mc-border)] rounded focus:outline-none focus:border-[var(--mc-live)]"
+              />
+              {deleteError && (
+                <p className="text-[var(--mc-live)] text-sm">{deleteError}</p>
+              )}
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={handleDeleteAccount}
+                  disabled={
+                    deleting ||
+                    deleteConfirmEmail.trim().toLowerCase() !== (user?.email || '').toLowerCase()
+                  }
+                  className="px-5 py-2 bg-[var(--mc-live)] text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {deleting ? 'Deleting...' : 'Permanently delete account'}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowDeleteAccount(false);
+                    setDeleteConfirmEmail('');
+                    setDeleteError(null);
+                  }}
+                  disabled={deleting}
+                  className="px-5 py-2 border border-[var(--mc-border)] rounded-lg text-sm font-medium disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
           )}
         </div>
 

@@ -929,6 +929,206 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
       });
     }
 
+    // POST /api/account/delete - Authenticated. Body: { confirmEmail: string }
+    // Permanently deletes the caller's account. Runs in passes because the Workers Free plan
+    // allows 50 subrequests per invocation: each pass deletes up to 40 Cloudflare resources
+    // and returns { done: false } until none are left. The dashboard repeats until done.
+    // The final pass removes the MailerLite subscriber, storage files and the auth user.
+    // Everything before the auth user delete is idempotent, so any failure is safe to retry.
+    // Stripe records are kept on purpose (tax retention). credit_transactions survives
+    // anonymized: its user_id is SET NULL by the foreign key.
+    // Assumes fewer than 40 Cloudflare resources per event.
+    if (pathname === '/api/account/delete' && method === 'POST') {
+      const reply = (status: number, payload: Record<string, unknown>) =>
+        new Response(JSON.stringify(payload), {
+          status,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+
+      const token = extractToken(request.headers.get('authorization'));
+      const userId = token ? await verifyJWT(token, env) : null;
+      if (!userId) return reply(401, { error: 'Unauthorized' });
+
+      const body = await request.json().catch(() => ({})) as { confirmEmail?: unknown };
+
+      const { data: authData, error: authErr } = await supabase.auth.admin.getUserById(userId);
+      const authUser = authData?.user;
+      if (authErr || !authUser?.email) {
+        console.error('account/delete: could not load auth user', userId, authErr);
+        return reply(500, { error: 'Could not load your account. Please try again.' });
+      }
+
+      // Server-side confirmation, so a stray or scripted call cannot delete anything.
+      if (
+        typeof body.confirmEmail !== 'string' ||
+        body.confirmEmail.trim().toLowerCase() !== authUser.email.toLowerCase()
+      ) {
+        return reply(400, { error: 'Type your account email exactly to confirm.' });
+      }
+
+      const { data: events, error: eventsErr } = await supabase
+        .from('events')
+        .select('id, status, is_test, stream_state, live_input_id, recordings, merged_video_id')
+        .eq('user_id', userId);
+      if (eventsErr) {
+        console.error('account/delete: events query failed', userId, eventsErr);
+        return reply(500, { error: 'Could not load your events. Please try again.' });
+      }
+
+      // Never kill a stream mid-event or strand a paid event. Test events do not block.
+      const blocking = (events || []).filter((e: any) =>
+        !e.is_test && (['live', 'ready', 'scheduled'].includes(e.status) || e.stream_state === 'active')
+      );
+      if (blocking.length > 0) {
+        return reply(409, {
+          error: `You have ${blocking.length} live or upcoming event${blocking.length === 1 ? '' : 's'}. Cancel or finish ${blocking.length === 1 ? 'it' : 'them'} first, then delete your account.`,
+        });
+      }
+
+      // --- Phase 1: Cloudflare Stream (live inputs and recorded videos), batched ---
+      const CF_BASE = `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/stream`;
+      const MAX_DELETES = 40;
+
+      const byEvent = new Map<string, string[]>();
+      const seen = new Set<string>();
+      for (const e of events || []) {
+        let recs: any[] = [];
+        try {
+          recs = typeof e.recordings === 'string' ? JSON.parse(e.recordings) : (e.recordings || []);
+        } catch {
+          recs = [];
+        }
+        const urls: string[] = [];
+        const add = (url: string) => { if (!seen.has(url)) { seen.add(url); urls.push(url); } };
+        if (e.live_input_id) add(`${CF_BASE}/live_inputs/${e.live_input_id}`);
+        for (const r of recs) if (r?.uid) add(`${CF_BASE}/${r.uid}`);
+        if (e.merged_video_id) add(`${CF_BASE}/${e.merged_video_id}`);
+        if (urls.length > 0) byEvent.set(e.id, urls);
+      }
+
+      if (byEvent.size > 0) {
+        // Whole events per pass, up to the delete budget.
+        const batch: Array<[string, string[]]> = [];
+        let used = 0;
+        for (const entry of byEvent) {
+          if (used > 0 && used + entry[1].length > MAX_DELETES) break;
+          batch.push(entry);
+          used += entry[1].length;
+        }
+
+        // A missing resource (404, or Cloudflare error 10009) counts as deleted.
+        const deleteOne = async (url: string): Promise<boolean> => {
+          try {
+            const res = await fetch(url, {
+              method: 'DELETE',
+              headers: { 'Authorization': `Bearer ${env.CLOUDFLARE_STREAM_API_TOKEN}` },
+            });
+            const text = await res.text();
+            if (res.ok || res.status === 404) return true;
+            try {
+              if (JSON.parse(text)?.errors?.[0]?.code === 10009) return true;
+            } catch { /* not JSON */ }
+            console.error('account/delete: Cloudflare delete failed', url, res.status, text);
+            return false;
+          } catch (err) {
+            console.error('account/delete: Cloudflare delete threw', url, err);
+            return false;
+          }
+        };
+
+        const results = await Promise.all(
+          batch.map(async ([eventId, urls]) => ({
+            eventId,
+            ok: (await Promise.all(urls.map(deleteOne))).every(Boolean),
+          }))
+        );
+        const completed = results.filter(r => r.ok).map(r => r.eventId);
+
+        if (completed.length > 0) {
+          const { error: clearErr } = await supabase
+            .from('events')
+            .update({ live_input_id: null, recordings: [], merged_video_id: null })
+            .in('id', completed);
+          if (clearErr) {
+            console.error('account/delete: could not record progress', userId, clearErr);
+            return reply(500, { error: 'Could not remove your event media. Please try again.' });
+          }
+        }
+
+        const remainingEvents = byEvent.size - completed.length;
+        if (remainingEvents > 0) {
+          // No progress means a real failure. Stop instead of looping forever.
+          if (completed.length === 0) {
+            return reply(502, { error: 'Could not remove some video files. Please try again.' });
+          }
+          return reply(200, { done: false, remaining: remainingEvents });
+        }
+      }
+
+      // --- Phase 2: MailerLite subscriber ---
+      try {
+        const mlHeaders = {
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${env.MAILERLITE_API_KEY}`,
+        };
+        const lookup = await fetch(
+          `https://connect.mailerlite.com/api/subscribers/${encodeURIComponent(authUser.email)}`,
+          { headers: mlHeaders }
+        );
+        if (lookup.status === 200) {
+          const sub = await lookup.json() as { data?: { id?: string } };
+          if (sub.data?.id) {
+            const del = await fetch(`https://connect.mailerlite.com/api/subscribers/${sub.data.id}`, {
+              method: 'DELETE',
+              headers: mlHeaders,
+            });
+            await del.text();
+            if (!del.ok && del.status !== 404) {
+              console.error('account/delete: MailerLite delete failed', userId, del.status);
+              return reply(502, { error: 'Could not remove your email subscription. Please try again.' });
+            }
+          }
+        } else {
+          await lookup.text();
+          if (lookup.status !== 404) {
+            console.error('account/delete: MailerLite lookup failed', userId, lookup.status);
+            return reply(502, { error: 'Could not remove your email subscription. Please try again.' });
+          }
+        }
+      } catch (err) {
+        console.error('account/delete: MailerLite threw', userId, err);
+        return reply(502, { error: 'Could not remove your email subscription. Please try again.' });
+      }
+
+      // --- Phase 3: Storage files (logo and covers live under {user_id}/) ---
+      for (const bucket of ['logos', 'covers']) {
+        const { data: files, error: listErr } = await supabase.storage.from(bucket).list(userId, { limit: 1000 });
+        if (listErr) {
+          console.error(`account/delete: list ${bucket} failed`, userId, listErr);
+          return reply(500, { error: 'Could not remove your uploaded files. Please try again.' });
+        }
+        if (files && files.length > 0) {
+          const { error: rmErr } = await supabase.storage
+            .from(bucket)
+            .remove(files.map((f: any) => `${userId}/${f.name}`));
+          if (rmErr) {
+            console.error(`account/delete: remove ${bucket} failed`, userId, rmErr);
+            return reply(500, { error: 'Could not remove your uploaded files. Please try again.' });
+          }
+        }
+      }
+
+      // --- Phase 4: the account itself, last. Cascades to users, events, sessions, identities. ---
+      const { error: delErr } = await supabase.auth.admin.deleteUser(userId);
+      if (delErr) {
+        console.error('account/delete: deleteUser failed', userId, delErr);
+        return reply(500, { error: 'Could not delete your account. Please try again.' });
+      }
+
+      console.log(`Account deleted: ${userId}`);
+      return reply(200, { done: true });
+    }
+
     // POST /api/marketing-optin - Authenticated. Body: { optIn: boolean }
     // Records the user's marketing choice (Google signups never saw the signup checkbox).
     // Opt-in: sync to MailerLite first, then write metadata. A MailerLite failure returns
@@ -959,26 +1159,19 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
       if (body.optIn) {
         optedInAt = new Date().toISOString();
 
-        // Already stamped (synced earlier): only the consent record needs writing.
-        const { data: syncRow } = await supabase
-          .from('users')
-          .select('mailerlite_synced_at')
-          .eq('id', userId)
-          .maybeSingle();
-
-        if (!syncRow?.mailerlite_synced_at) {
-          const ok = await syncToMailerLite(env, {
-            email: authUser.email,
-            fullName: meta.full_name || meta.name || '',
-            optedInAt,
+        // An explicit click always upserts. The stamp only guards the automatic paths
+        // (webhook and reconcile); it must never block a user who asks to be subscribed.
+        const ok = await syncToMailerLite(env, {
+          email: authUser.email,
+          fullName: meta.full_name || meta.name || '',
+          optedInAt,
+        });
+        if (!ok) {
+          return new Response(JSON.stringify({ error: 'Could not subscribe right now. Please try again.' }), {
+            status: 502, headers: jsonHeaders,
           });
-          if (!ok) {
-            return new Response(JSON.stringify({ error: 'Could not subscribe right now. Please try again.' }), {
-              status: 502, headers: jsonHeaders,
-            });
-          }
-          await markMailerLiteSynced(userId, supabase);
         }
+        await markMailerLiteSynced(userId, supabase);
       }
 
       const { error: updErr } = await supabase.auth.admin.updateUserById(userId, {
