@@ -921,6 +921,9 @@ export default function DashboardHome() {
           )}
         </div>
         
+        </div>{/* end max-w-6xl inner */}
+      </div>{/* end account settings zone */}
+
       {/* Main Content Zone */}
       <div className="max-w-6xl mx-auto p-8">
 
