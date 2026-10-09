@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Privacy Policy | MomentCast</title>
-  <meta name="description" content="MomentCast Privacy Policy — how we collect, use, store, and protect your data, including Google user data." />
+  <meta name="description" content="MomentCast Privacy Policy: how we collect, use, store, and protect your data, including Google user data." />
 
   <!-- Fonts (same as index.html) -->
   <link rel="icon" type="image/png" href="favicon.png">
@@ -36,7 +36,7 @@
       letter-spacing: 0.04em;
     }
 
-    /* Content wrapper — narrower than mc-container for readability */
+    /* Content wrapper: narrower than mc-container for readability */
     .pp-wrapper {
       max-width: 760px;
       margin: 0 auto;
@@ -271,7 +271,7 @@
           <tr><td>Device &amp; browser data</td><td>IP address, browser type, operating system, referring URL</td></tr>
           <tr><td>Video analytics</td><td>Viewer minutes watched, viewer country (aggregated), stream connection events</td></tr>
           <tr><td>Email engagement</td><td>For marketing emails you opt in to: whether they are opened or clicked, and approximate location derived from your IP address</td></tr>
-          <tr><td>Cookies</td><td>Session tokens, analytics identifiers (see Section 8)</td></tr>
+          <tr><td>Cookies</td><td>Session and authentication tokens (necessary to run the service), and analytics identifiers (set only with your consent where the law requires it; see Section 8)</td></tr>
         </tbody>
       </table>
 
@@ -291,9 +291,9 @@
       <h3>What Google data we access</h3>
       <p>MomentCast uses Google Sign-In for authentication only. When you sign in with Google, we request access to the following data:</p>
       <ul>
-        <li><strong>Email address</strong> — used as your account identifier and for service communications.</li>
-        <li><strong>Display name</strong> — used to personalize your dashboard experience.</li>
-        <li><strong>Profile photo URL</strong> — optionally displayed in your account settings.</li>
+        <li><strong>Email address:</strong> used as your account identifier and for service communications.</li>
+        <li><strong>Display name:</strong> used to personalize your dashboard experience.</li>
+        <li><strong>Profile photo URL:</strong> optionally displayed in your account settings.</li>
       </ul>
       <p>We do not request access to your Google Drive, Gmail, Google Calendar, Google Contacts, or any other Google service. We do not request sensitive or restricted OAuth scopes beyond basic profile and email identification.</p>
 
@@ -308,7 +308,7 @@
       <p>Signing in with Google never subscribes you to marketing email. We send tips and product updates only if you separately and explicitly opt in.</p>
 
       <h3>How we store Google user data</h3>
-      <p>Your name, email address, and profile photo URL are stored securely in our database hosted on Supabase (PostgreSQL), protected by encryption at rest and in transit. See Section 6 for details.</p>
+      <p>Your name, email address, and profile photo URL are stored securely in a managed database operated by our database provider, protected by encryption at rest and in transit. See Section 6 for details.</p>
 
       <h3>How to revoke Google access</h3>
       <p>You can revoke MomentCast's access to your Google account at any time by visiting <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">Google Account Permissions</a> and removing MomentCast. Revoking access will not delete your MomentCast account or event data. If you created your account with Google, you can still sign in afterward by choosing "Forgot password?" on the sign-in page to set a password. To delete your account and data, use the "Danger zone" at the bottom of your dashboard (see Section 7), or contact <a href="mailto:support@momentcast.live">support@momentcast.live</a>.</p>
@@ -331,7 +331,7 @@
         <li>Send service communications (account confirmation and password reset links, event confirmations, receipts, support responses).</li>
         <li>Send tips and product updates, only if you have opted in. You can unsubscribe at any time.</li>
         <li>Monitor platform performance, diagnose technical issues, and improve the service.</li>
-        <li>Measure viewer engagement through aggregated, anonymized analytics.</li>
+        <li>Measure viewer engagement through aggregated analytics, using analytics cookies only with your consent where the law requires it.</li>
         <li>Comply with applicable legal obligations.</li>
       </ul>
       <p>We do not use your data for behavioral advertising, do not build advertising profiles, and do not sell or rent your personal information.</p>
@@ -344,20 +344,22 @@
       <p>MomentCast does not sell your personal information. We share data only in the following limited circumstances:</p>
 
       <h3>Service providers (processors)</h3>
+      <p>We use trusted third-party providers to run the platform. They process data only on our behalf and under their data processing terms, for the purposes below.</p>
       <table class="pp-table">
         <thead>
-          <tr><th>Vendor</th><th>Purpose</th><th>Data shared</th></tr>
+          <tr><th>Provider</th><th>Purpose</th><th>Data shared</th></tr>
         </thead>
         <tbody>
-          <tr><td>Supabase</td><td>Database, authentication, file storage</td><td>Account data, event data, uploaded assets</td></tr>
-          <tr><td>Cloudflare</td><td>Video streaming, hosting, CDN, analytics</td><td>Video streams, anonymized viewer analytics, request logs</td></tr>
-          <tr><td>Google (Auth)</td><td>Sign-In authentication</td><td>Identity token (email, name) returned to us upon your authorization</td></tr>
-          <tr><td>Google Analytics (GA4)</td><td>Web analytics on viewer pages</td><td>Anonymized usage data, page views</td></tr>
-          <tr><td>Stripe</td><td>Processing credit purchase payments</td><td>Payment details (card data never stored by MomentCast)</td></tr>
-          <tr><td>Mailgun</td><td>Delivery of account emails such as confirmation and password reset links</td><td>Your email address and the content of the message</td></tr>
-          <tr><td>MailerLite</td><td>Tips and product updates, sent only to users who opt in</td><td>Email address, name, opt-in timestamp, and email engagement (opens, clicks, approximate location)</td></tr>
+          <tr><td>Infrastructure and video delivery providers</td><td>Hosting, content delivery, live video streaming, recording storage, and performance monitoring</td><td>Video streams, recordings, request logs, aggregated viewer analytics</td></tr>
+          <tr><td>Database, authentication, and file storage provider</td><td>Storing account and event data, signing you in, and storing uploaded images</td><td>Account data, event data, uploaded assets</td></tr>
+          <tr><td>Google (Sign-In)</td><td>Sign-In authentication</td><td>Identity token (email, name) returned to us upon your authorization</td></tr>
+          <tr><td>Google Analytics (GA4)</td><td>Web analytics on viewer pages, used only with your consent where the law requires it</td><td>Usage data, page views, and cookie identifiers</td></tr>
+          <tr><td>Stripe</td><td>Processing credit purchase payments</td><td>Payment details (card data is never stored by MomentCast)</td></tr>
+          <tr><td>Transactional email provider</td><td>Delivery of account emails such as confirmation and password reset links</td><td>Your email address and the content of the message</td></tr>
+          <tr><td>Email marketing platform</td><td>Tips and product updates, sent only to users who opt in</td><td>Email address, name, opt-in timestamp, and email engagement (opens, clicks, approximate location)</td></tr>
         </tbody>
       </table>
+      <p>A current list of our sub-processors is available on request at <a href="mailto:support@momentcast.live">support@momentcast.live</a>.</p>
 
       <h3>Legal requirements</h3>
       <p>We may disclose your information if required by law, court order, or government authority, or when we believe in good faith that disclosure is necessary to protect our rights, your safety, or the safety of others, or to investigate fraud.</p>
@@ -381,9 +383,9 @@
       <p>We take reasonable, industry-standard measures to protect your personal information against unauthorized access, disclosure, alteration, and destruction:</p>
       <ul>
         <li><strong>Encryption in transit:</strong> All data transmitted between your browser and our servers uses HTTPS/TLS.</li>
-        <li><strong>Encryption at rest:</strong> User data stored in Supabase is encrypted at rest.</li>
+        <li><strong>Encryption at rest:</strong> User data stored in our managed database is encrypted at rest.</li>
         <li><strong>Access controls:</strong> Database access is restricted to authenticated application processes; no public access is permitted.</li>
-        <li><strong>Secure infrastructure:</strong> We operate on Cloudflare Pages and Cloudflare Workers, which enforce HTTPS for all requests.</li>
+        <li><strong>Secure infrastructure:</strong> We run on reputable cloud infrastructure that enforces HTTPS for all requests.</li>
         <li><strong>Authentication tokens:</strong> OAuth tokens are short-lived and stored using secure, httpOnly mechanisms.</li>
         <li><strong>Passwords:</strong> Passwords are hashed by our authentication provider. We never see or store them in readable form.</li>
         <li><strong>Email links:</strong> Confirmation and password reset links work once and expire after one hour.</li>
@@ -407,8 +409,8 @@
           <tr><td>Logo and cover images</td><td>Until you remove them or the event page expires; deleted upon account deletion</td></tr>
           <tr><td>Payment and billing records</td><td>7 years to comply with tax and financial regulations. After account deletion, credit transaction history is kept without any link to your account</td></tr>
           <tr><td>Google user data (name, email, photo URL)</td><td>Life of account; deleted upon account deletion</td></tr>
-          <tr><td>Email marketing list (MailerLite)</td><td>Until you unsubscribe or delete your account. Deleted from MailerLite upon account deletion. If you only unsubscribe, your address stays on file marked as unsubscribed so we do not email you again</td></tr>
-          <tr><td>Analytics data (aggregated)</td><td>Up to 90 days in Cloudflare Stream; standard GA4 retention settings</td></tr>
+          <tr><td>Email marketing list</td><td>Until you unsubscribe or delete your account. Deleted from our email marketing platform upon account deletion. If you only unsubscribe, your address stays on file marked as unsubscribed so we do not email you again</td></tr>
+          <tr><td>Analytics data (aggregated)</td><td>Up to 90 days in our video infrastructure analytics; Google Analytics data is kept according to its configured retention settings</td></tr>
           <tr><td>Support communications</td><td>2 years, then deleted</td></tr>
         </tbody>
       </table>
@@ -426,16 +428,18 @@
 
       <h3>Cookies we use</h3>
       <ul>
-        <li><strong>Session cookies:</strong> Used to keep you logged into your Streamer dashboard. These expire when you close your browser or sign out.</li>
-        <li><strong>Authentication cookies:</strong> Set by Supabase Auth to maintain your authenticated session securely.</li>
-        <li><strong>Analytics cookies:</strong> Google Analytics 4 (GA4) cookies are set on viewer pages (go.momentcast.live) to measure page views and engagement. These are anonymized and do not identify you personally.</li>
+        <li><strong>Strictly necessary cookies:</strong> Session and authentication cookies keep you signed in to your Streamer dashboard and secure your session. The service cannot work without them, so they do not require consent.</li>
+        <li><strong>Analytics cookies:</strong> Google Analytics 4 (GA4) cookies measure page views and engagement on viewer pages (go.momentcast.live). They are set only after you accept them in our cookie banner where the law requires consent.</li>
       </ul>
 
+      <h3>Cookie banner and your choices</h3>
+      <p>When you first visit, our cookie banner lets you accept or decline analytics cookies. If you decline, or do not respond, we do not set analytics cookies. You can change your choice at any time through the cookie banner's settings control, or by clearing this site's cookies in your browser, which shows the banner again. Declining analytics has no effect on your ability to use MomentCast or watch an event.</p>
+
       <h3>Viewers (unauthenticated)</h3>
-      <p>Viewers of event pages at go.momentcast.live do not need to create an account. Their viewing experience is anonymous. GA4 may set analytics cookies; viewers can opt out using their browser's cookie settings or a browser-based ad blocker.</p>
+      <p>Viewers of event pages at go.momentcast.live do not need to create an account. Their viewing experience is anonymous. Analytics cookies are set only if the Viewer accepts them. Viewers can also block them with their browser's cookie settings or a browser-based ad blocker.</p>
 
       <h3>Third-party analytics</h3>
-      <p>We use Google Analytics 4 (tag G-KL4FM3L62J) on viewer pages to understand aggregate traffic patterns, and Cloudflare Analytics on all properties for performance monitoring. Neither service is given access to personally identifiable information.</p>
+      <p>We use Google Analytics 4 on viewer pages to understand aggregate traffic patterns, not to build advertising profiles. We also use basic performance and traffic analytics from our hosting provider on all properties for performance monitoring. We do not give either service your name, email address, or other directly identifying information.</p>
     </div>
 
     <!-- 9 -->
@@ -448,9 +452,9 @@
         <li><strong>Correction:</strong> Request correction of inaccurate or incomplete data.</li>
         <li><strong>Deletion:</strong> Delete your account yourself from the dashboard at any time, or request deletion by contacting us (subject to legal retention obligations).</li>
         <li><strong>Portability:</strong> Request your data in a structured, machine-readable format.</li>
-        <li><strong>Withdrawal of consent:</strong> Revoke Google Sign-In authorization at any time via <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">Google Account Permissions</a>, or contact us to withdraw other consents. You can unsubscribe from tips and product updates at any time using the link in any of those emails.</li>
+        <li><strong>Withdrawal of consent:</strong> Revoke Google Sign-In authorization at any time via <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">Google Account Permissions</a>, or contact us to withdraw other consents. You can unsubscribe from tips and product updates at any time using the link in any of those emails, and you can withdraw analytics cookie consent at any time through the cookie banner.</li>
         <li><strong>Objection and restriction:</strong> If you are in the European Economic Area or the United Kingdom, you may object to or ask us to restrict certain processing, and you may lodge a complaint with your local data protection authority.</li>
-        <li><strong>Opt-out of analytics:</strong> Disable GA4 tracking via your browser's cookie controls or <a href="https://tools.google.com/dlpage/gaoptout" target="_blank" rel="noopener">Google's opt-out tool</a>.</li>
+        <li><strong>Opt-out of analytics:</strong> Decline analytics cookies in our cookie banner, or use <a href="https://tools.google.com/dlpage/gaoptout" target="_blank" rel="noopener">Google's opt-out tool</a>.</li>
       </ul>
       <p>California residents may have additional rights under the California Consumer Privacy Act (CCPA), including the right to know, the right to delete, and the right to opt out of the sale of personal information. We do not sell personal information.</p>
       <p>To exercise any of these rights, contact <a href="mailto:support@momentcast.live">support@momentcast.live</a>. We will respond within 30 days.</p>
@@ -471,6 +475,7 @@
           <tr><td>Creating your account, providing the service, processing purchases</td><td>Performance of a contract</td></tr>
           <tr><td>Account and security emails, fraud prevention, service improvement</td><td>Legitimate interests</td></tr>
           <tr><td>Tips and product updates by email</td><td>Your consent, which you can withdraw at any time</td></tr>
+          <tr><td>Analytics cookies on viewer pages</td><td>Your consent, which you can withdraw at any time</td></tr>
           <tr><td>Keeping payment and tax records</td><td>Legal obligation</td></tr>
         </tbody>
       </table>
@@ -528,16 +533,20 @@
             <a href="index.html#how-it-works">How It Works</a>
           </div>
           <div class="mc-footer-col">
-            <h4>Company</h4>
+            <h4>Legal</h4>
+            <a href="privacy.html">Privacy Policy</a>
             <a href="terms.html">Terms of Service</a>
-            <a href="mailto:support@momentcast.live">Support</a>
+          </div>
+          <div class="mc-footer-col">
+            <h4>Support</h4>
+            <a href="mailto:support@momentcast.live">Contact Us</a>
           </div>
         </div>
 
       </div>
-    </div>
-    <div class="mc-footer-bottom">
-      <p>&copy; 2026 MomentCast. All rights reserved.</p>
+      <div class="mc-footer-bottom">
+        <p>&copy; 2026 MomentCast. All rights reserved.</p>
+      </div>
     </div>
   </footer>
 
