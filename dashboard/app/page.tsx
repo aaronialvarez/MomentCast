@@ -920,71 +920,7 @@ export default function DashboardHome() {
             <p className="text-[var(--mc-live)] text-sm mt-2">{logoError}</p>
           )}
         </div>
-
-        {/* Danger zone */}
-        <div className="rounded-lg p-6 mb-8 border border-[var(--mc-live)]/40 bg-[var(--mc-surface-2)]">
-          <h2 className="text-xl font-semibold text-[var(--mc-live)]">Danger zone</h2>
-          <p className="text-[var(--mc-text-2)] text-sm mt-1">
-            Permanently delete your account, events, recordings, logo and email subscription.
-            Watch links stop working and this cannot be undone. Payment records are kept as
-            required for tax purposes.
-            {user && user.credits > 0 &&
-              ` Your ${user.credits} unused credit${user.credits === 1 ? '' : 's'} will be forfeited.`}
-          </p>
-
-          {!showDeleteAccount ? (
-            <button
-              onClick={() => setShowDeleteAccount(true)}
-              className="mt-4 px-4 py-2 border border-[var(--mc-live)] text-[var(--mc-live)] hover:bg-[var(--mc-live-bg)] rounded-lg text-sm font-medium transition-colors"
-            >
-              Delete my account
-            </button>
-          ) : (
-            <div className="mt-4 space-y-3">
-              <label className="block text-sm text-[var(--mc-text-2)]">
-                Type <span className="font-mono text-[var(--mc-text-1)]">{user?.email}</span> to confirm
-              </label>
-              <input
-                type="email"
-                value={deleteConfirmEmail}
-                onChange={(e) => setDeleteConfirmEmail(e.target.value)}
-                autoComplete="off"
-                disabled={deleting}
-                className="w-full max-w-md px-4 py-3 bg-[var(--mc-surface)] border border-[var(--mc-border)] rounded focus:outline-none focus:border-[var(--mc-live)]"
-              />
-              {deleteError && (
-                <p className="text-[var(--mc-live)] text-sm">{deleteError}</p>
-              )}
-              <div className="flex flex-wrap gap-3">
-                <button
-                  onClick={handleDeleteAccount}
-                  disabled={
-                    deleting ||
-                    deleteConfirmEmail.trim().toLowerCase() !== (user?.email || '').toLowerCase()
-                  }
-                  className="px-5 py-2 bg-[var(--mc-live)] text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
-                >
-                  {deleting ? 'Deleting...' : 'Permanently delete account'}
-                </button>
-                <button
-                  onClick={() => {
-                    setShowDeleteAccount(false);
-                    setDeleteConfirmEmail('');
-                    setDeleteError(null);
-                  }}
-                  disabled={deleting}
-                  className="px-5 py-2 border border-[var(--mc-border)] rounded-lg text-sm font-medium disabled:opacity-50"
-                >
-                  Cancel
-                </button>
-              </div>
-            </div>
-          )}
-        </div>
-
-        </div>{/* end max-w-6xl inner */}
-      </div>{/* end account settings zone */}
-
+        
       {/* Main Content Zone */}
       <div className="max-w-6xl mx-auto p-8">
 
@@ -1196,6 +1132,69 @@ export default function DashboardHome() {
               <p className="text-[var(--mc-text-3)] text-sm mt-3">No cancelled events.</p>
             )}
           </div>
+        </div>
+      </div>
+
+      {/* Danger zone: bottom of the page, away from everyday actions */}
+      <div className="max-w-6xl mx-auto px-8 mt-12">
+        <div className="rounded-lg p-6 border border-[var(--mc-live)]/40 bg-[var(--mc-surface-2)]">
+          <h2 className="text-xl font-semibold text-[var(--mc-live)]">Danger zone</h2>
+          <p className="text-[var(--mc-text-2)] text-sm mt-1">
+            Permanently delete your account, events, recordings, logo and email subscription.
+            Watch links stop working and this cannot be undone. Payment records are kept as
+            required for tax purposes.
+            {user && user.credits > 0 &&
+              ` You have ${user.credits} unused credit${user.credits === 1 ? '' : 's'}, which are forfeited when you delete. To request a refund first, email support@momentcast.live before deleting.`}
+          </p>
+
+          {!showDeleteAccount ? (
+            <button
+              onClick={() => setShowDeleteAccount(true)}
+              className="mt-4 px-4 py-2 border border-[var(--mc-live)] text-[var(--mc-live)] hover:bg-[var(--mc-live-bg)] rounded-lg text-sm font-medium transition-colors"
+            >
+              Delete my account
+            </button>
+          ) : (
+            <div className="mt-4 space-y-3">
+              <label className="block text-sm text-[var(--mc-text-2)]">
+                Type <span className="font-mono text-[var(--mc-text-1)]">{user?.email}</span> to confirm
+              </label>
+              <input
+                type="email"
+                value={deleteConfirmEmail}
+                onChange={(e) => setDeleteConfirmEmail(e.target.value)}
+                autoComplete="off"
+                disabled={deleting}
+                className="w-full max-w-md px-4 py-3 bg-[var(--mc-surface)] border border-[var(--mc-border)] rounded focus:outline-none focus:border-[var(--mc-live)]"
+              />
+              {deleteError && (
+                <p className="text-[var(--mc-live)] text-sm">{deleteError}</p>
+              )}
+              <div className="flex flex-wrap gap-3">
+                <button
+                  onClick={handleDeleteAccount}
+                  disabled={
+                    deleting ||
+                    deleteConfirmEmail.trim().toLowerCase() !== (user?.email || '').toLowerCase()
+                  }
+                  className="px-5 py-2 bg-[var(--mc-live)] text-white rounded-lg text-sm font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {deleting ? 'Deleting...' : 'Permanently delete account'}
+                </button>
+                <button
+                  onClick={() => {
+                    setShowDeleteAccount(false);
+                    setDeleteConfirmEmail('');
+                    setDeleteError(null);
+                  }}
+                  disabled={deleting}
+                  className="px-5 py-2 border border-[var(--mc-border)] rounded-lg text-sm font-medium disabled:opacity-50"
+                >
+                  Cancel
+                </button>
+              </div>
+            </div>
+          )}
         </div>
       </div>
 
