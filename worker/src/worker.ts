@@ -968,7 +968,7 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
 
       const { data: events, error: eventsErr } = await supabase
         .from('events')
-        .select('id, status, is_test, stream_state, live_input_id, recordings, merged_video_id')
+        .select('id, status, is_test, stream_state, stream_started_manually_at, live_input_id, recordings, merged_video_id')
         .eq('user_id', userId);
       if (eventsErr) {
         console.error('account/delete: events query failed', userId, eventsErr);
@@ -976,9 +976,18 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
       }
 
       // Never kill a stream mid-event or strand a paid event. Test events do not block.
-      const blocking = (events || []).filter((e: any) =>
-        !e.is_test && (['live', 'ready', 'scheduled'].includes(e.status) || e.stream_state === 'active')
-      );
+      const blocking = (events || []).filter((e: any) => {
+        if (e.is_test) return false;
+        // A 'ready' event past its 24h streaming window is finished. The daily sweep
+        // just has not flipped its status yet, so it must not block deletion.
+        const windowExpired =
+          e.status === 'ready' &&
+          e.stream_state !== 'active' &&
+          !!e.stream_started_manually_at &&
+          Date.now() > new Date(e.stream_started_manually_at).getTime() + 24 * 60 * 60 * 1000;
+        if (windowExpired) return false;
+        return ['live', 'ready', 'scheduled'].includes(e.status) || e.stream_state === 'active';
+      });
       if (blocking.length > 0) {
         return reply(409, {
           error: `You have ${blocking.length} live or upcoming event${blocking.length === 1 ? '' : 's'}. Cancel or finish ${blocking.length === 1 ? 'it' : 'them'} first, then delete your account.`,
@@ -3784,6 +3793,26 @@ export default {
         }
       } catch (err) {
         console.error('Slug release step crashed:', err);
+      }
+
+      // === Expire events whose 24h streaming window has passed ===
+      // Without this, an event nobody touches after expiry stays 'ready' forever,
+      // blocking account deletion and keeping its Live Input alive.
+      try {
+        const windowCutoff = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
+        const { error: sweepError } = await supabase
+          .from('events')
+          .update({ status: 'ended', stream_state: 'disconnected' })
+          .eq('is_test', false)
+          .eq('status', 'ready')
+          .lt('stream_started_manually_at', windowCutoff);
+        if (sweepError) {
+          console.error('Expired-event sweep failed:', sweepError);
+        } else {
+          console.log('✅ Expired-event sweep completed');
+        }
+      } catch (err) {
+        console.error('Expired-event sweep crashed:', err);
       }
 
       // === Daily cleanup of expired Live Inputs ===

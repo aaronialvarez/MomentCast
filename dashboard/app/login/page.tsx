@@ -270,10 +270,17 @@ function LoginForm() {
           </button>
         </form>
 
-        <p className="text-center text-sm mt-6">
+        {/* One-time-use notice. Expiry matches the copy on the /reset-password expired screen. */}
+        <p className="text-xs text-[var(--mc-text-2)] leading-relaxed mt-5">
+          <span className="font-semibold">Reset links can only be used once and expire after one hour.</span>{' '}
+          If it&apos;s expired, just request a new one.
+        </p>
+
+        {/* Darkened from text-3 to text-2 for contrast on the light card */}
+        <p className="text-center text-sm mt-5">
           <button
             onClick={() => switchView('sign_in')}
-            className="text-[var(--mc-text-3)] underline font-medium hover:text-[var(--mc-gold)] transition-colors"
+            className="text-[var(--mc-text-2)] underline font-medium hover:text-[var(--mc-gold)] transition-colors"
           >
             Back to Sign In
           </button>
