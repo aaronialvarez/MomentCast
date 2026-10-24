@@ -32,6 +32,11 @@ interface Event {
 // Cloudflare deletes recordings 30 days after they are created (deleteRecordingAfterDays: 30).
 const RECORDING_RETENTION_DAYS = 30;
 
+// Viewing hours added per credit on a top-up. Display only: the worker's MINUTES_PER_CREDIT
+// sets the real value and returns the final message. Keep in sync with worker.ts,
+// app/create-event/page.tsx, and the marketing estimator.
+const HOURS_PER_CREDIT = 250;
+
 // Event age in days, using the same reference date as the worker:
 // stream start if the event streamed, otherwise the scheduled date.
 function eventAgeDays(e: { stream_started_manually_at?: string; scheduled_date: string }): number {
@@ -720,7 +725,7 @@ export default function EventDetailPage() {
   }
 
   /**
-   * Add 200 viewing hours to this event by spending 1 credit.
+   * Add HOURS_PER_CREDIT viewing hours to this event by spending 1 credit.
    * Calls POST /api/events/:slug/add-credits on the Worker.
    */
   async function handleAddViewingHours() {
@@ -729,8 +734,8 @@ export default function EventDetailPage() {
     // Confirm before spending a credit (non-refundable if event has started streaming)
     const isStreaming = event.stream_credentials_revealed || event.status === 'live' || event.status === 'ready';
     const confirmMsg = isStreaming
-      ? 'This will spend 1 credit to add 200 viewing hours. Credits cannot be refunded on active events. Continue?'
-      : 'This will spend 1 credit to add 200 viewing hours. Continue?';
+      ? `This will spend 1 credit to add ${HOURS_PER_CREDIT} viewing hours. Credits cannot be refunded on active events. Continue?`
+      : `This will spend 1 credit to add ${HOURS_PER_CREDIT} viewing hours. Continue?`;
 
     if (!window.confirm(confirmMsg)) return;
 
@@ -1687,7 +1692,7 @@ export default function EventDetailPage() {
                     disabled={addingHours}
                     className="px-5 py-2.5 bg-[var(--mc-gold)] hover:bg-[var(--mc-gold-hover)] disabled:bg-[var(--mc-surface-2)] disabled:text-[var(--mc-text-3)] disabled:cursor-not-allowed text-white text-sm font-semibold rounded-lg transition-colors"
                   >
-                    {addingHours ? 'Adding...' : `+ Add 200 Viewing Hours (1 credit)`}
+                    {addingHours ? 'Adding...' : `+ Add ${HOURS_PER_CREDIT} Viewing Hours (1 credit)`}
                   </button>
                 )}
                 {userCredits !== null && (

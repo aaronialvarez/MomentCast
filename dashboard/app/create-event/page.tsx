@@ -48,8 +48,8 @@ export default function CreateEventPage() {
   const [loadingCredits, setLoadingCredits] = useState(true);
 
   // Viewing hours estimator sliders
-  const [estDuration, setEstDuration] = useState(2);   // hours (0.5-12, step 0.1)
-  const [estViewers, setEstViewers] = useState(80);    // viewers (10-500)
+  const [estDuration, setEstDuration] = useState(2);   // hours (0.5-4, step 0.1)
+  const [estViewers, setEstViewers] = useState(50);    // viewers (5-250)
   const estViewingHours = Math.round(estDuration * estViewers);
   // Viewing hours included per credit. Keep in sync with MINUTES_PER_CREDIT / 60 in
   // worker.ts and HOURS_PER_CREDIT in the marketing site estimator (index.html).
@@ -250,7 +250,7 @@ export default function CreateEventPage() {
                 <input
                   type="range"
                   min={0.5}
-                  max={12}
+                  max={4}
                   step={0.1}
                   value={estDuration}
                   onChange={(e) => setEstDuration(Number(e.target.value))}
@@ -258,8 +258,8 @@ export default function CreateEventPage() {
                 />
                 <div className="flex justify-between text-xs text-[var(--mc-text-3)] mt-0.5">
                   <span>0.5 hr</span>
-                  <span>6 hrs</span>
-                  <span>12 hrs</span>
+                  <span>2 hrs</span>
+                  <span>4 hrs</span>
                 </div>
                 <p className="text-xs text-[var(--mc-text-3)] mt-1">
                   Total time the stream will be live, not the full event duration.
@@ -281,17 +281,17 @@ export default function CreateEventPage() {
                 </div>
                 <input
                   type="range"
-                  min={10}
-                  max={500}
-                  step={10}
+                  min={5}
+                  max={250}
+                  step={5}
                   value={estViewers}
                   onChange={(e) => setEstViewers(Number(e.target.value))}
                   className="w-full accent-[var(--mc-gold)]"
                 />
                 <div className="flex justify-between text-xs text-[var(--mc-text-3)] mt-0.5">
-                  <span>10</span>
+                  <span>5</span>
+                  <span>125</span>
                   <span>250</span>
-                  <span>500</span>
                 </div>
               </div>
 
