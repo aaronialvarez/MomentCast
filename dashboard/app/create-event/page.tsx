@@ -51,8 +51,10 @@ export default function CreateEventPage() {
   const [estDuration, setEstDuration] = useState(2);   // hours (0.5-12, step 0.1)
   const [estViewers, setEstViewers] = useState(80);    // viewers (10-500)
   const estViewingHours = Math.round(estDuration * estViewers);
-  const estCreditsNeeded = Math.ceil(estViewingHours / 200);
-  const HOURS_PER_CREDIT = 200;
+  // Viewing hours included per credit. Keep in sync with MINUTES_PER_CREDIT / 60 in
+  // worker.ts and HOURS_PER_CREDIT in the marketing site estimator (index.html).
+  const HOURS_PER_CREDIT = 250;
+  const estCreditsNeeded = Math.ceil(estViewingHours / HOURS_PER_CREDIT);
   // Leftover hours after the estimate, and how many more viewers that could absorb if each
   // watched the full stream. estDuration is never below 0.5, so no divide-by-zero.
   // Clamped at 0 because the message only renders when the estimate fits in one credit.
@@ -158,7 +160,7 @@ export default function CreateEventPage() {
             <div className="text-5xl mb-4">0</div>
             <h2 className="text-xl font-semibold mb-2">No Credits Available</h2>
             <p className="text-[var(--mc-text-2)] mb-6">
-              You need at least 1 credit to create an event. Each credit includes 200 viewing hours.
+              You need at least 1 credit to create an event. Each credit includes {HOURS_PER_CREDIT} viewing hours.
             </p>
             <button
               onClick={() => router.push('/')}
@@ -176,7 +178,7 @@ export default function CreateEventPage() {
                 Credits available: <span className="font-semibold text-[var(--mc-gold)]">{userCredits}</span>
               </p>
               <p className="text-sm text-[var(--mc-text-2)]">
-                Cost: <span className="font-semibold text-[var(--mc-text-1)]">1 credit</span> (200 viewing hours)
+                Cost: <span className="font-semibold text-[var(--mc-text-1)]">1 credit</span> (250 viewing hours)
               </p>
             </div>
 
@@ -317,7 +319,7 @@ export default function CreateEventPage() {
                   ) : (
                     <>
                       ℹ This event may need ~{estCreditsNeeded} credits ({estViewingHours.toLocaleString()} hrs).{' '}
-                      <span className="font-medium">Start with 1 credit (200 hrs) and add more anytime</span> from the event page if needed. No need to over-allocate upfront.
+                      <span className="font-medium">Start with 1 credit ({HOURS_PER_CREDIT} hrs) and add more anytime</span> from the event page if needed. No need to over-allocate upfront.
                     </>
                   )}
                 </div>

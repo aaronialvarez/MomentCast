@@ -688,7 +688,7 @@ export default function DashboardHome() {
           <div className="flex justify-between items-center">
             <div>
               <h2 className="text-xl font-semibold text-[var(--mc-text-1)]">Available Credits</h2>
-              <p className="text-[var(--mc-text-2)] text-sm mt-1">Each credit = 1 event with 200 viewing hours</p>
+              <p className="text-[var(--mc-text-2)] text-sm mt-1">Each credit = 1 event with 250 viewing hours</p>
             </div>
             <div className="flex items-center gap-4">
               <div className="text-5xl font-bold text-[var(--mc-gold)]">

@@ -13,6 +13,13 @@ const SLUG_COOLDOWN_DAYS = 90;
 // 30-day analytics window, so this is a rolling cap, not a lifetime one.
 const TEST_EVENT_VIEWER_LIMIT_MINUTES = 1500;
 
+// Viewing included per credit, in MINUTES (viewer_hour_limit is stored in minutes).
+// 15000 = 250 hours. Applied at event creation and on each top-up only, so events
+// created before a rate change keep the limit they were sold with.
+// Keep in sync with HOURS_PER_CREDIT in the marketing site estimator and create-event page.
+const MINUTES_PER_CREDIT = 15000;
+const HOURS_PER_CREDIT = MINUTES_PER_CREDIT / 60;
+
 // Origins allowed to embed the Stream Player. Hostnames only, no scheme.
 // If you add a custom domain (e.g. live.aaronalvarez.com), it MUST be added here
 // or the player will refuse to load on that domain.
@@ -1661,7 +1668,7 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
         rtmps_url: cfResult.rtmpsUrl,
         rtmps_key: cfResult.rtmpsKey,
         tier: body.tier || 'standard',
-        viewer_hour_limit: 12000, // 200 viewing hours per credit (in minutes)
+        viewer_hour_limit: MINUTES_PER_CREDIT, // one credit's viewing, stored in minutes
         qr_code_data_url: qrCodeDataUrl, // base64 SVG for watch page sharing
       };
 
@@ -2043,9 +2050,9 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
 
       // Check if viewer limit exceeded (only applies to live/replay viewing).
       // viewer_hours_consumed is in HOURS; viewer_hour_limit is stored in MINUTES
-      // (12000 = 200 hours). Convert before comparing.
+      // (MINUTES_PER_CREDIT per credit; pre-change events keep 12000). Convert before comparing.
       const viewerHoursConsumed = Number(event.viewer_hours_consumed) || 0;
-      const viewerHourLimitMinutes = event.viewer_hour_limit || 12000; // 200 viewing hours default
+      const viewerHourLimitMinutes = event.viewer_hour_limit || MINUTES_PER_CREDIT; // fallback for a null limit only
       const limitExceeded = viewerHoursConsumed >= viewerHourLimitMinutes / 60;
 
       // Fetch photographer's logo from users table
@@ -2535,7 +2542,7 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
     /**
      * POST /api/events/:slug/add-credits — Add viewing hours to an existing event (authenticated)
      * 
-     * Deducts 1 credit from user balance and adds 12,000 minutes (200 viewing hours)
+     * Deducts 1 credit from user balance and adds MINUTES_PER_CREDIT (250 viewing hours)
      * to the event's viewer_hour_limit. Works on live, scheduled, or ready events.
      * 
      * Body: {} (no body needed, always adds 1 credit worth)
@@ -2596,9 +2603,9 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
         });
       }
 
-      // Add 12,000 minutes (200 viewing hours) to event limit
-      const MINUTES_PER_CREDIT = 12000;
-      const currentLimit = event.viewer_hour_limit || 12000;
+      // Add one credit's viewing (MINUTES_PER_CREDIT, top of file) to the event limit.
+      // Top-ups always use the current rate, so a pre-change 200-hour event gains 250 per top-up.
+      const currentLimit = event.viewer_hour_limit || MINUTES_PER_CREDIT;
       const newLimit = currentLimit + MINUTES_PER_CREDIT;
 
       const { error: updateError } = await supabase
@@ -2635,14 +2642,14 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
         console.error(`⚠️ CRITICAL: event_topup transaction insert failed for event ${slug}:`, txError);
       }
 
-      console.log(`✅ Event ${slug}: +200 viewing hours (limit now ${newLimit} min), user balance: ${newBalance}`);
+      console.log(`✅ Event ${slug}: +${HOURS_PER_CREDIT} viewing hours (limit now ${newLimit} min), user balance: ${newBalance}`);
 
       return new Response(JSON.stringify({
         success: true,
         newLimit,
         newLimitHours: Math.round(newLimit / 60),
         creditsRemaining: newBalance,
-        message: `Added 200 viewing hours. Event now has ${Math.round(newLimit / 60)} total hours.`,
+        message: `Added ${HOURS_PER_CREDIT} viewing hours. Event now has ${Math.round(newLimit / 60)} total hours.`,
       }), {
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -3034,7 +3041,7 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
       // banked. Also covers events with no recordings yet (live query = 0).
       viewerHours = Math.max(viewerHours, event.viewer_hours_consumed || 0);
 
-      // viewer_hour_limit is stored in MINUTES (12000 = 200 h); viewerHours is in hours.
+      // viewer_hour_limit is stored in MINUTES (MINUTES_PER_CREDIT per credit); viewerHours is in hours.
       const limitHours = event.viewer_hour_limit / 60;
       const limitWarning = viewerHours >= limitHours
         ? 'limit-exceeded'
@@ -3063,10 +3070,10 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
      * Body: { tierId: 'single' | 'pro5' | 'studio10' }
      * Returns: { url: string } — the Stripe Checkout URL to redirect the user to
      * 
-     * Pricing tiers (launch promo, 15% off $35 regular):
+     * Pricing tiers (must match CREDIT_TIERS on the dashboard home page.tsx):
      *   single:   1 credit  @ $30.00
-     *   pro5:     5 credits @ $142.50  ($28.50/ea)
-     *   studio10: 10 credits @ $270.00 ($27.00/ea)
+     *   pro5:     5 credits @ $140.00  ($28.00/ea)
+     *   studio10: 10 credits @ $260.00 ($26.00/ea)
      */
     if (pathname === '/api/checkout' && method === 'POST') {
       const token = extractToken(request.headers.get('authorization'));
@@ -3093,8 +3100,8 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
       // Tier definitions — prices in cents for Stripe
       const tiers: Record<string, { credits: number; priceInCents: number; label: string }> = {
         single:   { credits: 1,  priceInCents: 3000,  label: 'MomentCast Credit' },
-        pro5:     { credits: 5,  priceInCents: 14250, label: '5 MomentCast Credits' },
-        studio10: { credits: 10, priceInCents: 27000, label: '10 MomentCast Credits' },
+        pro5:     { credits: 5,  priceInCents: 14000, label: '5 MomentCast Credits' },
+        studio10: { credits: 10, priceInCents: 26000, label: '10 MomentCast Credits' },
       };
 
       const tier = tiers[body.tierId];
@@ -3136,7 +3143,7 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
           'cancel_url': 'https://app.momentcast.live/?purchase=cancelled',
           'line_items[0][price_data][currency]': 'usd',
           'line_items[0][price_data][product_data][name]': tier.label,
-          'line_items[0][price_data][product_data][description]': `${tier.credits} event credit${tier.credits > 1 ? 's' : ''}, 200 viewing hours each`,
+          'line_items[0][price_data][product_data][description]': `${tier.credits} event credit${tier.credits > 1 ? 's' : ''}, ${HOURS_PER_CREDIT} viewing hours each`,
           'line_items[0][price_data][unit_amount]': tier.priceInCents.toString(),
           'line_items[0][quantity]': '1',
           'metadata[user_id]': userId,

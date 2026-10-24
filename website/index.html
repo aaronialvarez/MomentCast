@@ -206,7 +206,7 @@
         <ul class="mc-pricing-list">
           <li>Full HD (1080p) streaming</li>
           <li>24-hour streaming window</li>
-          <li>200 viewing hours included</li>
+          <li>250 viewing hours included</li>
           <li>Add more hours anytime during the event</li>
           <li>Custom branding (logo + cover photo)</li>
           <li>QR code for easy sharing</li>
@@ -253,16 +253,16 @@
             <span class="mc-est-cost-value" id="est-price-out">$30</span>
           </div>
           <p class="mc-est-detail" id="est-detail-out"></p>
-          <p class="mc-est-note">Streaming longer or to a bigger crowd? Add 200 hours for 1 credit anytime from your dashboard, even mid-event. List price shown. Bulk credits save up to 13%.</p>
+          <p class="mc-est-note">Streaming longer or to a bigger crowd? Add 250 hours for 1 credit anytime from your dashboard, even mid-event. List price shown. Bulk credits save up to 13%.</p>
         </div>
       </div>
 
       <div class="mc-pricing-compare">
         <!-- Positioning: right-sized entry price, not "cheaper at every size". A flat-rate
-             platform wins on price at roughly 460+ viewing hours, so this copy makes no claim
+             platform wins on price at roughly 500+ viewing hours, so this copy makes no claim
              past the entry price. Verify the $69 figure against current competitor pricing
              before deploying, and reverify periodically. -->
-        <p>Other flat-rate platforms start around <strong>$69 per event</strong> and bundle thousands of viewing hours, most of which are never used. MomentCast starts at <strong>$30</strong>. A typical event with a few dozen live guests fits in one credit, and if yours grows, you add 200 hours at a time, even mid-event.</p>
+        <p>Other flat-rate platforms start around <strong>$69 per event</strong> and bundle thousands of viewing hours, most of which are never used. MomentCast starts at <strong>$30</strong>. A typical event with a few dozen live guests fits in one credit, and if yours grows, you add 250 hours at a time, even mid-event.</p>
       </div>
     </div>
   </section>
@@ -396,10 +396,11 @@
 
   <script>
     // Pricing estimator. Same math as the dashboard's create-event page:
-    // hours = duration x viewers, 200 hours per credit, $30 per credit at list price.
+    // hours = duration x viewers, 250 hours per credit, $30 per credit at list price.
+    // Keep HOURS_PER_CREDIT in sync with MINUTES_PER_CREDIT / 60 in worker.ts.
     // Wrapped in an IIFE so nothing leaks to the global scope.
     (function () {
-      var HOURS_PER_CREDIT = 200;
+      var HOURS_PER_CREDIT = 250;
       var PRICE_PER_CREDIT = 30;
 
       var dur = document.getElementById('est-duration');
