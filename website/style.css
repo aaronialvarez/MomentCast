@@ -794,6 +794,18 @@ ul { list-style: none; }
   height: 24px;
 }
 
+/* Link to the user guide, under the How It Works steps */
+.mc-steps-guide {
+  margin-top: 40px;
+  font-size: 15px;
+  color: var(--text-2);
+}
+.mc-steps-guide a {
+  color: var(--gold);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
 
 /* --------------------------------------------------------------------------
    USE CASES

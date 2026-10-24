@@ -639,6 +639,15 @@ export default function DashboardHome() {
               <p className="text-sm text-white/50">Logged in as</p>
               <p className="font-medium text-white">{user?.email}</p>
             </div>
+            {/* User guide lives on the marketing site. New tab so the dashboard stays put. */}
+            <a
+              href="https://momentcast.live/blog/livestream-event-guide"
+              target="_blank"
+              rel="noopener"
+              className="px-4 py-2 rounded-lg font-medium transition-colors text-white/80 hover:text-white"
+            >
+              Guide
+            </a>
             <button
               onClick={handleLogout}
               className="px-4 py-2 bg-white/10 hover:bg-white/20 rounded-lg font-medium transition-colors border border-white/20 text-white"
@@ -1209,6 +1218,9 @@ export default function DashboardHome() {
           <a href="https://momentcast.live/terms.html" target="_blank" rel="noopener" className="hover:text-[var(--mc-text-2)] transition-colors">Terms of Service</a>
           <span className="hidden sm:inline">&middot;</span>
           <a href="https://momentcast.live/privacy.html" target="_blank" rel="noopener" className="hover:text-[var(--mc-text-2)] transition-colors">Privacy Policy</a>
+          <span className="hidden sm:inline">&middot;</span>
+          {/* Guide sits before Support on purpose: self-serve first */}
+          <a href="https://momentcast.live/blog/livestream-event-guide" target="_blank" rel="noopener" className="hover:text-[var(--mc-text-2)] transition-colors">User Guide</a>
           <span className="hidden sm:inline">&middot;</span>
           <a href="mailto:support@momentcast.live" className="hover:text-[var(--mc-text-2)] transition-colors">Support</a>
         </div>

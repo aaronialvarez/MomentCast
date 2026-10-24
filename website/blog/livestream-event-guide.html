@@ -1,0 +1,819 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>How to Livestream an Event with MomentCast: The Complete Guide</title>
+  <link rel="canonical" href="https://momentcast.live/blog/livestream-event-guide">
+  <meta name="description" content="Step-by-step guide to streaming weddings, quinceañeras, and events with MomentCast. Test your setup free, create your event, go live with OBS or any RTMPS encoder, and deliver the replay.">
+  <meta name="author" content="Aaron Alvarez">
+
+  <!-- OG Tags -->
+  <meta property="og:title" content="How to Livestream an Event with MomentCast: The Complete Guide">
+  <meta property="og:description" content="From your first free test stream to downloading the final recording, in the order you'll actually do it.">
+  <meta property="og:type" content="article">
+  <meta property="og:url" content="https://momentcast.live/blog/livestream-event-guide">
+  <meta property="og:image" content="https://momentcast.live/og-preview.png">
+  <meta property="article:published_time" content="2026-10-23">
+  <meta property="article:author" content="Aaron Alvarez">
+  <meta name="twitter:card" content="summary_large_image">
+
+  <!-- Structured data: Article + breadcrumbs. Update dateModified whenever the guide changes. -->
+  <script type="application/ld+json">
+  {
+    "@context": "https://schema.org",
+    "@graph": [
+      {
+        "@type": "Article",
+        "headline": "How to Livestream an Event with MomentCast: The Complete Guide",
+        "description": "Step-by-step guide to streaming weddings, quinceañeras, and events with MomentCast.",
+        "image": "https://momentcast.live/og-preview.png",
+        "datePublished": "2026-10-23",
+        "dateModified": "2026-10-23",
+        "author": {
+          "@type": "Person",
+          "name": "Aaron Alvarez",
+          "url": "https://aaronalvarez.com",
+          "jobTitle": "Photographer and founder of MomentCast"
+        },
+        "publisher": {
+          "@type": "Organization",
+          "name": "MomentCast",
+          "url": "https://momentcast.live",
+          "logo": { "@type": "ImageObject", "url": "https://momentcast.live/momentcast-logo-gold-on-dark.png" }
+        },
+        "mainEntityOfPage": "https://momentcast.live/blog/livestream-event-guide"
+      },
+      {
+        "@type": "BreadcrumbList",
+        "itemListElement": [
+          { "@type": "ListItem", "position": 1, "name": "Home", "item": "https://momentcast.live/" },
+          { "@type": "ListItem", "position": 2, "name": "Blog", "item": "https://momentcast.live/blog/" },
+          { "@type": "ListItem", "position": 3, "name": "The Complete Guide", "item": "https://momentcast.live/blog/livestream-event-guide" }
+        ]
+      }
+    ]
+  }
+  </script>
+
+  <!-- Favicon -->
+  <link rel="icon" type="image/png" href="/favicon.png">
+
+  <!-- Fonts (same as index.html) -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet">
+
+  <!-- Shared stylesheet. Absolute path so it resolves from /blog/ -->
+  <link rel="stylesheet" href="/style.css">
+
+  <!-- Google tag (gtag.js), same property as index.html -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id=G-3VWZFFXWQW"></script>
+  <script>
+    window.dataLayer = window.dataLayer || [];
+    function gtag(){dataLayer.push(arguments);}
+    gtag('js', new Date());
+    gtag('config', 'G-3VWZFFXWQW');
+  </script>
+
+  <!-- Article styles. Uses the design tokens from style.css only. -->
+  <style>
+    /* Hero */
+    .bg-hero {
+      padding: 150px 24px 56px;
+      text-align: center;
+      border-bottom: 1px solid var(--border);
+    }
+    .bg-crumbs {
+      font-size: 13px;
+      color: var(--text-3);
+      margin-bottom: 18px;
+    }
+    .bg-crumbs a { color: var(--text-2); transition: color 0.2s; }
+    .bg-crumbs a:hover { color: var(--gold); }
+    .bg-hero h1 {
+      font-family: var(--font-display);
+      font-size: clamp(34px, 5vw, 56px);
+      font-weight: 600;
+      line-height: 1.12;
+      max-width: 820px;
+      margin: 0 auto 18px;
+    }
+    .bg-dek {
+      font-size: 18px;
+      color: var(--text-2);
+      max-width: 640px;
+      margin: 0 auto 22px;
+      line-height: 1.65;
+    }
+    .bg-meta {
+      font-size: 13px;
+      color: var(--text-3);
+      letter-spacing: 0.03em;
+    }
+    .bg-meta strong { color: var(--text-2); font-weight: 500; }
+
+    /* Layout: sticky table of contents + article column */
+    .bg-layout {
+      max-width: 1120px;
+      margin: 0 auto;
+      padding: 56px 24px 96px;
+      display: grid;
+      grid-template-columns: 240px minmax(0, 720px);
+      gap: 64px;
+      justify-content: center;
+    }
+
+    .bg-toc {
+      position: sticky;
+      top: 104px;
+      align-self: start;
+      max-height: calc(100vh - 128px);
+      overflow-y: auto;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 22px;
+    }
+    .bg-toc summary {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--gold);
+      cursor: pointer;
+      list-style: none;
+    }
+    .bg-toc summary::-webkit-details-marker { display: none; }
+    .bg-toc ol {
+      margin-top: 14px;
+      padding-left: 18px;
+      list-style: decimal;
+    }
+    .bg-toc li { margin-bottom: 8px; color: var(--text-3); font-size: 13px; }
+    .bg-toc a { font-size: 14px; color: var(--text-2); transition: color 0.2s; }
+    .bg-toc a:hover { color: var(--gold); }
+
+    /* Article typography */
+    .bg-article h2 {
+      font-family: var(--font-display);
+      font-size: clamp(28px, 3.4vw, 36px);
+      font-weight: 600;
+      line-height: 1.2;
+      margin: 64px 0 18px;
+      border-top: 1px solid var(--border);
+      padding-top: 40px;
+    }
+    .bg-article h2:first-of-type { margin-top: 48px; }
+    .bg-article h3 {
+      font-family: var(--font-display);
+      font-size: 23px;
+      font-weight: 600;
+      margin: 36px 0 12px;
+      color: var(--text-1);
+    }
+    .bg-article p,
+    .bg-article li {
+      font-size: 16.5px;
+      color: var(--text-2);
+      line-height: 1.75;
+    }
+    .bg-article p { margin-bottom: 16px; }
+    .bg-article strong { color: var(--text-1); font-weight: 600; }
+    .bg-article a { color: var(--gold); text-decoration: underline; text-underline-offset: 3px; }
+    .bg-article ul,
+    .bg-article ol { padding-left: 22px; margin-bottom: 18px; }
+    .bg-article ul { list-style: disc; }
+    .bg-article ol { list-style: decimal; }
+    .bg-article li { margin-bottom: 8px; }
+    .bg-article code {
+      font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+      font-size: 0.88em;
+      background: var(--surface-2);
+      border: 1px solid var(--border);
+      border-radius: 4px;
+      padding: 1px 6px;
+      color: var(--text-1);
+      word-break: break-word;
+    }
+    .bg-article pre {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 16px 18px;
+      overflow-x: auto;
+      margin-bottom: 18px;
+    }
+    .bg-article pre code { background: none; border: none; padding: 0; font-size: 14px; }
+
+    /* UI labels: names of buttons and fields exactly as they appear in the app */
+    .bg-ui {
+      font-weight: 600;
+      color: var(--text-1);
+      white-space: nowrap;
+    }
+
+    /* Tables */
+    .bg-table-wrap { overflow-x: auto; margin: 8px 0 24px; }
+    .bg-article table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 15px;
+    }
+    .bg-article th,
+    .bg-article td {
+      text-align: left;
+      padding: 12px 14px;
+      border-bottom: 1px solid var(--border);
+      vertical-align: top;
+      line-height: 1.55;
+    }
+    .bg-article th {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--gold);
+      background: var(--surface);
+    }
+    .bg-article td { color: var(--text-2); }
+    .bg-article td:first-child { color: var(--text-1); font-weight: 500; }
+
+    /* Callouts */
+    .bg-callout {
+      background: var(--gold-dim);
+      border: 1px solid rgba(200, 169, 110, 0.22);
+      border-left: 3px solid var(--gold);
+      border-radius: var(--radius-sm);
+      padding: 18px 22px;
+      margin: 24px 0;
+    }
+    .bg-callout p { margin-bottom: 8px; font-size: 15.5px; }
+    .bg-callout p:last-child { margin-bottom: 0; }
+    .bg-callout-title {
+      font-size: 12px !important;
+      font-weight: 600;
+      letter-spacing: 0.12em;
+      text-transform: uppercase;
+      color: var(--gold) !important;
+    }
+    .bg-callout--danger {
+      background: rgba(229, 75, 75, 0.06);
+      border-color: rgba(229, 75, 75, 0.2);
+      border-left-color: var(--live-red);
+    }
+    .bg-callout--danger .bg-callout-title { color: var(--live-red) !important; }
+
+    /* Copy-paste client messages */
+    .bg-msg {
+      position: relative;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px 22px 18px;
+      margin: 14px 0 20px;
+    }
+    .bg-msg-label {
+      font-size: 12px;
+      font-weight: 600;
+      letter-spacing: 0.1em;
+      text-transform: uppercase;
+      color: var(--text-3);
+      margin-bottom: 10px;
+    }
+    .bg-msg-text { color: var(--text-1) !important; margin-bottom: 0 !important; }
+    .bg-copy {
+      position: absolute;
+      top: 14px;
+      right: 14px;
+      font-family: var(--font-body);
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--gold);
+      background: transparent;
+      border: 1px solid var(--gold-dim);
+      border-radius: 6px;
+      padding: 5px 12px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    .bg-copy:hover { background: var(--gold-dim); }
+
+    /* Quick reference grid */
+    .bg-ref {
+      background: var(--surface);
+      border: 1px solid rgba(200, 169, 110, 0.18);
+      border-radius: var(--radius);
+      padding: 6px 4px;
+      margin: 28px 0 8px;
+    }
+    .bg-ref table { margin: 0; }
+    .bg-ref th { background: transparent; }
+    .bg-ref tr:last-child td { border-bottom: none; }
+
+    /* Author box + CTA */
+    .bg-cta {
+      text-align: center;
+      background: var(--surface);
+      border: 1px solid rgba(200, 169, 110, 0.18);
+      border-radius: var(--radius-lg);
+      padding: 44px 28px;
+      margin: 64px 0 32px;
+    }
+    .bg-cta h2 {
+      border: none !important;
+      padding-top: 0 !important;
+      margin: 0 0 12px !important;
+    }
+    .bg-cta p { max-width: 480px; margin: 0 auto 24px; }
+    .bg-cta .mc-btn { text-decoration: none; }
+
+    .bg-author {
+      display: flex;
+      gap: 18px;
+      align-items: flex-start;
+      border-top: 1px solid var(--border);
+      padding-top: 28px;
+    }
+    .bg-author-mark {
+      flex: 0 0 52px;
+      height: 52px;
+      border-radius: 50%;
+      background: var(--gold-dim);
+      color: var(--gold);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-family: var(--font-display);
+      font-size: 22px;
+      font-weight: 600;
+    }
+    .bg-author p { font-size: 15px; margin-bottom: 0; }
+
+    /* Responsive */
+    @media (max-width: 1000px) {
+      .bg-layout {
+        grid-template-columns: minmax(0, 1fr);
+        gap: 0;
+        padding-top: 32px;
+      }
+      .bg-toc {
+        position: static;
+        max-height: none;
+        margin-bottom: 8px;
+      }
+      .bg-toc summary::after { content: '  +'; }
+      .bg-toc[open] summary::after { content: '  \2212'; }
+    }
+
+    @media (max-width: 520px) {
+      .bg-hero { padding: 120px 20px 44px; }
+      .bg-article p, .bg-article li { font-size: 16px; }
+      .bg-copy { position: static; margin-top: 14px; }
+    }
+  </style>
+</head>
+<body>
+
+  <!-- NAV (matches index.html; links are absolute so they work from /blog/) -->
+  <nav class="mc-nav">
+    <div class="mc-nav-inner">
+      <a href="/" class="mc-nav-logo" aria-label="MomentCast Home">
+        <img src="/momentcast-logo-gold-on-dark.png" alt="MomentCast" class="mc-nav-logo-img">
+      </a>
+      <div class="mc-nav-links">
+        <a href="/#features">Features</a>
+        <a href="/#pricing">Pricing</a>
+        <a href="/#how-it-works">How It Works</a>
+        <a href="/blog/livestream-event-guide">Guide</a>
+      </div>
+      <a href="https://app.momentcast.live" target="_blank" class="mc-btn mc-btn-nav">Dashboard</a>
+    </div>
+  </nav>
+
+  <!-- HERO -->
+  <header class="bg-hero">
+    <p class="bg-crumbs"><a href="/">Home</a> &nbsp;/&nbsp; <a href="/blog/">Blog</a> &nbsp;/&nbsp; Guide</p>
+    <p class="mc-kicker">The MomentCast Guide</p>
+    <h1>How to Livestream an Event with MomentCast</h1>
+    <p class="bg-dek">From your first free test stream to downloading the final recording, in the order you'll actually do it.</p>
+    <p class="bg-meta">By <strong>Aaron Alvarez</strong>, photographer and founder &nbsp;&middot;&nbsp; Updated October 23, 2026 &nbsp;&middot;&nbsp; 15 min read</p>
+  </header>
+
+  <div class="bg-layout">
+
+    <!-- TABLE OF CONTENTS. Anchor IDs are stable: support replies can link to them. -->
+    <details class="bg-toc" open>
+      <summary>In this guide</summary>
+      <ol>
+        <li><a href="#how-it-works">How MomentCast works</a></li>
+        <li><a href="#account">Set up your account</a></li>
+        <li><a href="#test">Test your setup (free)</a></li>
+        <li><a href="#create">Create your event</a></li>
+        <li><a href="#share">Share the link</a></li>
+        <li><a href="#event-day">Event day: going live</a></li>
+        <li><a href="#viewing-hours">Viewing hours</a></li>
+        <li><a href="#after">After the event</a></li>
+        <li><a href="#changes">Changing or cancelling</a></li>
+        <li><a href="#troubleshooting">Troubleshooting</a></li>
+        <li><a href="#your-account">Your account</a></li>
+      </ol>
+    </details>
+
+    <article class="bg-article">
+
+      <p>I'm a wedding and quinceañera photographer in Orange County. I built MomentCast to stream my own clients' events, then opened it up to other photographers and videographers. This guide is what I'd tell a second shooter before their first stream.</p>
+
+      <p>My rig is modest. A Sony A7 IV, a wireless video transmitter, a Zoom H2n for audio, and OBS on a Windows laptop. I use OBS for the examples here, but nothing in MomentCast is OBS-only. If you run vMix, Wirecast, Streamlabs, or a hardware encoder, the settings are the same and only the menu names change. Throughout this guide, "encoder" means whatever software or box sends your video out.</p>
+
+      <!-- QUICK REFERENCE. Every number that can change lives here first. Update this table when pricing or limits change. -->
+      <div class="bg-ref">
+        <div class="bg-table-wrap" style="margin:0;">
+          <table>
+            <thead>
+              <tr><th>At a glance</th><th>Current numbers</th></tr>
+            </thead>
+            <tbody>
+              <tr><td>Price</td><td>1 credit for $30, 5 for $140, 10 for $260. Credits never expire.</td></tr>
+              <tr><td>Each credit</td><td>One event with 250 viewing hours</td></tr>
+              <tr><td>More hours</td><td>+250 viewing hours per extra credit, any time until the recording is deleted</td></tr>
+              <tr><td>Streaming window</td><td>24 hours, starting when you press <span class="bg-ui">Start Streaming</span></td></tr>
+              <tr><td>Start Streaming unlocks</td><td>2 hours before the scheduled start time</td></tr>
+              <tr><td>Reconnect grace</td><td>Back within 5 minutes and the recording continues as one file</td></tr>
+              <tr><td>Replay and downloads</td><td>30 days, then permanently deleted</td></tr>
+              <tr><td>MP4 downloads</td><td>Recording parts up to 4 hours long</td></tr>
+              <tr><td>Free test sessions</td><td>15 minutes each, 3 per day</td></tr>
+              <tr><td>Encoder format</td><td>H.264 video and AAC audio over RTMPS</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+
+      <!-- ================================================================== -->
+      <h2 id="how-it-works">1. How MomentCast works</h2>
+
+      <p>MomentCast runs on credits. One credit creates one event. It costs $30, less in packs, and it never expires.</p>
+
+      <p>Each event includes 250 viewing hours. Viewing hours are the total time everyone spends watching, added together. Fifty guests watching a three-hour reception use 150 hours. An aunt rewatching the replay next week uses hours too. A typical wedding or quinceañera with a few dozen live guests fits comfortably in one credit, and if yours grows, you add another 250 hours for one more credit, even in the middle of the stream.</p>
+
+      <p>On event day you press <span class="bg-ui">Start Streaming</span> on the event page. That opens a 24-hour window. Inside it you can go live, stop, and go live again as many times as you want, all on the same link. When the window closes, the event becomes a replay that stays up for 30 days.</p>
+
+      <p>No subscription. You pay per event, and testing is free.</p>
+
+
+      <!-- ================================================================== -->
+      <h2 id="account">2. Set up your account</h2>
+
+      <h3>Sign up</h3>
+      <p>Go to <a href="https://app.momentcast.live" target="_blank" rel="noopener">app.momentcast.live</a> and sign up with Google or with an email and password. Email signups get a confirmation link. It works once and expires after an hour, so if it doesn't show up, check spam before requesting another. There's an optional checkbox for tips and product updates. Leaving it unchecked changes nothing about your account.</p>
+
+      <h3>Add your logo</h3>
+      <p>On the dashboard, find <span class="bg-ui">Your Logo</span> and upload a PNG, JPG, SVG, or WebP under 200 KB. It shows as "Presented by" on every watch page you create: before the stream, during it, and on the replay.</p>
+
+      <p>The watch page is dark, and the dashboard previews your logo on black for that reason. Upload the white or light version of your logo. A black logo on a black page is very discreet branding.</p>
+
+      <h3>Buy credits</h3>
+      <p>Click <span class="bg-ui">Buy Credits</span> on the dashboard, pick a pack, and pay through Stripe. You land back on the dashboard with the credits added. <span class="bg-ui">View credit history</span>, just below your balance, lists every purchase and every credit spent.</p>
+
+
+      <!-- ================================================================== -->
+      <h2 id="test">3. Test your setup (free)</h2>
+
+      <p>Run a test before your first real event. It costs nothing, uses the same video pipeline as a real event, and shows you exactly what guests will see. The first time you go live should never be the ceremony.</p>
+
+      <p>From the dashboard, click <span class="bg-ui">Test Your Setup</span>, then <span class="bg-ui">Start Test Session</span>. You get three things: an <span class="bg-ui">RTMPS Server URL</span>, a <span class="bg-ui">Stream Key</span>, and a <span class="bg-ui">Watch Page URL</span>. Paste the first two into your encoder (<a href="#connect">section 6</a> shows where) and start streaming. Then open the watch page link on your phone, on cellular, not Wi-Fi. That's the closest you'll get to a guest's experience.</p>
+
+      <p>A test session runs up to 15 minutes. The timer starts when your encoder connects, not when you click Start, and the session stops on its own when time's up. You get three sessions per day, with a 15-minute wait after each one. If you click Start and then stop before anything connects, it doesn't count against you. Hit the daily limit and the page tells you, in your local time, when you can test again.</p>
+
+      <p>Test streams carry a "MomentCast Test Stream" label on the video so nobody mistakes one for the real thing. Your latest test recording stays on the test watch page as a replay for 30 days. Keep that link to yourself. Test playback is capped at 25 viewing hours per rolling 30 days, and a shared link burns through that quickly.</p>
+
+      <h3>What to check during a test</h3>
+      <ul>
+        <li>Audio levels, and that sound stays in sync with the picture</li>
+        <li>How the image looks on a phone screen, not just your laptop</li>
+        <li>That sound comes on after you tap the speaker icon (more on that in <a href="#share">section 5</a>)</li>
+        <li>How far the watch page runs behind the room, so you're not surprised on the day</li>
+        <li>That your upload holds steady for the full 15 minutes, ideally from the venue itself</li>
+      </ul>
+
+      <div class="bg-callout">
+        <p class="bg-callout-title">Label your test key</p>
+        <p>Your test stream key never changes, so it's handy to save in your encoder. Do it, but name the profile clearly. Every real event gets its own key. Stream a wedding to your test key and the couple's guests stare at a countdown while your private test page gets the vows.</p>
+      </div>
+
+
+      <!-- ================================================================== -->
+      <h2 id="create">4. Create your event</h2>
+
+      <p>Click <span class="bg-ui">Create New Event</span> on the dashboard. You need at least one credit. The form asks for a title, a date and time, and a timezone.</p>
+
+      <h3>The title becomes the link</h3>
+      <p>Your title turns into the watch page link, and <strong>the link never changes</strong>. MomentCast lowercases the title, strips accents, swaps spaces and punctuation for hyphens, and drops small words like "the," "and," "de," and "y" so the link stays short.</p>
+
+      <div class="bg-table-wrap">
+        <table>
+          <thead>
+            <tr><th>Title you type</th><th>Watch link</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Boda de Ana y Luis</td><td><code>go.momentcast.live/boda-ana-luis</code></td></tr>
+            <tr><td>The Martinez Wedding</td><td><code>go.momentcast.live/martinez-wedding</code></td></tr>
+            <tr><td>Sofia's Quinceañera</td><td><code>go.momentcast.live/sofia-s-quinceanera</code></td></tr>
+            <tr><td>Sofia Quinceañera</td><td><code>go.momentcast.live/sofia-quinceanera</code></td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>Notice the apostrophe. It becomes a hyphen, so leave apostrophes out of the title if you want a clean link. If another event already holds that link, MomentCast adds three characters to the end, like <code>boda-ana-luis-k7m</code>.</p>
+
+      <p>You can fix a typo in the title later, up until you press Start Streaming. The link stays whatever it was the moment you clicked Create. Proofread first.</p>
+
+      <h3>Date, time, and timezone</h3>
+      <p>The date and time are when guests should expect the stream to start. They drive the countdown on the watch page, and <span class="bg-ui">Start Streaming</span> unlocks 2 hours before that time. You can't pick a time in the past.</p>
+
+      <p>The timezone fills in from your computer. Change it to wherever the event happens, not where you live. A destination wedding counts down in the destination's time, and that's what guests see.</p>
+
+      <h3>The estimator</h3>
+      <p>The form includes a viewing hours estimator. Slide in how long you'll be live and how many people you expect, and it tells you whether one credit covers it. If it doesn't, start with one anyway. You can add hours later, from the event page, as you need them.</p>
+
+      <p>Clicking <span class="bg-ui">Create Event (1 Credit)</span> uses one credit and takes you to the event page. If plans change before you press Start Streaming, cancelling gives the credit back (<a href="#changes">section 9</a>).</p>
+
+      <h3>Add a cover photo</h3>
+      <p>On the event page, the <span class="bg-ui">Cover Photo</span> card takes a JPG, PNG, or WebP up to 5 MB. It shows behind the countdown before the event and steps aside once you go live. The preview darkens the parts of the image the watch page won't show, so check that nobody's face lands in the dark zone before you click <span class="bg-ui">Save Cover Photo</span>.</p>
+
+
+      <!-- ================================================================== -->
+      <h2 id="share">5. Share the link</h2>
+
+      <p>Copy the <span class="bg-ui">Watch Page URL</span> from the event page and send it to your client. They forward it to their guests. That's the whole distribution plan.</p>
+
+      <p>Before the stream, guests see the event title, your logo, your cover photo, and a countdown in the event's timezone. There's also a QR code with the link underneath. When the countdown hits zero the page reads "Event starting soon" and waits for you. Nobody needs an app or an account, and nobody needs to refresh. The page checks for you about once a minute and switches to the live video on its own.</p>
+
+      <p>The QR code lives on the watch page itself, so open the link and there it is. Put it on a screen at the venue or in the program, and guests who'd rather watch on their phone can scan it.</p>
+
+      <h3>The one thing guests need to know</h3>
+      <p>Browsers only autoplay video with the sound off. So the player starts muted and shows a short "Tap to unmute" hint, and each guest has to tap the speaker icon once. Grandma will not discover this on her own. Put it in the message.</p>
+
+      <p>Here's what I'd send a client to forward. Swap in your link.</p>
+
+      <div class="bg-msg">
+        <p class="bg-msg-label">English</p>
+        <p class="bg-msg-text" id="msg-en">We're streaming the ceremony live for everyone who can't be there in person. Watch here: go.momentcast.live/your-event. No app or account needed. The page counts down and starts playing on its own. Tap the speaker icon on the video to turn on the sound.</p>
+        <button class="bg-copy" type="button" data-copy="msg-en">Copy</button>
+      </div>
+
+      <div class="bg-msg">
+        <p class="bg-msg-label">Español</p>
+        <p class="bg-msg-text" id="msg-es">Vamos a transmitir la ceremonia en vivo para todos los que no pueden acompañarnos en persona. Véanla aquí: go.momentcast.live/your-event. No necesitan descargar ninguna aplicación ni crear una cuenta. La página tiene una cuenta regresiva y la transmisión empieza sola. Toquen el ícono de la bocina en el video para activar el sonido.</p>
+        <button class="bg-copy" type="button" data-copy="msg-es">Copiar</button>
+      </div>
+
+
+      <!-- ================================================================== -->
+      <h2 id="event-day">6. Event day: going live</h2>
+
+      <h3 id="start-streaming">Press Start Streaming</h3>
+      <p>The <span class="bg-ui">Start Streaming</span> button on the event page unlocks 2 hours before the scheduled time. Until then it's greyed out and tells you when it opens.</p>
+
+      <div class="bg-callout bg-callout--danger">
+        <p class="bg-callout-title">Treat it like Format Card</p>
+        <p>Pressing Start Streaming starts the 24-hour clock and reveals your stream credentials. From that moment you can't change the date, rename the event, or cancel for a credit back. It can't be undone.</p>
+      </div>
+
+      <p>Press it on event day, while you set up. Not the night before "to check," which is what the free test is for. Two reasons. The 24-hour clock starts on the press, so pressing it early shortens your window. And the replay page dates the event by the day you pressed it, so a press the night before puts the wrong date on the couple's replay.</p>
+
+      <p>Need to go live earlier than the button allows? Change the event time first (<a href="#changes">section 9</a>). That only works before you press Start Streaming.</p>
+
+      <h3 id="connect">Connect your encoder</h3>
+      <p>After the press, the <span class="bg-ui">Streaming Credentials</span> card shows your <span class="bg-ui">RTMPS Server URL</span> and <span class="bg-ui">Stream Key</span>. The key is hidden by default. Use the <span class="bg-ui">Copy</span> buttons rather than retyping either one. Keep the key private, because anyone who has it can stream to your event.</p>
+
+      <p>Every encoder has the same two boxes somewhere. Choose a custom or "Custom RTMP" destination, paste the server URL into the server field, and paste the key into the stream key field. The key stays the same for the full 24 hours, so reconnecting later never means changing anything.</p>
+
+      <p>MomentCast connects over RTMPS, the secure version of RTMP. The server address starts with <code>rtmps://</code> and uses port 443. Almost every current encoder supports it, but some older hardware boxes only speak plain RTMP and won't connect. Check yours during a test, not at the venue.</p>
+
+      <h3>Encoder settings</h3>
+      <p>These are the settings I stream with. They work in any encoder, whatever the menu calls them.</p>
+
+      <div class="bg-table-wrap">
+        <table>
+          <thead>
+            <tr><th>Setting</th><th>Use</th><th>Why</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Video codec</td><td>H.264 (hardware encoders like Intel QuickSync or NVIDIA NVENC are fine, and so is x264)</td><td>Required. H.265/HEVC is not supported and causes freezes.</td></tr>
+            <tr><td>Audio codec</td><td>AAC</td><td>Required.</td></tr>
+            <tr><td>Rate control</td><td>CBR (constant bitrate)</td><td>Steadier delivery than variable bitrate.</td></tr>
+            <tr><td>Video bitrate</td><td>6,000 Kbps for 1080p</td><td>Total bitrate must stay between 2 and 14 Mbps. Drop to around 4,000 on a weak connection.</td></tr>
+            <tr><td>Keyframe interval</td><td>2 seconds, fixed</td><td>Must be a fixed value between 2 and 10 seconds. Never 0, auto, or variable.</td></tr>
+            <tr><td>Resolution and frame rate</td><td>1920&times;1080 at 30 fps</td><td>Full HD with room to spare on most connections.</td></tr>
+            <tr><td>B-frames</td><td>0, if your encoder shows the option</td><td>What I run. Fewer playback hiccups.</td></tr>
+            <tr><td>Auto-reconnect</td><td>On</td><td>Lets the encoder recover from a dropped connection by itself.</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <p>Different encoders call the keyframe interval "GOP size" or "keyframe frequency." Some measure it in frames instead of seconds. At 30 fps, 2 seconds is 60 frames.</p>
+
+      <p>Bitrate only works if the connection can carry it. Run a speed test at the venue, from the spot you'll stream, and make sure your upload speed is comfortably above your bitrate with plenty to spare. If the venue Wi-Fi is shaky, a phone hotspot as backup is cheap insurance.</p>
+
+      <h3>Example: OBS Studio</h3>
+      <ol>
+        <li><strong>Settings &rsaquo; Stream:</strong> set Service to <code>Custom...</code>, paste the RTMPS Server URL into Server, and the Stream Key into Stream Key.</li>
+        <li><strong>Settings &rsaquo; Output:</strong> set Output Mode to Advanced. On the Streaming tab, choose an H.264 Video Encoder, Rate Control CBR, Bitrate 6000, and Keyframe Interval 2.</li>
+        <li><strong>Settings &rsaquo; Video:</strong> Base and Output Resolution 1920x1080, FPS 30.</li>
+        <li><strong>Settings &rsaquo; Advanced:</strong> confirm Automatically Reconnect is checked. It is by default.</li>
+      </ol>
+
+      <h3>Go live</h3>
+      <p>Start streaming from your encoder. The event page status changes to LIVE within moments, and guests on the countdown switch to the live video within about a minute, no refresh required.</p>
+
+      <p>Keep a phone open to the watch page as your monitor. It runs a few seconds or more behind the room. That's how internet video works, and it's normal.</p>
+
+      <h3>Breaks and dropped connections</h3>
+      <p>If your connection drops, your encoder reconnects on its own. Back within 5 minutes and the recording continues as one file. A longer gap starts a new recording part. Either way it's the same link, the same key, and nothing for you to do on MomentCast.</p>
+
+      <p>Guests see a short "processing" or "Stream paused" screen during a gap, sometimes with the most recent footage replaying underneath. When you come back, their page switches back to live by itself.</p>
+
+      <p>Planned breaks work the same way. Stop the encoder after the ceremony, start it again for the toasts. As long as you're inside the 24-hour window, the same key just works.</p>
+
+      <h3>Ending the stream</h3>
+      <p>When you're done, stop your encoder. There's no End Event button. The event stays open until 24 hours after you pressed Start Streaming, in case you need to go back on, and the event page shows how much time is left. After that, it closes and the encoder can no longer connect.</p>
+
+      <p>The replay takes a few minutes to process after you stop. Then anyone opening the link sees the full recording. If you went live more than once, the parts play back to back, labeled "Video 1 of 3" and so on, advancing automatically.</p>
+
+
+      <!-- ================================================================== -->
+      <h2 id="viewing-hours">7. Viewing hours</h2>
+
+      <p>The <span class="bg-ui">Viewing Hours</span> meter on the event page shows hours used against your limit. It updates about every 10 minutes, so it trails what's happening right now. You'll see a warning at 80% and a stronger one at 90%.</p>
+
+      <p>At 100%, new visitors see a "Viewing Limit Reached" screen that asks them to contact the host, which is you. Anyone already watching keeps watching. A guest who refreshes their page counts as a new visitor, though.</p>
+
+      <p>To add more, click <span class="bg-ui">+ Add 250 Viewing Hours (1 credit)</span>. It works before the event, during it, and after it, right up until the recording is deleted at 30 days. Guests stuck on the limit screen get in automatically within a minute or two, without refreshing. Credits added after you press Start Streaming can't be refunded.</p>
+
+      <p>My advice: top up at the 80% warning, not at the wall. Replays count toward the total, and a popular event can keep climbing for days after it ends.</p>
+
+
+      <!-- ================================================================== -->
+      <h2 id="after">8. After the event</h2>
+
+      <h3>Download your recordings</h3>
+      <p>Once you've pressed Start Streaming, the event page has a <span class="bg-ui">Download Recordings</span> section. Only you can see it. Opening the page prepares the MP4 files automatically. Each recording part moves from Queued to Preparing to Ready, and then the <span class="bg-ui">Download</span> button lights up. Files are named after your link, like <code>boda-ana-luis.mp4</code>, or <code>boda-ana-luis-part-2.mp4</code> when there are several parts.</p>
+
+      <p>Each part appears about 5 minutes after the stream stops or drops, so you can grab the ceremony during dinner if you want.</p>
+
+      <div class="bg-callout">
+        <p class="bg-callout-title">30 days, then gone</p>
+        <p>Recordings are permanently deleted 30 days after the event. The event page shows the exact date. Download everything you want to keep before then. After that, the watch page reads "Recording No Longer Available."</p>
+      </div>
+
+      <h3>Recordings over 4 hours</h3>
+      <p>A single recording part longer than 4 hours can't be turned into an MP4. The replay still plays on the watch page. For those parts, the event page shows a copy-ready FFmpeg command instead of a Download button. FFmpeg is a free tool from <a href="https://ffmpeg.org/download.html" target="_blank" rel="noopener">ffmpeg.org</a>. Install it, open Terminal on a Mac or Command Prompt on Windows, paste the command, and press Enter. It looks like this:</p>
+
+      <pre><code>ffmpeg -i "https://customer-....cloudflarestream.com/.../manifest/video.m3u8" -c copy "your-event.mp4"</code></pre>
+
+      <p>The <code>-c copy</code> part saves the video as-is, without re-encoding, so it's fast and loses no quality.</p>
+
+      <p>Easier still, avoid the 4-hour part in the first place. On a long event, stop your encoder for more than 5 minutes somewhere before the 4-hour mark. Dinner works. That splits the recording into two parts, each short enough to download normally.</p>
+
+      <h3>What happens to the link</h3>
+      <p>The link keeps showing the replay for 30 days. At 90 days it's released, and it reads "Event Not Found" until someone creates a new event with the same title.</p>
+
+
+      <!-- ================================================================== -->
+      <h2 id="changes">9. Changing or cancelling an event</h2>
+
+      <p>Almost everything is flexible until you press Start Streaming. After that, most of it locks.</p>
+
+      <div class="bg-table-wrap">
+        <table>
+          <thead>
+            <tr><th>What</th><th>Before Start Streaming</th><th>After Start Streaming</th></tr>
+          </thead>
+          <tbody>
+            <tr><td>Title</td><td>Edit with the pencil icon</td><td>Locked</td></tr>
+            <tr><td>Watch link</td><td>Never changes</td><td>Never changes</td></tr>
+            <tr><td>Date and time</td><td><span class="bg-ui">Change Event Date &amp; Time</span>. Same link, no extra credit.</td><td>Locked</td></tr>
+            <tr><td>Cover photo</td><td>Add, replace, or remove</td><td>Add, replace, or remove</td></tr>
+            <tr><td>Viewing hours</td><td>Add any time</td><td>Add until the recording is deleted (non-refundable)</td></tr>
+            <tr><td>Cancel</td><td>Every credit spent on the event returns to your balance</td><td>Not available</td></tr>
+          </tbody>
+        </table>
+      </div>
+
+      <h3>Cancelling</h3>
+      <p><span class="bg-ui">Cancel Event</span> returns every credit you spent on that event to your balance, including any extra viewing hours you added. Credits go back to your balance, not your card. The watch link stops working the moment you cancel, and guests opening it see "Event Not Found." Tell your client before you cancel. It can't be undone.</p>
+
+
+      <!-- ================================================================== -->
+      <h2 id="troubleshooting">10. Troubleshooting</h2>
+
+      <h3>My encoder won't connect</h3>
+      <p>Confirm you pressed Start Streaming, since the credentials only appear after it. Copy the server URL and key again with the Copy buttons, because a missing character is the most common cause. Make sure you're not using your test key for a real event, or the reverse. Check that your encoder supports RTMPS. And if more than 24 hours have passed since you pressed Start Streaming, the event has closed for good.</p>
+
+      <h3>It connects, but the stream stutters or freezes</h3>
+      <p>Check your encoder settings against the table in <a href="#connect">section 6</a>. The usual suspects are H.265 instead of H.264, a keyframe interval set to auto or 0, or a bitrate higher than the connection can carry. Lower the bitrate and try again.</p>
+
+      <h3>I'm live, but guests still see the countdown</h3>
+      <p>Give it a minute. The page checks about once a minute. If the event page doesn't say LIVE, your encoder isn't connected yet. Guests can refresh if they're impatient, and it won't hurt anything.</p>
+
+      <h3>Guests say there's no sound</h3>
+      <p>They need to tap the speaker icon on the video, once. If they did and there's still nothing, check your encoder's audio meters and make sure the audio is set to AAC.</p>
+
+      <h3>The replay isn't showing up</h3>
+      <p>Recordings take a few minutes to process after you stop streaming. Wait five minutes and reload.</p>
+
+      <h3>Guests see "Viewing Limit Reached"</h3>
+      <p>Add viewing hours from the event page (<a href="#viewing-hours">section 7</a>). Their page lets them in on its own within a minute or two.</p>
+
+      <h3>Guests see "Event Not Found"</h3>
+      <p>Check the link for a typo first. Otherwise the event was cancelled, or it's more than 90 days old and the link was released.</p>
+
+      <h3>The Start Streaming button is greyed out</h3>
+      <p>It unlocks 2 hours before the scheduled time. If you need it sooner, change the event time.</p>
+
+      <h3>The viewing hours meter isn't moving</h3>
+      <p>It updates about every 10 minutes and lags behind live viewing. Check back shortly.</p>
+
+
+      <!-- ================================================================== -->
+      <h2 id="your-account">11. Your account</h2>
+
+      <p><span class="bg-ui">View credit history</span> on the dashboard lists every purchase, event, extra hours, and cancellation, with a reference you can match to your Stripe receipt or the event.</p>
+
+      <p>To close your account, use <span class="bg-ui">Delete my account</span> in the Danger zone at the bottom of the dashboard. Any live or upcoming events have to be cancelled or finished first. Deletion removes your events, recordings, logo, and email subscription, and it can't be undone. Unused credits are forfeited, so if you want a refund of credits you never used, email support before you delete. The details are in our <a href="/terms.html#s5">Terms of Service</a>.</p>
+
+
+      <!-- CTA -->
+      <div class="bg-cta">
+        <h2>Start with the test</h2>
+        <p>Fifteen minutes on a Tuesday afternoon beats finding out at the ceremony. It's free, and it doesn't touch your credits.</p>
+        <a href="https://app.momentcast.live" target="_blank" class="mc-btn mc-btn-primary mc-btn-lg">Run a Free Test Stream</a>
+      </div>
+
+      <!-- AUTHOR -->
+      <div class="bg-author">
+        <div class="bg-author-mark" aria-hidden="true">A</div>
+        <p><strong>Aaron Alvarez</strong> is a photographer in Santa Ana, California, shooting weddings, quinceañeras, and bautizos since 2015. He built MomentCast to stream his own clients' events. <a href="https://aaronalvarez.com" target="_blank" rel="noopener">aaronalvarez.com</a></p>
+      </div>
+
+    </article>
+  </div>
+
+
+  <!-- FOOTER (matches index.html; absolute links) -->
+  <footer class="mc-footer">
+    <div class="mc-container mc-footer-inner">
+      <div class="mc-footer-brand">
+        <img src="/momentcast-logo-gold-on-dark.png" alt="MomentCast" class="mc-footer-logo">
+        <p>Branded live streams for weddings, quinceañeras, and every event worth sharing. See our <a href="/privacy.html">Privacy Policy</a>.</p>
+      </div>
+      <div class="mc-footer-links">
+        <div class="mc-footer-col">
+          <h4>Product</h4>
+          <a href="/#features">Features</a>
+          <a href="/#pricing">Pricing</a>
+          <a href="/#how-it-works">How It Works</a>
+          <a href="/blog/livestream-event-guide">Guide</a>
+        </div>
+        <div class="mc-footer-col">
+          <h4>Account</h4>
+          <a href="https://app.momentcast.live" target="_blank">Sign In</a>
+        </div>
+        <div class="mc-footer-col">
+          <h4>Legal</h4>
+          <a href="/terms.html">Terms of Service</a>
+          <a href="/privacy.html">Privacy Policy</a>
+          <a href="mailto:support@momentcast.live">Contact Us</a>
+        </div>
+      </div>
+    </div>
+    <div class="mc-footer-bottom">
+      <p>&copy; 2026 MomentCast. All rights reserved.</p>
+    </div>
+  </footer>
+
+  <script>
+    // Copy buttons for the client message templates. IIFE so nothing leaks globally.
+    (function () {
+      document.querySelectorAll('.bg-copy').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+          var target = document.getElementById(btn.getAttribute('data-copy'));
+          if (!target || !navigator.clipboard) return;
+          var label = btn.textContent;
+          navigator.clipboard.writeText(target.innerText.trim()).then(function () {
+            btn.textContent = label === 'Copiar' ? 'Copiado' : 'Copied';
+            setTimeout(function () { btn.textContent = label; }, 1800);
+          });
+        });
+      });
+
+      // Collapse the table of contents on narrow screens so the article starts sooner.
+      var toc = document.querySelector('.bg-toc');
+      if (toc && window.matchMedia('(max-width: 1000px)').matches) toc.removeAttribute('open');
+    })();
+  </script>
+
+</body>
+</html>

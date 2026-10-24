@@ -1385,6 +1385,18 @@ export default function EventDetailPage() {
                 <p className="text-[var(--mc-warning)] text-sm mt-2">
                   ⚠️ Keep this private! Anyone with these credentials can stream to your event.
                 </p>
+                {/* Deep link to the encoder section of the guide (#connect anchor) */}
+                <p className="text-[var(--mc-text-2)] text-sm mt-2">
+                  Not sure where these go?{' '}
+                  <a
+                    href="https://momentcast.live/blog/livestream-event-guide#connect"
+                    target="_blank"
+                    rel="noopener"
+                    className="text-[var(--mc-gold)] underline"
+                  >
+                    Encoder setup and recommended settings
+                  </a>
+                </p>
               </div>
             </div>
           </div>
