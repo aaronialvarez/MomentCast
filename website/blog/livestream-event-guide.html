@@ -423,7 +423,7 @@
 
       <p>I'm a wedding and quinceañera photographer. I built MomentCast to stream my own clients' events, then opened it up to other photographers and videographers. This guide is what I'd tell a second shooter before their first stream.</p>
 
-      <p>My rig is modest. Two Sony cameras, Hollyland wireless video transmitters, a Zoom recorder for audio, and OBS Studio on a Windows laptop. I use OBS for the examples here, but nothing in MomentCast is OBS-only. If you run vMix, Wirecast, Streamlabs, or a hardware encoder, the settings are the same and only the menu names change. Throughout this guide, "encoder" means whatever software or box sends your video out.</p>
+      <p>My rig is modest. Two Sony cameras, Hollyland wireless video transmitters, an ATEM Mini switcher, a Zoom H4 for audio, and OBS Studio on a Windows laptop. I use OBS for the examples here, but nothing in MomentCast is OBS-only. If you run vMix, Wirecast, Streamlabs, or a hardware encoder, the settings are the same and only the menu names change. Throughout this guide, "encoder" means whatever software or box sends your video out.</p>
 
       <!-- QUICK REFERENCE. Every number that can change lives here first. Update this table when pricing or limits change. -->
       <div class="bg-ref">
@@ -670,7 +670,7 @@
       <h3>Recordings over 4 hours</h3>
       <p>A single recording part longer than 4 hours can't be turned into an MP4. The replay still plays on the watch page. For those parts, the event page shows a copy-ready FFmpeg command instead of a Download button. FFmpeg is a free tool from <a href="https://ffmpeg.org/download.html" target="_blank" rel="noopener">ffmpeg.org</a>. Install it, open Terminal on a Mac or Command Prompt on Windows, paste the command, and press Enter. It looks like this:</p>
 
-      <pre><code>ffmpeg -i "https://customer-....stream.com/.../manifest/video.m3u8" -c copy "your-event.mp4"</code></pre>
+      <pre><code>ffmpeg -i "https://customer-....momentcast.live/.../manifest/video.m3u8" -c copy "your-event.mp4"</code></pre>
 
       <p>The <code>-c copy</code> part saves the video as-is, without re-encoding, so it's fast and loses no quality.</p>
 
