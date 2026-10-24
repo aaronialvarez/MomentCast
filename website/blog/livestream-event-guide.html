@@ -33,7 +33,6 @@
         "author": {
           "@type": "Person",
           "name": "Aaron Alvarez",
-          "url": "https://aaronalvarez.com",
           "jobTitle": "Photographer and founder of MomentCast"
         },
         "publisher": {
@@ -326,7 +325,7 @@
       margin: 0 0 12px !important;
     }
     .bg-cta p { max-width: 480px; margin: 0 auto 24px; }
-    .bg-cta .mc-btn { text-decoration: none; }
+    .bg-cta .mc-btn-primary { color: #0b0b0d; text-decoration: none; }
 
     .bg-author {
       display: flex;
@@ -422,9 +421,9 @@
 
     <article class="bg-article">
 
-      <p>I'm a wedding and quinceañera photographer in Orange County. I built MomentCast to stream my own clients' events, then opened it up to other photographers and videographers. This guide is what I'd tell a second shooter before their first stream.</p>
+      <p>I'm a wedding and quinceañera photographer. I built MomentCast to stream my own clients' events, then opened it up to other photographers and videographers. This guide is what I'd tell a second shooter before their first stream.</p>
 
-      <p>My rig is modest. A Sony A7 IV, a wireless video transmitter, a Zoom H2n for audio, and OBS on a Windows laptop. I use OBS for the examples here, but nothing in MomentCast is OBS-only. If you run vMix, Wirecast, Streamlabs, or a hardware encoder, the settings are the same and only the menu names change. Throughout this guide, "encoder" means whatever software or box sends your video out.</p>
+      <p>My rig is modest. Two Sony cameras, Hollyland wireless video transmitters, a Zoom recorder for audio, and OBS Studio on a Windows laptop. I use OBS for the examples here, but nothing in MomentCast is OBS-only. If you run vMix, Wirecast, Streamlabs, or a hardware encoder, the settings are the same and only the menu names change. Throughout this guide, "encoder" means whatever software or box sends your video out.</p>
 
       <!-- QUICK REFERENCE. Every number that can change lives here first. Update this table when pricing or limits change. -->
       <div class="bg-ref">
@@ -434,7 +433,7 @@
               <tr><th>At a glance</th><th>Current numbers</th></tr>
             </thead>
             <tbody>
-              <tr><td>Price</td><td>1 credit for $30, 5 for $140, 10 for $260. Credits never expire.</td></tr>
+              <tr><td>Price</td><td><a href="/#pricing">See current pricing</a>. Packs cost less per credit, and credits never expire.</td></tr>
               <tr><td>Each credit</td><td>One event with 250 viewing hours</td></tr>
               <tr><td>More hours</td><td>+250 viewing hours per extra credit, any time until the recording is deleted</td></tr>
               <tr><td>Streaming window</td><td>24 hours, starting when you press <span class="bg-ui">Start Streaming</span></td></tr>
@@ -453,7 +452,7 @@
       <!-- ================================================================== -->
       <h2 id="how-it-works">1. How MomentCast works</h2>
 
-      <p>MomentCast runs on credits. One credit creates one event. It costs $30, less in packs, and it never expires.</p>
+      <p>MomentCast runs on credits. One credit creates one event, and credits never expire. Current prices are on the <a href="/#pricing">pricing page</a>, and packs cost less per credit.</p>
 
       <p>Each event includes 250 viewing hours. Viewing hours are the total time everyone spends watching, added together. Fifty guests watching a three-hour reception use 150 hours. An aunt rewatching the replay next week uses hours too. A typical wedding or quinceañera with a few dozen live guests fits comfortably in one credit, and if yours grows, you add another 250 hours for one more credit, even in the middle of the stream.</p>
 
@@ -493,7 +492,7 @@
         <li>Audio levels, and that sound stays in sync with the picture</li>
         <li>How the image looks on a phone screen, not just your laptop</li>
         <li>That sound comes on after you tap the speaker icon (more on that in <a href="#share">section 5</a>)</li>
-        <li>How far the watch page runs behind the room, so you're not surprised on the day</li>
+        <li>The delay. Clap on camera and count how long it takes to show up on your phone. Guests always see the stream a little behind real life, and knowing your number keeps you from thinking something's broken on the day</li>
         <li>That your upload holds steady for the full 15 minutes, ideally from the venue itself</li>
       </ul>
 
@@ -671,7 +670,7 @@
       <h3>Recordings over 4 hours</h3>
       <p>A single recording part longer than 4 hours can't be turned into an MP4. The replay still plays on the watch page. For those parts, the event page shows a copy-ready FFmpeg command instead of a Download button. FFmpeg is a free tool from <a href="https://ffmpeg.org/download.html" target="_blank" rel="noopener">ffmpeg.org</a>. Install it, open Terminal on a Mac or Command Prompt on Windows, paste the command, and press Enter. It looks like this:</p>
 
-      <pre><code>ffmpeg -i "https://customer-....cloudflarestream.com/.../manifest/video.m3u8" -c copy "your-event.mp4"</code></pre>
+      <pre><code>ffmpeg -i "https://customer-....stream.com/.../manifest/video.m3u8" -c copy "your-event.mp4"</code></pre>
 
       <p>The <code>-c copy</code> part saves the video as-is, without re-encoding, so it's fast and loses no quality.</p>
 
@@ -755,7 +754,7 @@
       <!-- AUTHOR -->
       <div class="bg-author">
         <div class="bg-author-mark" aria-hidden="true">A</div>
-        <p><strong>Aaron Alvarez</strong> is a photographer in Santa Ana, California, shooting weddings, quinceañeras, and bautizos since 2015. He built MomentCast to stream his own clients' events. <a href="https://aaronalvarez.com" target="_blank" rel="noopener">aaronalvarez.com</a></p>
+        <p><strong>Aaron Alvarez</strong> has photographed weddings, quinceañeras, and portraits since 2015. He built MomentCast to stream his own clients' events.</p>
       </div>
 
     </article>
