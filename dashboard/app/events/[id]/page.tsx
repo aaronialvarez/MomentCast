@@ -1383,7 +1383,7 @@ export default function EventDetailPage() {
                   </button>
                 </div>
                 <p className="text-[var(--mc-warning)] text-sm mt-2">
-                  ⚠️ Keep this private! Anyone with this credentials can stream to your event.
+                  ⚠️ Keep this private! Anyone with these credentials can stream to your event.
                 </p>
               </div>
             </div>
@@ -1674,8 +1674,10 @@ export default function EventDetailPage() {
               <div className="w-full h-3 bg-[var(--mc-surface-2)] rounded-full animate-pulse" />
             )}
 
-            {/* Add More Hours / Buy Credits button — only for non-ended/cancelled events */}
-            {event.status !== 'ended' && event.status !== 'cancelled' && !event.slug_released_at && (
+            {/* Add More Hours / Buy Credits button. Ended events keep it until recordings
+                expire (30 days), matching the worker's add-credits guard, so a busy replay
+                can still be topped up. recordingsExpired is computed above the return. */}
+            {event.status !== 'cancelled' && !event.slug_released_at && !(event.status === 'ended' && recordingsExpired) && (
               <div className="mt-4">
                 {userCredits !== null && userCredits < 1 ? (
                   /* No credits: show buy button */

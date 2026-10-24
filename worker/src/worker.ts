@@ -2565,10 +2565,11 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
 
       const slug = pathname.split('/')[3];
 
-      // Verify event belongs to this user and is not ended/cancelled
+      // Verify ownership. Status, age and test checks happen below.
+      // stream_started_manually_at / scheduled_date feed the 30-day replay window check.
       const { data: event, error: eventError } = await supabase
         .from('events')
-        .select('id, slug, user_id, status, viewer_hour_limit')
+        .select('id, slug, user_id, status, viewer_hour_limit, is_test, stream_started_manually_at, scheduled_date')
         .eq('slug', slug)
         .single();
 
@@ -2584,10 +2585,33 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
         });
       }
 
-      if (event.status === 'ended' || event.status === 'cancelled') {
-        return new Response(JSON.stringify({ error: 'Cannot add credits to an ended or cancelled event' }), {
+      // Test events have their own fixed rolling cap and never take credits.
+      if (event.is_test) {
+        return new Response(JSON.stringify({ error: 'Test events cannot take viewing hours' }), {
           status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
         });
+      }
+
+      // Cancelled events never streamed and their link is already released.
+      if (event.status === 'cancelled') {
+        return new Response(JSON.stringify({ error: 'Cannot add viewing hours to a cancelled event' }), {
+          status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        });
+      }
+
+      // Ended events keep serving replay until Cloudflare deletes the recordings
+      // (deleteRecordingAfterDays: 30), so top-ups stay open for that window. Same
+      // reference date and 30-day cutoff as the watch page EXPIRED check and the
+      // dashboard's RECORDING_RETENTION_DAYS. Released slugs never reach this route:
+      // the released_<id> placeholder contains an underscore, which the route regex rejects.
+      if (event.status === 'ended') {
+        const refDate = event.stream_started_manually_at || event.scheduled_date;
+        const ageDays = (Date.now() - new Date(refDate).getTime()) / (24 * 60 * 60 * 1000);
+        if (ageDays > 30) {
+          return new Response(JSON.stringify({ error: 'Recordings for this event have expired, so viewing hours can no longer be added' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
       }
 
       // Check user has at least 1 credit

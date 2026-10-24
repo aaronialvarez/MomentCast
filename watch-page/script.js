@@ -375,10 +375,15 @@ function updateUI() {
   // Update page title for GA4 tracking (dynamic since OG tags are static HTML)
   document.title = `${eventData.title} — MomentCast`;
 
-  // Check if viewer limit exceeded
+  // Viewer limit is enforced at admission only. playbackMode stays null until this page
+  // has rendered a state once, so the check runs on first load and keeps running while
+  // the limit screen is up. Viewers already watching are never cut off by a later poll.
+  // If the streamer adds hours, limitExceeded flips false on the next poll and the normal
+  // render below hides the limit screen (it carries the .state class).
   const hasRecordings = eventData.recordings && eventData.recordings.length > 0;
   const isLive = eventData.status === 'live' && eventData.stream_state === 'active';
-  if ((isLive || hasRecordings) && eventData.limitExceeded) {
+  const notYetAdmitted = playbackMode === null;
+  if (notYetAdmitted && (isLive || hasRecordings) && eventData.limitExceeded) {
     const limitEl = document.getElementById('limit-exceeded');
     if (!limitEl || limitEl.classList.contains('hidden')) {
       document.querySelectorAll('.state').forEach(el => el.classList.add('hidden'));
