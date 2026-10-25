@@ -1,5 +1,8 @@
 # Never commit secrets
 .env
 
-# Node modules (we'll use these later)
+# Node modules
 node_modules/
+
+# Eleventy build output (website/_site), rebuilt by Cloudflare Pages on every deploy
+_site/
