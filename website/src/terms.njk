@@ -347,7 +347,7 @@ description: "MomentCast Terms of Service: the agreement governing use of our li
       <p>Each credit includes a defined allocation of viewing hours. When an event's cumulative viewing hours reach the allocated limit, new viewers may not be able to join the stream. Existing viewers already watching will not be disconnected. Streamers can add more viewing hours at any time by applying additional credits from their account balance.</p>
 
       <h3>Recording availability</h3>
-      <p>Live stream recordings are generated automatically after a stream ends. Recordings are subject to retention periods as described in our <a href="privacy.html">Privacy Policy</a>. We are not responsible for recordings that fail due to network interruptions, encoding errors, or other technical issues beyond our control.</p>
+      <p>Live stream recordings are generated automatically after a stream ends. Recordings are subject to retention periods as described in our <a href="/privacy">Privacy Policy</a>. We are not responsible for recordings that fail due to network interruptions, encoding errors, or other technical issues beyond our control.</p>
 
       <h3>Third-party dependencies</h3>
       <p>MomentCast relies on third-party services for video delivery, payment processing, and infrastructure. We are not liable for outages, failures, or changes to these third-party services that may affect the availability or performance of the Platform.</p>
@@ -392,7 +392,7 @@ description: "MomentCast Terms of Service: the agreement governing use of our li
         <li><strong>Unused credits are forfeited when your account is deleted.</strong> If you want a refund of unused credits that have not been applied to events, request it from <a href="mailto:support@momentcast.live">support@momentcast.live</a> before you delete (see Section 5). Refunds are at our discretion.</li>
         <li>Credits applied to active or completed events are non-refundable.</li>
       </ul>
-      <p>Deletion is permanent and cannot be undone. We delete your account, events, recordings, logo, cover images, and email subscription. We keep payment records processed by Stripe, and a transaction history that is no longer linked to your account, for as long as tax, accounting, and legal obligations require. Recordings are also subject to the retention periods in our <a href="privacy.html">Privacy Policy</a>.</p>
+      <p>Deletion is permanent and cannot be undone. We delete your account, events, recordings, logo, cover images, and email subscription. We keep payment records processed by Stripe, and a transaction history that is no longer linked to your account, for as long as tax, accounting, and legal obligations require. Recordings are also subject to the retention periods in our <a href="/privacy">Privacy Policy</a>.</p>
 
       <h3>By MomentCast</h3>
       <p>We may suspend or terminate your account at any time if:</p>
@@ -405,7 +405,7 @@ description: "MomentCast Terms of Service: the agreement governing use of our li
       <p>If we terminate your account for a reason other than a Terms violation, we will refund any unused, unapplied credits to your original payment method.</p>
 
       <h3>Effect of termination</h3>
-      <p>Upon termination or deletion, your right to access the Platform ceases immediately, and your event pages and watch links stop working. We delete your account data in accordance with these Terms and our <a href="privacy.html">Privacy Policy</a>. Sections 8, 10, 11, and 13 of these Terms survive termination.</p>
+      <p>Upon termination or deletion, your right to access the Platform ceases immediately, and your event pages and watch links stop working. We delete your account data in accordance with these Terms and our <a href="/privacy">Privacy Policy</a>. Sections 8, 10, 11, and 13 of these Terms survive termination.</p>
     </div>
 
     <!-- 13 -->
@@ -453,47 +453,3 @@ description: "MomentCast Terms of Service: the agreement governing use of our li
 
 
    {% endblock %}
-  <footer class="mc-footer">
-    <div class="mc-container">
-      <div class="mc-footer-inner">
-
-        <div class="mc-footer-brand">
-          <img src="momentcast-logo-gold-on-dark.png" alt="MomentCast" class="mc-footer-logo" />
-          <p>Professional live streaming for photographers and videographers. Your event. Their moment.</p>
-        </div>
-
-        <div class="mc-footer-links">
-          <div class="mc-footer-col">
-            <h4>Product</h4>
-            <a href="index.html#features">Features</a>
-            <a href="index.html#pricing">Pricing</a>
-            <a href="index.html#how-it-works">How It Works</a>
-          </div>
-          <div class="mc-footer-col">
-            <h4>Legal</h4>
-            <a href="/privacy.html">Privacy Policy</a>
-            <a href="/terms.html">Terms of Service</a>
-          </div>
-          <div class="mc-footer-col">
-            <h4>Support</h4>
-            <a href="mailto:support@momentcast.live">Contact Us</a>
-          </div>
-        </div>
-
-      </div>
-      <div class="mc-footer-bottom">
-        <p>&copy; 2026 MomentCast. All rights reserved.</p>
-      </div>
-    </div>
-  </footer>
-
-  <!-- Scroll-reveal (same as index.html) -->
-  <script>
-    const obs = new IntersectionObserver((entries) => {
-      entries.forEach(e => { if (e.isIntersecting) { e.target.classList.add('mc-visible'); obs.unobserve(e.target); } });
-    }, { threshold: 0.1 });
-    document.querySelectorAll('.mc-reveal').forEach(el => obs.observe(el));
-  </script>
-
-</body>
-</html>
