@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+{% include "partials/head.njk" %}
+  {%- block head %}{% endblock %}
+</head>
+<body>
+
+{% include "partials/nav.njk" %}
+
+{% block content %}{% endblock %}
+
+{% include "partials/footer.njk" %}
+
+  <!-- Scroll reveal for .mc-reveal elements. Does nothing on pages without them.
+       Unobserves after reveal so each element animates once. -->
+  <script>
+    (function () {
+      var els = document.querySelectorAll('.mc-reveal');
+      if (!els.length || !('IntersectionObserver' in window)) {
+        els.forEach(function (el) { el.classList.add('mc-visible'); });
+        return;
+      }
+      var obs = new IntersectionObserver(function (entries) {
+        entries.forEach(function (e) {
+          if (e.isIntersecting) { e.target.classList.add('mc-visible'); obs.unobserve(e.target); }
+        });
+      }, { threshold: 0.1 });
+      els.forEach(function (el) { obs.observe(el); });
+    })();
+  </script>
+  {%- block scripts %}{% endblock %}
+
+</body>
+</html>

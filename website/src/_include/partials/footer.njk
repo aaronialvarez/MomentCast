@@ -1,0 +1,37 @@
+  <!-- Shared footer. The Google Sign-In sentence was written for Google OAuth
+       app verification. Keep it on every page. -->
+  <footer class="mc-footer">
+    <div class="mc-container mc-footer-inner">
+      <div class="mc-footer-brand">
+        <img src="/momentcast-logo-gold-on-dark.png" alt="MomentCast" class="mc-footer-logo">
+        <p>MomentCast is a live event streaming platform that lets photographers and videographers deliver branded, high-quality live streams to their clients' guests. We use Google Sign-In to create and manage your account. We only access your name and email address for authentication purposes. For more details, see our <a href="/privacy">Privacy Policy</a>.</p>
+      </div>
+      <div class="mc-footer-links">
+        <div class="mc-footer-col">
+          <h4>Product</h4>
+          <a href="/#features">Features</a>
+          <a href="/#pricing">Pricing</a>
+          <a href="/#how-it-works">How It Works</a>
+          <a href="/blog/livestream-event-guide">Guide</a>
+        </div>
+        <div class="mc-footer-col">
+          <h4>Account</h4>
+          <a href="{{ site.appUrl }}" target="_blank">Sign In</a>
+        </div>
+        <div class="mc-footer-col">
+          <h4>Legal</h4>
+          <a href="/terms">Terms of Service</a>
+          <a href="/privacy">Privacy Policy</a>
+          <a href="mailto:{{ site.supportEmail }}">Contact Us</a>
+          {#- Reopens the consent banner so visitors can change their choice.
+              Hidden until the banner exists (site.consentBanner), so nobody clicks a dead link. #}
+          {%- if site.consentBanner %}
+          <a href="#" data-cookie-preferences>Cookie Preferences</a>
+          {%- endif %}
+        </div>
+      </div>
+    </div>
+    <div class="mc-footer-bottom">
+      <p>&copy; 2026 MomentCast. All rights reserved.</p>
+    </div>
+  </footer>

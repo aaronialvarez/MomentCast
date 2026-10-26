@@ -15,6 +15,13 @@ export default function (eleventyConfig) {
   // here because .txt and .xml are not template formats. sitemap.xml becomes
   // a generated template in Phase 4.
   eleventyConfig.addPassthroughCopy("src/**/*.{css,png,jpg,jpeg,webp,svg,ico,txt,xml}");
+
+  // Turns an output URL into the public one Cloudflare serves:
+  // /terms.html -> /terms, /blog/index.html -> /blog/, /index.html -> /
+  // Used for canonical and og:url tags (and the sitemap in Phase 4).
+  eleventyConfig.addFilter("cleanUrl", (url) =>
+    url.replace(/index\.html$/, "").replace(/\.html$/, "")
+  );
 }
 
 export const config = {
