@@ -1,60 +1,13 @@
-<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>MomentCast — Premium Live Streaming for Events | Starting at $30</title>
-  <link rel="canonical" href="https://momentcast.live">
-  <meta name="description" content="Give your clients a premium live viewing experience. Beautiful, branded live streams for weddings, quinceañeras, baptisms, and corporate events. Starting at $30 per event.">
+---
+title: "MomentCast — Premium Live Streaming for Events | Starting at $30"
+description: "Give your clients a premium live viewing experience. Beautiful, branded live streams for weddings, quinceañeras, baptisms, and corporate events. Starting at $30 per event."
+ogTitle: "MomentCast — Premium Live Streaming for Events"
+ogDescription: "Beautiful, branded live streams for weddings, quinceañeras, baptisms, and corporate events. Starting at $30 per event."
+---
+{# Head, nav, footer, and scroll reveal come from the base layout. #}
+{% extends "layouts/base.njk" %}
 
-  <!-- OG Tags -->
-  <meta property="og:title" content="MomentCast — Premium Live Streaming for Events">
-  <meta property="og:description" content="Beautiful, branded live streams for weddings, quinceañeras, baptisms, and corporate events. Starting at $30 per event.">
-  <meta property="og:type" content="website">
-  <meta property="og:url" content="https://momentcast.live">
-  <meta property="og:image" content="https://momentcast.live/og-preview.png">
-  <meta name="twitter:card" content="summary_large_image">
-
-  <!-- Favicon -->
-  <link rel="icon" type="image/png" href="favicon.png">
-
-  <!-- Fonts -->
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=Cormorant+Garamond:ital,wght@0,400;0,500;0,600;0,700;1,400;1,500&family=DM+Sans:ital,opsz,wght@0,9..40,300;0,9..40,400;0,9..40,500;0,9..40,600;1,9..40,400&display=swap" rel="stylesheet">
-
-  <link rel="stylesheet" href="style.css">
-  <!-- Google tag (gtag.js) -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id=G-3VWZFFXWQW"></script>
-  <script>
-    window.dataLayer = window.dataLayer || [];
-    function gtag(){dataLayer.push(arguments);}
-    gtag('js', new Date());
-
-    gtag('config', 'G-3VWZFFXWQW');
-  </script>
-</head>
-<body>
-
-  <!-- ====================================================================
-       NAV
-       ==================================================================== -->
-  <nav class="mc-nav">
-    <div class="mc-nav-inner">
-      <a href="/" class="mc-nav-logo" aria-label="MomentCast Home">
-        <img src="momentcast-logo-gold-on-dark.png" alt="MomentCast" class="mc-nav-logo-img">
-      </a>
-      <div class="mc-nav-links">
-        <a href="#features">Features</a>
-        <a href="#pricing">Pricing</a>
-        <a href="#how-it-works">How It Works</a>
-        <a href="/blog/livestream-event-guide">Guide</a>
-      </div>
-      <a href="https://app.momentcast.live" target="_blank" class="mc-btn mc-btn-nav">Dashboard</a>
-    </div>
-  </nav>
-
-
+{% block content %}
   <!-- ====================================================================
        HERO
        ==================================================================== -->
@@ -365,40 +318,9 @@
     </div>
   </section>
 
-<!-- ====================================================================
-       FOOTER
-       ==================================================================== -->
-  <footer class="mc-footer">
-    <div class="mc-container mc-footer-inner">
-      <div class="mc-footer-brand">
-        <img src="momentcast-logo-gold-on-dark.png" alt="MomentCast" class="mc-footer-logo">
-        <p>MomentCast is a live event streaming platform that lets photographers and videographers deliver branded, high-quality live streams to their clients' guests. We use Google Sign-In to create and manage your account. We only access your name and email address for authentication purposes. For more details, see our <a href="/privacy.html">Privacy Policy</a>.</p>
-      </div>
-      <div class="mc-footer-links">
-        <div class="mc-footer-col">
-          <h4>Product</h4>
-          <a href="#features">Features</a>
-          <a href="#pricing">Pricing</a>
-          <a href="#how-it-works">How It Works</a>
-          <a href="/blog/livestream-event-guide">Guide</a>
-        </div>
-        <div class="mc-footer-col">
-          <h4>Account</h4>
-          <a href="https://app.momentcast.live" target="_blank">Sign In</a>
-        </div>
-        <div class="mc-footer-col">
-          <h4>Legal</h4>
-          <a href="/terms.html">Terms of Service</a>
-          <a href="/privacy.html">Privacy Policy</a>
-          <a href="mailto:support@momentcast.live">Contact Us</a>
-        </div>
-      </div>
-    </div>
-    <div class="mc-footer-bottom">
-      <p>&copy; 2026 MomentCast. All rights reserved.</p>
-    </div>
-  </footer>
+{% endblock %}
 
+{% block scripts %}
   <script>
     // Pricing estimator. Same math as the dashboard's create-event page:
     // hours = duration x viewers, 250 hours per credit, $30 per credit at list price.
@@ -449,5 +371,4 @@
     })();
   </script>
 
-</body>
-</html>
+{% endblock %}
