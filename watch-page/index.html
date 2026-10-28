@@ -3,6 +3,10 @@
 <head>
   <!-- No GA4 on the watch page: guests get cookieless Cloudflare Web Analytics
        (auto-injected by the Pages project), so no consent banner is needed here. -->
+  <!-- No-op stub: script.js still calls gtag('event', ...) on state changes and
+       stream_viewed. Without this, each call throws a ReferenceError and aborts
+       the rest of that function. Must load before script.js. -->
+  <script>window.gtag = window.gtag || function () {};</script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Watch on MomentCast</title>
