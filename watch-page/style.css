@@ -554,12 +554,28 @@ body::after {
   justify-content: flex-start;
 }
 
-/* 16:9 aspect ratio wrapper */
+/* Player box. Defaults to 16:9. script.js overrides aspect-ratio inline
+   once it reads the real resolution from the HLS manifest, so 4:3 or
+   other odd sources also get a tight box with no bars. */
 .video-container {
   position: relative;
   width: 100%;
-  padding-bottom: 56.25%; /* 16:9 */
+  aspect-ratio: 16 / 9;
   background: #000;
+}
+
+/* Portrait (vertical) streams: size by viewport height, center horizontally.
+   --mc-portrait-chrome reserves room for the header and banners above the
+   player. Tune this one value if the player runs too tall or too short.
+   align-self overrides .mc-video-outer's align-items: stretch. */
+.video-container.is-portrait {
+  --mc-portrait-chrome: 140px;
+  width: auto;
+  max-width: 100%;
+  height: calc(100vh - var(--mc-portrait-chrome));  /* fallback for older browsers */
+  height: calc(100svh - var(--mc-portrait-chrome)); /* svh ignores mobile URL bar */
+  min-height: 320px;
+  align-self: center;
 }
 
 /* .relative is queried directly by script.js — do not rename */
