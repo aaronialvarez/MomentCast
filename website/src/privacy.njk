@@ -5,185 +5,13 @@ description: "MomentCast Privacy Policy: how we collect, use, store, and protect
 {# Head, nav, footer, and scroll reveal come from the base layout. #}
 {% extends "layouts/base.njk" %}
 
-{% block head %}
-  <!-- Privacy-page-only additions (no duplication of style.css tokens) -->
-  <style>
-    /* Page hero band */
-    .pp-hero {
-      padding: 140px 24px 64px;
-      text-align: center;
-      border-bottom: 1px solid var(--border);
-    }
-    .pp-hero h1 {
-      font-family: var(--font-display);
-      font-size: clamp(32px, 5vw, 52px);
-      font-weight: 500;
-      line-height: 1.15;
-      margin-bottom: 12px;
-    }
-    .pp-hero .pp-meta {
-      font-size: 13px;
-      color: var(--text-3);
-      letter-spacing: 0.04em;
-    }
-
-    /* Content wrapper: narrower than mc-container for readability */
-    .pp-wrapper {
-      max-width: 760px;
-      margin: 0 auto;
-      padding: 64px 24px 96px;
-    }
-
-    /* Table of contents */
-    .pp-toc {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 28px 32px;
-      margin-bottom: 56px;
-    }
-    .pp-toc h2 {
-      font-size: 12px;
-      font-weight: 600;
-      letter-spacing: 0.12em;
-      text-transform: uppercase;
-      color: var(--gold);
-      margin-bottom: 16px;
-    }
-    .pp-toc ol {
-      padding-left: 18px;
-      display: grid;
-      grid-template-columns: 1fr 1fr;
-      gap: 6px 32px;
-    }
-    .pp-toc li a {
-      font-size: 14px;
-      color: var(--text-2);
-      transition: color 0.2s;
-    }
-    .pp-toc li a:hover { color: var(--gold); }
-    @media (max-width: 560px) { .pp-toc ol { grid-template-columns: 1fr; } }
-
-    /* Section */
-    .pp-section {
-      margin-bottom: 52px;
-    }
-    .pp-section-num {
-      font-size: 11px;
-      font-weight: 500;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      color: var(--gold);
-      margin-bottom: 4px;
-    }
-    .pp-section h2 {
-      font-family: var(--font-display);
-      font-size: 1.6rem;
-      font-weight: 500;
-      color: var(--text-1);
-      margin-bottom: 16px;
-      padding-bottom: 14px;
-      border-bottom: 1px solid var(--border);
-    }
-    .pp-section h3 {
-      font-family: var(--font-body);
-      font-size: 14px;
-      font-weight: 600;
-      letter-spacing: 0.04em;
-      text-transform: uppercase;
-      color: var(--text-2);
-      margin: 24px 0 10px;
-    }
-    .pp-section p {
-      font-size: 15px;
-      color: var(--text-2);
-      line-height: 1.75;
-      margin-bottom: 12px;
-    }
-    .pp-section p:last-child { margin-bottom: 0; }
-    .pp-section a { color: var(--gold); transition: opacity 0.2s; }
-    .pp-section a:hover { opacity: 0.8; }
-    .pp-section ul, .pp-section ol {
-      padding-left: 20px;
-      margin-bottom: 14px;
-    }
-    .pp-section li {
-      font-size: 15px;
-      color: var(--text-2);
-      line-height: 1.7;
-      margin-bottom: 8px;
-    }
-    .pp-section strong { color: var(--text-1); font-weight: 500; }
-
-    /* Callout box (reuses gold-dim from design system) */
-    .pp-callout {
-      background: var(--gold-dim);
-      border: 1px solid rgba(200, 169, 110, 0.18);
-      border-radius: var(--radius-sm);
-      padding: 18px 22px;
-      margin: 20px 0;
-    }
-    .pp-callout p {
-      font-size: 14px;
-      margin: 0;
-    }
-
-    /* Data table */
-    .pp-table {
-      width: 100%;
-      border-collapse: collapse;
-      margin: 16px 0 14px;
-      font-size: 14px;
-    }
-    .pp-table th {
-      background: var(--surface-2);
-      color: var(--gold);
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: 0.1em;
-      text-transform: uppercase;
-      text-align: left;
-      padding: 10px 14px;
-      border: 1px solid var(--border);
-    }
-    .pp-table td {
-      padding: 10px 14px;
-      border: 1px solid var(--border);
-      color: var(--text-2);
-      vertical-align: top;
-      line-height: 1.6;
-    }
-    .pp-table tr:nth-child(even) td {
-      background: rgba(255,255,255,0.015);
-    }
-
-    /* Contact card */
-    .pp-contact {
-      background: var(--surface);
-      border: 1px solid var(--border);
-      border-radius: var(--radius);
-      padding: 28px 32px;
-      margin-top: 16px;
-    }
-    .pp-contact p { margin-bottom: 6px; font-size: 15px; }
-    .pp-contact p:last-child { margin-bottom: 0; }
-
-    /* Divider */
-    .pp-divider {
-      border: none;
-      border-top: 1px solid var(--border);
-      margin: 0 0 56px;
-    }
-  </style>
-{% endblock %}
-
 {% block content %}
 
   <!-- ── Page Hero ── -->
   <div class="pp-hero">
     <p class="mc-kicker">Legal</p>
     <h1>Privacy Policy</h1>
-    <p class="pp-meta">Effective Date: October 8, 2026 &nbsp;&middot;&nbsp; Last Updated: October 8, 2026</p>
+    <p class="pp-meta">Effective Date: October 8, 2026 &nbsp;&middot;&nbsp; Last Updated: October 28, 2026</p>
   </div>
 
   <!-- ── Body ── -->
@@ -248,7 +76,7 @@ description: "MomentCast Privacy Policy: how we collect, use, store, and protect
           <tr><td>Device &amp; browser data</td><td>IP address, browser type, operating system, referring URL</td></tr>
           <tr><td>Video analytics</td><td>Viewer minutes watched, viewer country (aggregated), stream connection events</td></tr>
           <tr><td>Email engagement</td><td>For marketing emails you opt in to: whether they are opened or clicked, and approximate location derived from your IP address</td></tr>
-          <tr><td>Cookies</td><td>Session and authentication tokens (necessary to run the service), and analytics identifiers (set only with your consent where the law requires it; see Section 8)</td></tr>
+          <tr><td>Cookies and browser storage</td><td>Sign-in session data and security cookies (necessary to run the service), and analytics cookies on our marketing site, set only if you accept them (see Section 8)</td></tr>
         </tbody>
       </table>
 
@@ -308,7 +136,7 @@ description: "MomentCast Privacy Policy: how we collect, use, store, and protect
         <li>Send service communications (account confirmation and password reset links, event confirmations, receipts, support responses).</li>
         <li>Send tips and product updates, only if you have opted in. You can unsubscribe at any time.</li>
         <li>Monitor platform performance, diagnose technical issues, and improve the service.</li>
-        <li>Measure viewer engagement through aggregated analytics, using analytics cookies only with your consent where the law requires it.</li>
+        <li>Measure how visitors use our marketing site, using analytics cookies only if you accept them, and measure aggregate viewer traffic on event pages with cookieless analytics.</li>
         <li>Comply with applicable legal obligations.</li>
       </ul>
       <p>We do not use your data for behavioral advertising, do not build advertising profiles, and do not sell or rent your personal information.</p>
@@ -330,7 +158,7 @@ description: "MomentCast Privacy Policy: how we collect, use, store, and protect
           <tr><td>Infrastructure and video delivery providers</td><td>Hosting, content delivery, live video streaming, recording storage, and performance monitoring</td><td>Video streams, recordings, request logs, aggregated viewer analytics</td></tr>
           <tr><td>Database, authentication, and file storage provider</td><td>Storing account and event data, signing you in, and storing uploaded images</td><td>Account data, event data, uploaded assets</td></tr>
           <tr><td>Google (Sign-In)</td><td>Sign-In authentication</td><td>Identity token (email, name) returned to us upon your authorization</td></tr>
-          <tr><td>Google Analytics (GA4)</td><td>Web analytics on viewer pages, used only with your consent where the law requires it</td><td>Usage data, page views, and cookie identifiers</td></tr>
+          <tr><td>Google Analytics (GA4)</td><td>Web analytics on our marketing site (momentcast.live) only. Analytics cookies are set only if you accept them</td><td>Usage data and page views; cookie identifiers only with your consent</td></tr>
           <tr><td>Stripe</td><td>Processing credit purchase payments</td><td>Payment details (card data is never stored by MomentCast)</td></tr>
           <tr><td>Transactional email provider</td><td>Delivery of account emails such as confirmation and password reset links</td><td>Your email address and the content of the message</td></tr>
           <tr><td>Email marketing platform</td><td>Tips and product updates, sent only to users who opt in</td><td>Email address, name, opt-in timestamp, and email engagement (opens, clicks, approximate location)</td></tr>
@@ -363,7 +191,7 @@ description: "MomentCast Privacy Policy: how we collect, use, store, and protect
         <li><strong>Encryption at rest:</strong> User data stored in our managed database is encrypted at rest.</li>
         <li><strong>Access controls:</strong> Database access is restricted to authenticated application processes; no public access is permitted.</li>
         <li><strong>Secure infrastructure:</strong> We run on reputable cloud infrastructure that enforces HTTPS for all requests.</li>
-        <li><strong>Authentication tokens:</strong> OAuth tokens are short-lived and stored using secure, httpOnly mechanisms.</li>
+        <li><strong>Authentication tokens:</strong> Sign-in session tokens are short-lived, refresh automatically, and are only ever sent over HTTPS.</li>
         <li><strong>Passwords:</strong> Passwords are hashed by our authentication provider. We never see or store them in readable form.</li>
         <li><strong>Email links:</strong> Confirmation and password reset links work once and expire after one hour.</li>
       </ul>
@@ -403,20 +231,21 @@ description: "MomentCast Privacy Policy: how we collect, use, store, and protect
       <p class="pp-section-num">08</p>
       <h2>Cookies &amp; Analytics</h2>
 
-      <h3>Cookies we use</h3>
-      <ul>
-        <li><strong>Strictly necessary cookies:</strong> Session and authentication cookies keep you signed in to your Streamer dashboard and secure your session. The service cannot work without them, so they do not require consent.</li>
-        <li><strong>Analytics cookies:</strong> Google Analytics 4 (GA4) cookies measure page views and engagement on viewer pages (go.momentcast.live). They are set only after you accept them in our cookie banner where the law requires consent.</li>
-      </ul>
+      <h3>Marketing site (momentcast.live)</h3>
+      <p>We use Google Analytics 4 (GA4) to understand how visitors use our marketing site and blog. GA4 sets analytics cookies only after you click "Accept" in our cookie banner. If you decline, or do not respond, no analytics cookies are set, and Google receives only limited cookieless signals (such as the page viewed) that do not identify you across visits.</p>
+      <p>We store your choice in a small first-party cookie (<strong>mc_consent</strong>) for 180 days, after which we ask again. You can change your choice at any time through the "Cookie Preferences" link in the footer of every page. If you withdraw consent, we delete the analytics cookies we set. Declining has no effect on your ability to use MomentCast.</p>
 
-      <h3>Cookie banner and your choices</h3>
-      <p>When you first visit, our cookie banner lets you accept or decline analytics cookies. If you decline, or do not respond, we do not set analytics cookies. You can change your choice at any time through the cookie banner's settings control, or by clearing this site's cookies in your browser, which shows the banner again. Declining analytics has no effect on your ability to use MomentCast or watch an event.</p>
+      <h3>Viewer pages (go.momentcast.live)</h3>
+      <p>Event pages do not use Google Analytics or any analytics cookies. We measure aggregate traffic with our hosting provider's privacy-focused analytics, which does not use cookies or track Viewers across sites. Viewers do not need an account, and watching an event never requires accepting cookies.</p>
 
-      <h3>Viewers (unauthenticated)</h3>
-      <p>Viewers of event pages at go.momentcast.live do not need to create an account. Their viewing experience is anonymous. Analytics cookies are set only if the Viewer accepts them. Viewers can also block them with their browser's cookie settings or a browser-based ad blocker.</p>
+      <h3>Streamer dashboard (app.momentcast.live)</h3>
+      <p>The dashboard uses only strictly necessary storage: browser storage that keeps you signed in and secures your session. When you buy credits, our payment provider may set its own cookies on its checkout page for fraud prevention. The service cannot work without these, so they do not require consent. The dashboard does not use analytics or advertising cookies.</p>
 
-      <h3>Third-party analytics</h3>
-      <p>We use Google Analytics 4 on viewer pages to understand aggregate traffic patterns, not to build advertising profiles. We also use basic performance and traffic analytics from our hosting provider on all properties for performance monitoring. We do not give either service your name, email address, or other directly identifying information.</p>
+      <h3>Security cookies</h3>
+      <p>Our infrastructure provider may set a security cookie (such as <strong>cf_clearance</strong>) on any of our sites to protect them from automated abuse. It is strictly necessary and is never used for analytics or advertising.</p>
+
+      <h3>No advertising</h3>
+      <p>We do not use advertising cookies, and Google Analytics advertising features are turned off. We do not build advertising profiles, and we do not give any analytics service your name, email address, or other directly identifying information.</p>
     </div>
 
     <!-- 9 -->
@@ -429,9 +258,9 @@ description: "MomentCast Privacy Policy: how we collect, use, store, and protect
         <li><strong>Correction:</strong> Request correction of inaccurate or incomplete data.</li>
         <li><strong>Deletion:</strong> Delete your account yourself from the dashboard at any time, or request deletion by contacting us (subject to legal retention obligations).</li>
         <li><strong>Portability:</strong> Request your data in a structured, machine-readable format.</li>
-        <li><strong>Withdrawal of consent:</strong> Revoke Google Sign-In authorization at any time via <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">Google Account Permissions</a>, or contact us to withdraw other consents. You can unsubscribe from tips and product updates at any time using the link in any of those emails, and you can withdraw analytics cookie consent at any time through the cookie banner.</li>
+        <li><strong>Withdrawal of consent:</strong> Revoke Google Sign-In authorization at any time via <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener">Google Account Permissions</a>, or contact us to withdraw other consents. You can unsubscribe from tips and product updates at any time using the link in any of those emails, and you can withdraw analytics cookie consent at any time through the "Cookie Preferences" link in our site footer.</li>
         <li><strong>Objection and restriction:</strong> If you are in the European Economic Area or the United Kingdom, you may object to or ask us to restrict certain processing, and you may lodge a complaint with your local data protection authority.</li>
-        <li><strong>Opt-out of analytics:</strong> Decline analytics cookies in our cookie banner, or use <a href="https://tools.google.com/dlpage/gaoptout" target="_blank" rel="noopener">Google's opt-out tool</a>.</li>
+        <li><strong>Opt-out of analytics:</strong> Decline analytics cookies in our cookie banner or through "Cookie Preferences" in our site footer, or use <a href="https://tools.google.com/dlpage/gaoptout" target="_blank" rel="noopener">Google's opt-out tool</a>.</li>
       </ul>
       <p>California residents may have additional rights under the California Consumer Privacy Act (CCPA), including the right to know, the right to delete, and the right to opt out of the sale of personal information. We do not sell personal information.</p>
       <p>To exercise any of these rights, contact <a href="mailto:support@momentcast.live">support@momentcast.live</a>. We will respond within 30 days.</p>
@@ -452,7 +281,7 @@ description: "MomentCast Privacy Policy: how we collect, use, store, and protect
           <tr><td>Creating your account, providing the service, processing purchases</td><td>Performance of a contract</td></tr>
           <tr><td>Account and security emails, fraud prevention, service improvement</td><td>Legitimate interests</td></tr>
           <tr><td>Tips and product updates by email</td><td>Your consent, which you can withdraw at any time</td></tr>
-          <tr><td>Analytics cookies on viewer pages</td><td>Your consent, which you can withdraw at any time</td></tr>
+          <tr><td>Analytics cookies on our marketing site</td><td>Your consent, which you can withdraw at any time</td></tr>
           <tr><td>Keeping payment and tax records</td><td>Legal obligation</td></tr>
         </tbody>
       </table>
