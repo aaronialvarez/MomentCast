@@ -140,16 +140,6 @@ function startPolling() {
   }, pollFrequency);
 }
 
-// Returns the best available event date string.
-// Prefers stream_started_manually_at (actual start) over scheduled_date (planned time).
-function getEventDate() {
-  const raw = eventData.stream_started_manually_at || eventData.scheduled_date;
-  if (!raw) return null;
-  return new Date(raw).toLocaleDateString('en-US', {
-    weekday: 'long', year: 'numeric', month: 'long', day: 'numeric', timeZone: 'UTC'
-  });
-}
-
 // Injects or updates a date subtitle element directly after the given title element.
 // Safe to call on every poll — creates the node once, updates text thereafter.
 function setEventDateSubtitle(titleEl, dateString) {
@@ -219,7 +209,6 @@ async function copyWatchUrl(el, placement) {
   try {
     await navigator.clipboard.writeText(WATCH_URL);
     el.textContent = 'Copied!';
-    gtag('event', 'share', { method: 'copy_link', content_type: placement, item_id: slug });
   } catch (err) {
     // Clipboard can be blocked (permissions, in-app browsers, old browsers)
     console.warn('Copy failed:', err);
@@ -262,7 +251,6 @@ function renderShareBlocks() {
       nativeBtn.onclick = async () => {
         try {
           await navigator.share({ title: eventData?.title || 'MomentCast', url: WATCH_URL });
-          gtag('event', 'share', { method: 'native', content_type: 'player_footer', item_id: slug });
         } catch (err) {
           if (err.name !== 'AbortError' && copyBtn) copyWatchUrl(copyBtn, 'player_footer');
         }
@@ -296,6 +284,9 @@ function renderQrBlock(visible) {
   staticBlock.classList.remove('hidden');
 }
 
+// Returns the event date string for the player subtitle, in the event's own timezone.
+// Prefers stream_started_manually_at (actual start) over scheduled_date (planned time).
+// Test events use today while live, otherwise the replayed recording's date.
 function getEventDate() {
   let raw = eventData.stream_started_manually_at || eventData.scheduled_date;
   if (eventData.is_test) {
@@ -409,26 +400,6 @@ function determinePlaybackMode() {
   return 'WAITING';
 }
 
-// Update status badge based on event state
-function updateStatusBadge() {
-  const badge = document.getElementById('event-status-badge'); // or whatever the ID is
-  if (!badge) return;
-  
-  if (eventData.status === 'live' && eventData.stream_state === 'active') {
-    badge.textContent = 'LIVE';
-    badge.className = 'badge live'; // red badge
-  } else if (eventData.status === 'ready' && eventData.stream_state === 'disconnected') {
-    badge.textContent = 'PAUSED';
-    badge.className = 'badge paused'; // yellow badge
-  } else if (eventData.status === 'ended') {
-    badge.textContent = 'ENDED';
-    badge.className = 'badge ended'; // gray badge
-  } else {
-    badge.textContent = 'SCHEDULED';
-    badge.className = 'badge scheduled';
-  }
-}
-
 // Update UI based on event state
 function updateUI() {
   updateStatusBadge();
@@ -436,7 +407,7 @@ function updateUI() {
     showError();
     return;
   }
-  // Update page title for GA4 tracking (dynamic since OG tags are static HTML)
+  // Browser tab shows the event name (OG tags are static HTML, so they can't)
   document.title = `${eventData.title} — MomentCast`;
 
   // Viewer limit is enforced at admission only. playbackMode stays null until this page
@@ -489,36 +460,28 @@ function updateUI() {
       case 'LIVE':
         liveSessionId++; // Force iframe reload on each LIVE transition
         showLive();
-        gtag('event', 'stream_state', { event_category: 'engagement', stream_status: 'live' });
         break;
       case 'PROCESSING':
         showProcessing();
-        gtag('event', 'stream_state', { event_category: 'engagement', stream_status: 'processing' });
         break;
       case 'LAST_RECORDING':
         showLastRecording();
-        gtag('event', 'stream_state', { event_category: 'engagement', stream_status: 'replay' });
         break;
       case 'SEQUENTIAL':
         showSequentialPlayback();
-        gtag('event', 'stream_state', { event_category: 'engagement', stream_status: 'replay' });
         break;
       case 'COUNTDOWN':
         showCountdown();
-        gtag('event', 'stream_state', { event_category: 'engagement', stream_status: 'countdown' });
         break;
       case 'ENDED':
         showCountdownState('ENDED');
-        gtag('event', 'stream_state', { event_category: 'engagement', stream_status: 'ended' });
         break;
       case 'EXPIRED':
         showCountdownState('EXPIRED');
-        gtag('event', 'stream_state', { event_category: 'engagement', stream_status: 'expired' });
         break;
       case 'WAITING':
       default:
         showCountdownState('WAITING');
-        gtag('event', 'stream_state', { event_category: 'engagement', stream_status: 'waiting' });
         break;
     }
   }
@@ -729,11 +692,6 @@ function showLive() {
   } 
 
   liveEl.classList.remove('hidden');
-  // GA4: viewer entered live stream
-  gtag('event', 'stream_viewed', {
-    event_category: 'engagement',
-    event_label: slug
-  });
 }
 
 // Unmute hint — a non-blocking toast that draws attention to the player's
@@ -1166,72 +1124,6 @@ function advanceToNextRecording(recordings) {
   }
 }
 
-// Show completion message when all recordings are done
-function showAllRecordingsComplete() {
-  const replayEl = document.getElementById('replay');
-  const streamEl = document.getElementById('replay-stream');
-  
-  // Create completion overlay
-  let completionOverlay = document.getElementById('completion-overlay');
-  if (!completionOverlay) {
-    completionOverlay = document.createElement('div');
-    completionOverlay.id = 'completion-overlay';
-    completionOverlay.className = 'mc-completion-overlay'; // Shown when all sequential recordings finish
-    completionOverlay.innerHTML = `
-      <div class="mc-completion-inner">
-        <p class="mc-completion-title">All recordings complete</p>
-        <p class="mc-completion-sub">Thank you for watching!</p>
-        <button onclick="location.reload()" class="mc-completion-btn">
-          Replay from beginning
-        </button>
-      </div>
-    `;
-    
-    // Find the iframe container and add overlay
-    const container = streamEl.parentElement;
-    container.style.position = 'relative';
-    container.appendChild(completionOverlay);
-  }
-}
-
-// Show replay state
-function showReplay() {
-  const replayEl = document.getElementById('replay');
-  const titleEl = document.getElementById('replay-title');
-  const streamEl = document.getElementById('replay-stream');
-
-  titleEl.textContent = eventData.title;
-  setEventDateSubtitle(titleEl, getEventDate()); // Show event date below title
-  renderLogo(replayEl.querySelector('.mc-player-header')); // Show photographer logo
-
-  console.log('Replay data:', eventData.recordings);
-
-  // Use oldest recording (last in array, since API returns newest first)
-  const videoId = eventData.merged_video_id || (eventData.recordings[eventData.recordings.length - 1]?.uid);
-  
-  if (videoId) {
-    // Start muted to guarantee autoplay; overlay prompts user to unmute
-    const embedUrl = `https://customer-r5vkm8rpzqtdt9cz.cloudflarestream.com/${videoId}/iframe?autoplay=true&muted=true`;
-    
-    // Only set src if it's different (prevents reload on poll)
-    if (streamEl.src !== embedUrl) {
-      console.log('Setting replay iframe src to:', embedUrl);
-      streamEl.src = embedUrl;
-      attachMuteOverlay(streamEl);
-    }
-  } else {
-    console.error('No recordings found in eventData:', eventData);
-  }
-
-  // Remove live banner if it exists
-  const liveBanner = document.getElementById('live-banner');
-  if (liveBanner) {
-    liveBanner.remove();
-  }
-
-  replayEl.classList.remove('hidden');
-}
-
 // Consolidated handler for all non-live, non-replay countdown states
 // Modes: 'WAITING' | 'ENDED' | 'EXPIRED'
 function showCountdownState(mode) {
@@ -1394,46 +1286,6 @@ function updateStatusBadge() {
     badge.textContent = 'READY';
     badge.className = 'ready-badge';
   }
-}
-
-function showExpired() {
-  const countdownEl = document.getElementById('countdown');
-  const titleEl = document.getElementById('event-title');
-  const scheduledTimeEl = document.getElementById('scheduled-time');
-  
-  if (countdownInterval) {
-    clearInterval(countdownInterval);
-    countdownInterval = null;
-  }
-  
-  titleEl.textContent = eventData.title;
-  
-  const scheduledDate = new Date(eventData.scheduled_date);
-  const tz = getEventTimezone();
-  scheduledTimeEl.textContent = `Held on ${scheduledDate.toLocaleString('en-US', {
-    weekday: 'long',
-    year: 'numeric',
-    month: 'long',
-    day: 'numeric',
-    hour: 'numeric',
-    minute: '2-digit',
-    timeZoneName: 'short',
-    timeZone: tz
-  })}`;
-  
-  // Note: showExpired() is a legacy fallback — showCountdownState('EXPIRED') is the
-  // primary handler. This block kept for safety in case it's ever called directly.
-  const timerContainer = countdownEl.querySelector('.grid');
-  if (timerContainer) {
-    timerContainer.innerHTML = `
-      <div class="mc-expired-block">
-        <p class="mc-expired-title">Recording No Longer Available</p>
-        <p class="mc-expired-sub">Recordings are kept for 30 days after the event.</p>
-      </div>
-    `;
-  }
-  
-  countdownEl.classList.remove('hidden');
 }
 
 /**

@@ -358,6 +358,16 @@ ul { list-style: none; }
   justify-content: center;
 }
 
+/* Hero mockup photo: fills the 16:9 screen behind the LIVE badge and title bar */
+.mc-mockup-img {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
 .mc-mockup-badge {
   position: absolute;
   top: 16px;
@@ -1193,6 +1203,7 @@ ul { list-style: none; }
 }
 .pp-contact p { margin-bottom: 6px; font-size: 15px; }
 .pp-contact p:last-child { margin-bottom: 0; }
+.pp-contact + p { margin-top: 16px; } /* response-time note under the contact card */
 
 /* Divider */
 .pp-divider {
@@ -1496,6 +1507,7 @@ ul { list-style: none; }
 .bg-ref table { margin: 0; }
 .bg-ref th { background: transparent; }
 .bg-ref tr:last-child td { border-bottom: none; }
+.bg-ref .bg-table-wrap { margin: 0; } /* the card supplies the spacing */
 
 /* Author box + CTA */
 .bg-cta {

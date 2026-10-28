@@ -3,9 +3,9 @@
 <head>
   <!-- No GA4 on the watch page: guests get cookieless Cloudflare Web Analytics
        (auto-injected by the Pages project), so no consent banner is needed here. -->
-  <!-- No-op stub: script.js still calls gtag('event', ...) on state changes and
-       stream_viewed. Without this, each call throws a ReferenceError and aborts
-       the rest of that function. Must load before script.js. -->
+  <!-- Safety net: script.js no longer calls gtag(), but a browser holding a cached
+       older script.js still might. Without this stub those calls throw a
+       ReferenceError and break the page. Costs nothing, keep it. Must load before script.js. -->
   <script>window.gtag = window.gtag || function () {};</script>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
