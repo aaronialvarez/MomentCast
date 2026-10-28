@@ -653,6 +653,10 @@ function showLive() {
       
       // Show tap-to-unmute overlay once iframe loads
       attachMuteOverlay(streamEl);
+
+      // Size the player box to the stream's real aspect ratio (vertical support).
+      // Runs once per LIVE entry because the src changes with liveSessionId.
+      applyStreamAspect(streamEl, liveInputId);
     }
   } else if (!liveInputId) {
     console.error('No live_input_id found in eventData:', eventData);
@@ -835,6 +839,7 @@ function showLastRecording() {
       console.log('Setting last recording iframe src to:', embedUrl);
       streamEl.src = embedUrl;
       attachMuteOverlay(streamEl);
+      applyStreamAspect(streamEl, videoId); // Match box to this recording's orientation
     }
   } else {
     console.error('No recordings found in eventData:', eventData);
@@ -927,6 +932,9 @@ function showSequentialPlayback() {
       console.log(`Setting sequential playback iframe src (${currentRecordingIndex + 1}/${allRecordings.length}):`, embedUrl);
       streamEl.src = embedUrl;
       
+      // Match box to this recording's orientation (parts can differ if the streamer reconnected rotated)
+      applyStreamAspect(streamEl, videoId);
+
       // Only show overlay on the first video (user already interacted for subsequent ones)
       if (currentRecordingIndex === 0) {
         attachMuteOverlay(streamEl);
@@ -1137,6 +1145,9 @@ function advanceToNextRecording(recordings) {
     console.log(`Loading recording ${currentRecordingIndex + 1}/${recordings.length}`);
     streamEl.src = embedUrl;
     
+    // Re-check orientation for the next part before it plays
+    applyStreamAspect(streamEl, videoId);
+
     // CRITICAL: Set up auto-advance listener for the new video
     setupSequentialAdvance(streamEl, recordings);
   }
