@@ -27,7 +27,7 @@ ogType: article
         "description": "Step-by-step guide to streaming weddings, quinceañeras, and events with MomentCast.",
         "image": "https://momentcast.live/og-preview.png",
         "datePublished": "2026-10-23",
-        "dateModified": "2026-10-24",
+        "dateModified": "2026-10-27",
         "author": {
           "@type": "Person",
           "name": "Aaron Alvarez",
@@ -359,7 +359,7 @@ ogType: article
     <p class="mc-kicker">The MomentCast Guide</p>
     <h1>How to Livestream an Event with MomentCast</h1>
     <p class="bg-dek">From your first free test stream to downloading the final recording, in the order you'll actually do it.</p>
-    <p class="bg-meta">By <strong>Aaron Alvarez</strong>, photographer and founder &nbsp;&middot;&nbsp; Updated October 24, 2026 &nbsp;&middot;&nbsp; 15 min read</p>
+    <p class="bg-meta">By <strong>Aaron Alvarez</strong>, photographer and founder &nbsp;&middot;&nbsp; Updated October 27, 2026 &nbsp;&middot;&nbsp; 15 min read</p>
   </header>
 
   <div class="bg-layout">
@@ -406,6 +406,7 @@ ogType: article
               <tr><td>MP4 downloads</td><td>Recording parts up to 4 hours long</td></tr>
               <tr><td>Free test sessions</td><td>15 minutes each, 3 per day</td></tr>
               <tr><td>Encoder format</td><td>H.264 video and AAC audio over RTMPS</td></tr>
+              <tr><td>Orientation</td><td>Horizontal or vertical. Pick one before you go live.</td></tr>
             </tbody>
           </table>
         </div>
@@ -568,7 +569,7 @@ ogType: article
             <tr><td>Rate control</td><td>CBR (constant bitrate)</td><td>Steadier delivery than variable bitrate.</td></tr>
             <tr><td>Video bitrate</td><td>6,000 Kbps for 1080p</td><td>Total bitrate must stay between 2 and 14 Mbps. Drop to around 4,000 on a weak connection.</td></tr>
             <tr><td>Keyframe interval</td><td>2 seconds, fixed</td><td>Must be a fixed value between 2 and 10 seconds. Never 0, auto, or variable.</td></tr>
-            <tr><td>Resolution and frame rate</td><td>1920&times;1080 at 30 fps</td><td>Full HD with room to spare on most connections.</td></tr>
+            <tr><td>Resolution and frame rate</td><td>1920&times;1080 at 30 fps, or 1080&times;1920 for vertical</td><td>Full HD with room to spare on most connections. Vertical works too (<a href="#vertical">see below</a>).</td></tr>
             <tr><td>B-frames</td><td>0, if your encoder shows the option</td><td>What I run. Fewer playback hiccups.</td></tr>
             <tr><td>Auto-reconnect</td><td>On</td><td>Lets the encoder recover from a dropped connection by itself.</td></tr>
           </tbody>
@@ -586,6 +587,20 @@ ogType: article
         <li><strong>Settings &rsaquo; Video:</strong> Base and Output Resolution 1920&times;1080, FPS 30.</li>
         <li><strong>Settings &rsaquo; Advanced:</strong> confirm Automatically Reconnect is checked. It is by default.</li>
       </ol>
+
+      <!-- Vertical streaming. #vertical is linked from the settings table and troubleshooting. Never rename it. -->
+      <h3 id="vertical">Streaming vertical</h3>
+      <p>MomentCast streams vertical video too. Set your encoder to 1080&times;1920 instead of 1920&times;1080 and the watch page adapts on its own. There's nothing to change on the event. On a computer, guests see a tall player centered on the page. On a phone held upright, it fills most of the screen. Try it on a free test stream before you use it at an event.</p>
+
+      <p>In OBS, the cleanest way is a separate profile, so your horizontal settings stay untouched. Use <strong>Profile &rsaquo; Duplicate</strong>, name it something like "Vertical," then in <strong>Settings &rsaquo; Video</strong> type <code>1080x1920</code> into both Base and Output Resolution. It's not in the dropdown, but OBS accepts it. Duplicate your scene collection the same way, because your cameras are framed for a wide picture and will need rearranging.</p>
+
+      <p>If you stream from a phone app, lock the stream orientation in the app's settings. Otherwise turning the phone during the ceremony can change what you send.</p>
+
+      <div class="bg-callout bg-callout--danger">
+        <p class="bg-callout-title">Pick one orientation before you go live</p>
+        <p>Horizontal or vertical, choose before you start and stay there. This works both ways. If you switch in either direction and reconnect within 5 minutes, the stream continues as the same recording, still shaped for the old orientation. Horizontal into a vertical stream plays squeezed, and vertical into a horizontal stream plays stretched. I found this out testing, so you don't have to.</p>
+        <p>To switch on purpose, stop your encoder, wait more than 5 minutes, then go live again. That starts a new recording part, and the watch page sizes it correctly.</p>
+      </div>
 
       <h3>Go live</h3>
       <p>Start streaming from your encoder. The event page status changes to LIVE within moments, and guests on the countdown switch to the live video within about a minute, no refresh required.</p>
@@ -676,6 +691,9 @@ ogType: article
 
       <h3>It connects, but the stream stutters or freezes</h3>
       <p>Check your encoder settings against the table in <a href="#connect">section 6</a>. The usual suspects are H.265 instead of H.264, a keyframe interval set to auto or 0, or a bitrate higher than the connection can carry. Lower the bitrate and try again.</p>
+
+      <h3>The video looks squeezed or stretched</h3>
+      <p>You changed orientation and reconnected within 5 minutes, so the stream is still shaped for the old one. Stop your encoder, wait more than 5 minutes, and go live again. <a href="#vertical">Streaming vertical</a> explains why. The squeezed stretch stays in that recording part, so trim it from the download if it matters.</p>
 
       <h3>I'm live, but guests still see the countdown</h3>
       <p>Give it a minute. The page checks about once a minute. If the event page doesn't say LIVE, your encoder isn't connected yet. Guests can refresh if they're impatient, and it won't hurt anything.</p>
