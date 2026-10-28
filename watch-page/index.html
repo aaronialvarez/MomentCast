@@ -152,6 +152,22 @@
         </div>
 
         <div class="mc-player-footer">
+          <!--
+            Share block. Filled and unhidden by renderShareBlocks() in script.js.
+            data-share-* attributes are the JS hooks; classes are styling only.
+            Native Share button stays hidden unless the browser supports navigator.share.
+          -->
+          <div class="mc-share hidden" data-share>
+            <img class="mc-share-qr" data-share-qr src="" alt="Scan to open this event" width="112" height="112" />
+            <div class="mc-share-body">
+              <p class="mc-share-label">Share this stream</p>
+              <div class="mc-share-actions">
+                <button type="button" class="mc-share-native" data-share-native hidden>Share</button>
+                <button type="button" class="mc-share-link" data-share-copy title="Copy link"></button>
+              </div>
+            </div>
+          </div>
+
           <!-- Guest guide link. #sound jumps straight to the unmute answer, the top live-stream question. -->
           <p class="mc-powered">Powered by <a href="https://momentcast.live" target="_blank" rel="noopener">
             <img src="/momentcast-logo-gold-on-dark.png" alt="MomentCast" style="height:18px; width:auto; vertical-align:middle; display:inline-block;">
@@ -197,8 +213,22 @@
         </div>
 
         <div class="mc-player-footer">
+          <!-- Share block. Same markup as the live footer; see the comment there. -->
+          <div class="mc-share hidden" data-share>
+            <img class="mc-share-qr" data-share-qr src="" alt="Scan to open this event" width="112" height="112" />
+            <div class="mc-share-body">
+              <p class="mc-share-label">Share this stream</p>
+              <div class="mc-share-actions">
+                <button type="button" class="mc-share-native" data-share-native hidden>Share</button>
+                <button type="button" class="mc-share-link" data-share-copy title="Copy link"></button>
+              </div>
+            </div>
+          </div>
+
           <!-- Guest guide link. #replay covers parts, skipping, and the 30-day window. -->
-          <p class="mc-powered">Powered by <strong>MomentCast</strong> &nbsp;&middot;&nbsp; <a href="https://momentcast.live/blog/how-to-watch" target="_blank" rel="noopener">Need help watching?</a></p>
+          <p class="mc-powered">Powered by <a href="https://momentcast.live" target="_blank" rel="noopener">
+            <img src="/momentcast-logo-gold-on-dark.png" alt="MomentCast" style="height:18px; width:auto; vertical-align:middle; display:inline-block;">
+          </a> &nbsp;&middot;&nbsp; <a href="https://momentcast.live/blog/how-to-watch#replay" target="_blank" rel="noopener">Need help watching?</a></p>
         </div>
 
       </div>
