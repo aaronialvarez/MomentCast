@@ -123,10 +123,11 @@
             <!-- .mc-event-date injected here by script.js -->
           </div>
           <!--
-            .live-badge: the LIVE indicator badge.
-            Only the replay badge class gets swapped by updateStatusBadge().
+            Status badge. data-status-badge is the JS hook; updateStatusBadge() swaps the
+            class (live-badge / paused-badge / ready-badge / ended-badge) and text on every poll.
+            The class here is only the initial styling. Do not remove the data attribute.
           -->
-          <span class="live-badge">Live</span>
+          <span class="live-badge" data-status-badge>Live</span>
         </div>
 
         <div class="mc-video-outer">
@@ -185,11 +186,10 @@
             <!-- .mc-event-date injected here by script.js -->
           </div>
           <!--
-            .ended-badge: updateStatusBadge() queries this class and swaps it to
-            live-badge / paused-badge / ready-badge / ended-badge based on event state.
-            The class name must stay as 'ended-badge' as the initial value.
+            Status badge. Same hook as the live header: updateStatusBadge() selects
+            [data-status-badge], never a class, so swapping the class can't orphan it.
           -->
-          <span class="ended-badge">Ended</span>
+          <span class="ended-badge" data-status-badge>Ended</span>
         </div>
 
         <div class="mc-video-outer">

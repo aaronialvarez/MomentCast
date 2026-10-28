@@ -1268,24 +1268,43 @@ function showError(message = 'Event not found') {
   errorEl.classList.remove('hidden');
 }
 
-// Update status badge based on event state
+// Update every status badge (live + replay headers) based on event state.
+// Selects by the stable [data-status-badge] hook, NOT by class: the old version queried
+// .ended-badge and then replaced that class, so after the first change it never found
+// the badge again and froze on its first value. Runs on every poll via updateUI().
 function updateStatusBadge() {
-  const badge = document.querySelector('.ended-badge');
-  if (!badge) return;
-  
-  if (eventData.status === 'live' && eventData.stream_state === 'active') {
-    badge.textContent = 'LIVE';
-    badge.className = 'live-badge';
-  } else if (eventData.status === 'ready' && eventData.stream_state === 'disconnected') {
-    badge.textContent = 'PAUSED';
-    badge.className = 'paused-badge';
-  } else if (eventData.status === 'ended') {
-    badge.textContent = 'ENDED';
-    badge.className = 'ended-badge';
-  } else if (eventData.status === 'ready') {
-    badge.textContent = 'READY';
-    badge.className = 'ready-badge';
+  if (!eventData) return; // updateUI() calls this before its own null guard
+
+  const status = eventData.status;
+  const state = eventData.stream_state;
+  let label;
+  let cls;
+
+  if (status === 'live' && state === 'active') {
+    label = 'LIVE';
+    cls = 'live-badge';
+  } else if ((status === 'ready' || status === 'live') && state === 'disconnected') {
+    // Encoder off inside the window. 'live' + disconnected is the brief grace period
+    // before the backend flips the event to 'ready'; show it as paused too.
+    label = 'PAUSED';
+    cls = 'paused-badge';
+  } else if (status === 'ended' || status === 'cancelled') {
+    label = 'ENDED';
+    cls = 'ended-badge';
+  } else if (status === 'ready') {
+    label = 'READY'; // Window open, never streamed
+    cls = 'ready-badge';
+  } else {
+    // Anything else (e.g. test events, which sit at 'scheduled' between sessions while
+    // replaying). Neutral gray so the badge never shows a stale or wrong state.
+    label = 'REPLAY';
+    cls = 'ended-badge';
   }
+
+  document.querySelectorAll('[data-status-badge]').forEach(badge => {
+    badge.textContent = label;
+    badge.className = cls; // Badge spans carry only the styling class plus the data attribute
+  });
 }
 
 /**
