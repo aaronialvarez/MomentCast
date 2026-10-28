@@ -19,6 +19,56 @@ let currentRecordingIndex = 0;
 let playbackMode = null; // 'LIVE', 'LAST_RECORDING', 'SEQUENTIAL', 'WAITING'
 let liveSessionId = 0;   // Incremented each time we enter LIVE mode to force iframe reload
 
+// ==================== Aspect-ratio detection (vertical video support) ====================
+// Reads the HLS master manifest and returns the dimensions of the largest rendition.
+// The largest is used because small rungs are rounded (426x240 is not exact 16:9).
+// Fetching the master playlist is not billed as delivery; only segment requests are.
+// Returns null on any failure so callers keep the current box (16:9 by default).
+let aspectRequestId = 0; // Guards against a slow response landing after the player moved on
+
+async function detectStreamAspect(uid) {
+  try {
+    const res = await fetch(`https://customer-r5vkm8rpzqtdt9cz.cloudflarestream.com/${uid}/manifest/video.m3u8`);
+    if (!res.ok) return null;
+    const text = await res.text();
+    let best = null;
+    for (const m of text.matchAll(/RESOLUTION=(\d+)x(\d+)/g)) {
+      const w = Number(m[1]);
+      const h = Number(m[2]);
+      if (!best || w * h > best.w * best.h) best = { w, h };
+    }
+    return best;
+  } catch (err) {
+    console.warn('Aspect detection failed for', uid, err);
+    return null;
+  }
+}
+
+// Sizes the .video-container wrapping the given iframe to match the stream.
+// Retries once after 5s (a just-connected live input may not have a manifest yet).
+// Only the most recent call wins, so rapid recording switches can't apply stale dims.
+async function applyStreamAspect(iframeEl, uid) {
+  const container = iframeEl?.parentElement;
+  if (!container || !uid) return;
+
+  const requestId = ++aspectRequestId;
+  let dims = await detectStreamAspect(uid);
+
+  if (!dims && requestId === aspectRequestId) {
+    await new Promise(resolve => setTimeout(resolve, 5000));
+    if (requestId !== aspectRequestId) return; // Superseded during the wait
+    dims = await detectStreamAspect(uid);
+  }
+
+  if (requestId !== aspectRequestId) return; // A newer request superseded this one
+  if (!dims) return; // Detection failed; keep the current box
+
+  const isPortrait = dims.h > dims.w;
+  container.style.aspectRatio = `${dims.w} / ${dims.h}`;
+  container.classList.toggle('is-portrait', isPortrait);
+  console.log(`Stream aspect for ${uid}: ${dims.w}x${dims.h}${isPortrait ? ' (portrait)' : ''}`);
+}
+
 // Initialize
 async function init() {
   try {
