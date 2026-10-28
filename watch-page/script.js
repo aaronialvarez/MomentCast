@@ -73,6 +73,7 @@ async function applyStreamAspect(iframeEl, uid) {
 async function init() {
   try {
     await fetchEvent();
+    renderShareBlocks(); // Footer share blocks (slug + QR never change, so once is enough)
     updateUI();
     startPolling();
   } catch (error) {
@@ -210,76 +211,89 @@ function renderCountdownLogo() {
   block.classList.remove('hidden');
 }
 
-/**
- * Show or hide the QR share block.
- * Works in two modes:
- *   1. Countdown/Waiting: populates the static #qr-share-block in index.html
- *   2. Live player: dynamically injects a QR block into the given container
- *
- * @param {boolean} visible   — show or hide
- * @param {Element} [container] — optional parent to inject into (e.g. live footer).
- *                                 If omitted, targets the static #qr-share-block.
- */
-function renderQrBlock(visible, container) {
+// ==================== Sharing ====================
+// Copies the watch URL and flashes feedback on the clicked element.
+// Always restores to WATCH_DISPLAY (not "whatever the text was") so a double-click
+// can't leave "Copied!" stuck on the button, which the old handler could.
+async function copyWatchUrl(el, placement) {
+  try {
+    await navigator.clipboard.writeText(WATCH_URL);
+    el.textContent = 'Copied!';
+    gtag('event', 'share', { method: 'copy_link', content_type: placement, item_id: slug });
+  } catch (err) {
+    // Clipboard can be blocked (permissions, in-app browsers, old browsers)
+    console.warn('Copy failed:', err);
+    el.textContent = 'Copy failed';
+  }
+  clearTimeout(el._copyResetTimer);
+  el._copyResetTimer = setTimeout(() => { el.textContent = WATCH_DISPLAY; }, 1800);
+}
+
+// Fills every player-footer share block ([data-share] in index.html).
+// Slug and QR never change mid-session, so init() calls this once.
+// Uses onclick assignment (not addEventListener) so a repeat call can't stack handlers.
+function renderShareBlocks() {
+  const canNativeShare = typeof navigator.share === 'function';
+
+  document.querySelectorAll('[data-share]').forEach(block => {
+    const qr = block.querySelector('[data-share-qr]');
+    const copyBtn = block.querySelector('[data-share-copy]');
+    const nativeBtn = block.querySelector('[data-share-native]');
+
+    // QR: hide the image if the API didn't send one; link + Share still work
+    if (qr) {
+      if (eventData?.qr_code_data_url) {
+        if (qr.src !== eventData.qr_code_data_url) qr.src = eventData.qr_code_data_url;
+        qr.classList.remove('hidden');
+      } else {
+        qr.classList.add('hidden');
+      }
+    }
+
+    if (copyBtn) {
+      copyBtn.textContent = WATCH_DISPLAY;
+      copyBtn.onclick = () => copyWatchUrl(copyBtn, 'player_footer');
+    }
+
+    // Native share sheet (phones, plus Edge/Chrome/Safari on desktop).
+    // AbortError means the guest closed the sheet; any other failure falls back to copy.
+    if (nativeBtn) {
+      nativeBtn.hidden = !canNativeShare;
+      nativeBtn.onclick = async () => {
+        try {
+          await navigator.share({ title: eventData?.title || 'MomentCast', url: WATCH_URL });
+          gtag('event', 'share', { method: 'native', content_type: 'player_footer', item_id: slug });
+        } catch (err) {
+          if (err.name !== 'AbortError' && copyBtn) copyWatchUrl(copyBtn, 'player_footer');
+        }
+      };
+    }
+
+    block.classList.remove('hidden');
+  });
+}
+
+// Countdown/waiting QR (the static #qr-share-block in index.html).
+// Player footers use renderShareBlocks() instead.
+function renderQrBlock(visible) {
   const staticBlock = document.getElementById('qr-share-block');
+  if (!staticBlock) return;
 
   if (!visible || !eventData?.qr_code_data_url) {
-    if (staticBlock) staticBlock.classList.add('hidden');
-    // Remove any dynamically injected QR blocks (e.g. from live footer)
-    document.querySelectorAll('.qr-share-block-injected').forEach(el => el.remove());
+    staticBlock.classList.add('hidden');
     return;
   }
 
-  // Dynamic injection mode (used by showLive)
-  if (container) {
-    let injected = container.querySelector('.qr-share-block-injected');
-    if (!injected) {
-      injected = document.createElement('div');
-      injected.className = 'qr-share-block qr-share-block-injected';
-      injected.innerHTML = `
-        <p class="qr-label">Share this stream</p>
-        <img class="qr-image" src="" alt="Scan to share this event" width="160" height="160" />
-        <p class="qr-url"></p>
-      `;
-      container.appendChild(injected);
-    }
-    const img = injected.querySelector('.qr-image');
-    const urlEl = injected.querySelector('.qr-url');
-    if (img && img.src !== eventData.qr_code_data_url) img.src = eventData.qr_code_data_url;
-    if (urlEl) {
-      urlEl.textContent = WATCH_DISPLAY;
-      urlEl.style.cursor = 'pointer';
-      urlEl.title = 'Click to copy';
-      urlEl.onclick = () => {
-        navigator.clipboard.writeText(WATCH_URL).then(() => {
-          const original = urlEl.textContent;
-          urlEl.textContent = 'Copied!';
-          setTimeout(() => { urlEl.textContent = original; }, 1800);
-        });
-      };
-    }
-    return;
+  const img = document.getElementById('qr-image');
+  const urlEl = document.getElementById('qr-url');
+  if (img && img.src !== eventData.qr_code_data_url) img.src = eventData.qr_code_data_url;
+  if (urlEl) {
+    urlEl.textContent = WATCH_DISPLAY;
+    urlEl.style.cursor = 'pointer';
+    urlEl.title = 'Click to copy';
+    urlEl.onclick = () => copyWatchUrl(urlEl, 'countdown');
   }
-
-  // Static mode (used by showCountdown and showCountdownState)
-  if (staticBlock) {
-    const img = document.getElementById('qr-image');
-    const urlEl = document.getElementById('qr-url');
-    if (img && img.src !== eventData.qr_code_data_url) img.src = eventData.qr_code_data_url;
-    if (urlEl) {
-      urlEl.textContent = WATCH_DISPLAY;
-      urlEl.style.cursor = 'pointer';
-      urlEl.title = 'Click to copy';
-      urlEl.onclick = () => {
-        navigator.clipboard.writeText(WATCH_URL).then(() => {
-          const original = urlEl.textContent;
-          urlEl.textContent = 'Copied!';
-          setTimeout(() => { urlEl.textContent = original; }, 1800);
-        });
-      };
-    }
-    staticBlock.classList.remove('hidden');
-  }
+  staticBlock.classList.remove('hidden');
 }
 
 function getEventDate() {
@@ -712,9 +726,8 @@ function showLive() {
     if (processingOverlay) {
       processingOverlay.remove();
     }
-  }
-  // Show QR code in the live player footer so viewers can share the stream
-  renderQrBlock(true, liveEl.querySelector('.mc-player-footer'));
+  } 
+
   liveEl.classList.remove('hidden');
   // GA4: viewer entered live stream
   gtag('event', 'stream_viewed', {
@@ -880,9 +893,6 @@ function showLastRecording() {
     <span>Stream paused${timeSinceText} — Check back soon for more coverage...</span>
   `;
 
-  // Share block (QR + copyable link) in the replay footer, same as live
-  renderQrBlock(true, replayEl.querySelector('.mc-player-footer'));
-
   replayEl.classList.remove('hidden');
 }
 
@@ -984,9 +994,6 @@ function showSequentialPlayback() {
     <span>${statusText} - Video <span id="current-video-num">${currentRecordingIndex + 1}</span> of ${allRecordings.length}</span>
     <span class="text-gray-400 ml-2">Auto-advancing</span>
   `;
-
-  // Share block (QR + copyable link) in the replay footer, same as live
-  renderQrBlock(true, replayEl.querySelector('.mc-player-footer'));
 
   replayEl.classList.remove('hidden');
 }

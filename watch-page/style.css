@@ -596,12 +596,23 @@ body::after {
   display: block;
 }
 
-/* Minimal footer with "Powered by MomentCast" */
+/* Player footer: share block on the left, "Powered by" on the right.
+   Stacks on narrow screens (see Responsive). */
 .mc-player-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 1rem 1.5rem;
   padding: 0.75rem 1.5rem;
   background: var(--surface);
   border-top: 1px solid var(--border);
   flex-shrink: 0;
+}
+
+/* Powered line hugs the right edge, even when the share block is hidden */
+.mc-player-footer .mc-powered {
+  margin: 0 0 0 auto;
   text-align: right;
 }
 
@@ -1093,8 +1104,105 @@ body::after {
   font-weight: 400;
 }
 
-.qr-share-block-injected {
-  margin-top: 0.5rem;
+/* --------------------------------------------------------------------------
+   Player Footer Share Block (live + replay)
+   Markup lives in index.html; renderShareBlocks() in script.js fills it.
+   -------------------------------------------------------------------------- */
+
+.mc-share {
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+  min-width: 0;
+}
+
+/* The [hidden] attribute loses to author display rules (e.g. the button's
+   inline-flex below), so enforce it inside the share block */
+.mc-share [hidden] {
+  display: none !important;
+}
+
+.mc-share-qr {
+  width: 112px;
+  height: 112px;
+  flex-shrink: 0;
+  border-radius: var(--radius-sm);
+  background: #fff;
+  padding: 8px;
+  box-shadow: 0 0 20px rgba(200, 169, 110, 0.08);
+}
+
+.mc-share-body {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+.mc-share-label {
+  margin: 0;
+  font-size: 0.625rem;
+  letter-spacing: 0.25em;
+  text-transform: uppercase;
+  color: var(--text-2);
+  font-weight: 500;
+}
+
+.mc-share-actions {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  min-width: 0;
+}
+
+/* Shared button base. 36px min-height keeps tap targets usable on phones. */
+.mc-share-native,
+.mc-share-link {
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding: 0.45rem 0.9rem;
+  border-radius: 999px;
+  font-family: var(--font-body);
+  font-size: 0.75rem;
+  letter-spacing: 0.04em;
+  line-height: 1.2;
+  cursor: pointer;
+}
+
+/* Primary action: native share sheet */
+.mc-share-native {
+  background: var(--gold);
+  border: 1px solid var(--gold);
+  color: #0b0b0d;
+  font-weight: 600;
+}
+
+.mc-share-native:hover {
+  opacity: 0.88;
+}
+
+/* Secondary action: the link itself, click to copy */
+.mc-share-link {
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  color: var(--text-1);
+  font-weight: 400;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.mc-share-link:hover {
+  border-color: var(--gold);
+}
+
+.mc-share-native:focus-visible,
+.mc-share-link:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 2px;
 }
 
 /* --------------------------------------------------------------------------
@@ -1166,6 +1274,37 @@ body::after {
 
   .mc-center {
     padding: 1rem 1.25rem 2rem 1.25rem;
+  }
+
+  /* Footer stacks: centered share row on top, powered line below.
+     QR hidden on phones: you can't scan your own screen, and the
+     native Share button covers the same job. */
+  .mc-player-footer {
+    flex-direction: column;
+    align-items: stretch;
+    padding: 0.875rem 1rem;
+  }
+
+  .mc-player-footer .mc-powered {
+    margin: 0;
+    text-align: center;
+  }
+
+  .mc-share {
+    justify-content: center;
+  }
+
+  .mc-share-body {
+    align-items: center;
+    text-align: center;
+  }
+
+  .mc-share-actions {
+    justify-content: center;
+  }
+
+  .mc-share-qr {
+    display: none;
   }
 }
 
