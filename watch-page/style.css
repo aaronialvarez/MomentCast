@@ -1060,9 +1060,15 @@ body::after {
   align-items: center;
   gap: 0.5rem;
   margin-top: 2rem;
+  animation: mc-fadein 0.5s ease both;
+}
+
+/* Countdown/waiting screen only: push the static QR down over the cover photo.
+   This used to sit on .qr-share-block, which also shoved the footer copies
+   (live/replay) 7rem below the footer. */
+#qr-share-block {
   position: relative;
   top: 7rem; /* adjust to push QR down without moving the photo */
-  animation: mc-fadein 0.5s ease both;
 }
 
 .qr-label {

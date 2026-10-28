@@ -880,6 +880,9 @@ function showLastRecording() {
     <span>Stream paused${timeSinceText} — Check back soon for more coverage...</span>
   `;
 
+  // Share block (QR + copyable link) in the replay footer, same as live
+  renderQrBlock(true, replayEl.querySelector('.mc-player-footer'));
+
   replayEl.classList.remove('hidden');
 }
 
@@ -981,6 +984,9 @@ function showSequentialPlayback() {
     <span>${statusText} - Video <span id="current-video-num">${currentRecordingIndex + 1}</span> of ${allRecordings.length}</span>
     <span class="text-gray-400 ml-2">Auto-advancing</span>
   `;
+
+  // Share block (QR + copyable link) in the replay footer, same as live
+  renderQrBlock(true, replayEl.querySelector('.mc-player-footer'));
 
   replayEl.classList.remove('hidden');
 }
