@@ -544,9 +544,12 @@ body::after {
   line-height: 1.4;
 }
 
-/* Video area — expands to fill remaining viewport height */
+/* Video area: exactly as tall as the player box (no grow).
+   Previously flex: 1, which filled leftover viewport height with black
+   below 16:9 video and pushed the waiting banner far down on phones.
+   Portrait streams still get their height from .video-container.is-portrait. */
 .mc-video-outer {
-  flex: 1;
+  flex: 0 0 auto;
   background: #000;
   display: flex;
   flex-direction: column;
