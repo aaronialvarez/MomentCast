@@ -22,6 +22,10 @@ export default function (eleventyConfig) {
   eleventyConfig.addFilter("cleanUrl", (url) =>
     url.replace(/index\.html$/, "").replace(/\.html$/, "")
   );
+
+  // Build timestamp for cache-busting (style.css?v=...). Each deploy gets a
+  // new URL, so browsers and Cloudflare's edge can't serve a stale stylesheet.
+  eleventyConfig.addGlobalData("buildTime", () => Date.now());
 }
 
 export const config = {
