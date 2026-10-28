@@ -317,6 +317,13 @@ function determinePlaybackMode() {
   const isLive = eventData.status === 'live' && eventData.stream_state === 'active';
   const isEnded = eventData.status === 'ended';
   const hasRecordings = eventData.recordings && eventData.recordings.length > 0;
+  // A recording can exist before Cloudflare finishes processing it. "Exists but none ready"
+  // must be its own mode (PROCESSING) so becoming playable is a real mode change.
+  // updateUI() only re-renders on mode changes; without this the page stranded on the
+  // processing screen until a manual refresh.
+  const hasReadyRecordings = hasRecordings && eventData.recordings.some(
+    r => r.readyToStream === true || r.status === 'ready' || r.state?.state === 'ready'
+  );
   
   // Check 2-hour timeout if we have last_stream_activity
   let timeSinceActivity = null;
@@ -359,7 +366,8 @@ function determinePlaybackMode() {
       return 'EXPIRED';
     }
     
-    return hasRecordings ? 'SEQUENTIAL' : 'ENDED';
+    if (!hasRecordings) return 'ENDED';
+    return hasReadyRecordings ? 'SEQUENTIAL' : 'PROCESSING'; // Wait for a playable recording
   }
   
   // Event is 'ready' (within 24h window)
@@ -371,6 +379,11 @@ function determinePlaybackMode() {
     
     if (!hasRecordings) {
       return 'WAITING'; // No recordings yet, show waiting
+    }
+
+    // Recordings exist but none are playable yet: stay in PROCESSING until one is
+    if (!hasReadyRecordings) {
+      return 'PROCESSING';
     }
     
     if (recentActivity) {
