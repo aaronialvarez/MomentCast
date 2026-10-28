@@ -28,13 +28,22 @@
   <link rel="stylesheet" href="/style.css">
 
 
-  {#- CONSENT PLACEHOLDER: once the consent banner ships, load this tag only after
-      the visitor accepts analytics cookies. Until then it loads on every page. #}
-  <!-- Google tag (gtag.js). Marketing site property only, never the watch-page ID. -->
-  <script async src="https://www.googletagmanager.com/gtag/js?id={{ site.gaId }}"></script>
+  {#- Consent Mode v2 (advanced). The default MUST be set before config.
+      Reads the mc_consent cookie written by partials/consent.njk, so visitors
+      who already accepted are granted from their first hit. Ad signals stay
+      denied permanently: MomentCast runs no ads. Until a visitor accepts,
+      GA sets no cookies and only sends cookieless pings. #}
   <script>
     window.dataLayer = window.dataLayer || [];
     function gtag(){dataLayer.push(arguments);}
+    gtag('consent', 'default', {
+      ad_storage: 'denied',
+      ad_user_data: 'denied',
+      ad_personalization: 'denied',
+      analytics_storage: /(?:^|;\s*)mc_consent=granted(?:;|$)/.test(document.cookie) ? 'granted' : 'denied'
+    });
     gtag('js', new Date());
     gtag('config', '{{ site.gaId }}');
   </script>
+  <!-- Google tag (gtag.js). Marketing site property only, never the watch-page ID. -->
+  <script async src="https://www.googletagmanager.com/gtag/js?id={{ site.gaId }}"></script>

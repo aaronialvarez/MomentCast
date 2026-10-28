@@ -1,0 +1,64 @@
+  <!-- Cookie consent banner (apex marketing site only).
+       Hidden by default; the script shows it when no choice is stored.
+       Choice lives in the mc_consent cookie (granted|denied), 180 days.
+       head.njk reads the same cookie to set the Consent Mode default. -->
+  <div class="mc-consent" id="mc-consent" role="region" aria-label="Cookie consent" hidden>
+    <p>We use analytics cookies to understand how visitors use this site. See our <a href="/privacy#s8">Privacy Policy</a>.</p>
+    <div class="mc-consent-actions">
+      <button type="button" class="mc-btn mc-btn-ghost" data-consent-decline>Decline</button>
+      <button type="button" class="mc-btn mc-btn-primary" data-consent-accept>Accept</button>
+    </div>
+  </div>
+
+  <script>
+    (function () {
+      var NAME = 'mc_consent';
+      var MAX_AGE = 60 * 60 * 24 * 180; // 180 days, then ask again
+      var banner = document.getElementById('mc-consent');
+      if (!banner) return;
+
+      function read() {
+        var m = document.cookie.match(/(?:^|;\s*)mc_consent=(granted|denied)/);
+        return m ? m[1] : null;
+      }
+
+      function save(value) {
+        document.cookie = NAME + '=' + value + '; Max-Age=' + MAX_AGE + '; Path=/; SameSite=Lax; Secure';
+      }
+
+      // Remove GA cookies when consent is withdrawn. GA sets them on the
+      // registrable domain, so expire both the host and dot-domain variants.
+      function clearGaCookies() {
+        var host = location.hostname;
+        document.cookie.split(';').forEach(function (c) {
+          var name = c.split('=')[0].trim();
+          if (name.indexOf('_ga') !== 0) return;
+          ['', '; Domain=' + host, '; Domain=.' + host].forEach(function (d) {
+            document.cookie = name + '=; Max-Age=0; Path=/' + d;
+          });
+        });
+      }
+
+      function choose(value) {
+        save(value);
+        if (typeof gtag === 'function') {
+          gtag('consent', 'update', { analytics_storage: value });
+        }
+        if (value === 'denied') clearGaCookies();
+        banner.hidden = true;
+      }
+
+      banner.querySelector('[data-consent-accept]').addEventListener('click', function () { choose('granted'); });
+      banner.querySelector('[data-consent-decline]').addEventListener('click', function () { choose('denied'); });
+
+      // Footer "Cookie Preferences" link reopens the banner.
+      document.addEventListener('click', function (e) {
+        var link = e.target.closest && e.target.closest('[data-cookie-preferences]');
+        if (!link) return;
+        e.preventDefault();
+        banner.hidden = false;
+      });
+
+      if (!read()) banner.hidden = false;
+    })();
+  </script>

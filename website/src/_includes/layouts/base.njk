@@ -12,6 +12,12 @@
 
 {% include "partials/footer.njk" %}
 
+{#- Cookie consent banner. Same site.consentBanner flag as the footer's
+    Cookie Preferences link, so the banner and link switch on together. #}
+{%- if site.consentBanner %}
+{% include "partials/consent.njk" %}
+{%- endif %}
+
   <!-- Scroll reveal for .mc-reveal elements. Does nothing on pages without them.
        Unobserves after reveal so each element animates once. -->
   <script>
