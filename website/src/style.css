@@ -982,10 +982,10 @@ ul { list-style: none; }
   align-items: center;
   gap: 20px;
   padding: 18px 22px;
-  background: var(--surface-2);
-  border: 1px solid var(--border);
+  background: #222226; /* one step lighter than --surface-2 so the card separates from the page */
+  border: 1px solid rgba(200, 169, 110, 0.35); /* gold edge: the main contrast cue on the dark theme */
   border-radius: var(--radius);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.5);
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7), 0 0 32px var(--gold-dim);
   animation: mc-fadein 0.4s ease both;
 }
 
