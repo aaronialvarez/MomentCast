@@ -648,7 +648,7 @@ function reloadLivePlayer(reason) {
 // A stall often just means the encoder disconnected. Re-check the event first so the page
 // moves to PROCESSING/replay right away instead of reloading a dead live input.
 async function handleLiveStall(reason) {
-  stopLiveWatchdog(); // Prevent a second trigger while the check is in flight
+  stopLiveWatchdog(); // Prevent a second trigger while the checks are in flight
   const modeBefore = playbackMode;
   try {
     await fetchEvent();
@@ -657,7 +657,25 @@ async function handleLiveStall(reason) {
   } catch (err) {
     console.warn('Live watchdog: status check failed (offline?)', err);
   }
-  if (playbackMode === 'LIVE') reloadLivePlayer(reason);
+  if (playbackMode !== 'LIVE') return; // Status check moved the page on
+
+  // Only reload when the video host is reachable and the live manifest is playable.
+  // Reloading while offline replaces the player with the browser's "no internet" page,
+  // and navigator.onLine alone misses "Wi-Fi connected, no internet". The manifest fetch
+  // is the same probe detectStreamAspect() already uses (not billed as delivery).
+  const liveInputId = eventData.live_input_id || eventData.liveinputid;
+  const manifestOk = navigator.onLine && liveInputId && await detectStreamAspect(liveInputId);
+  if (playbackMode !== 'LIVE') return; // Mode changed while the probe was in flight
+
+  if (!manifestOk) {
+    // Keep the frozen player and keep watching: the next stall cycle re-probes,
+    // and the 'online' listener reloads as soon as the connection returns.
+    console.log('Live watchdog: video host unreachable, holding the current player');
+    const streamEl = document.getElementById('live-stream');
+    if (streamEl) startLiveWatchdog(streamEl, true);
+    return;
+  }
+  reloadLivePlayer(reason);
 }
 
 function startLiveWatchdog(iframeEl, isRetry) {
