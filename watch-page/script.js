@@ -1539,8 +1539,8 @@ function removeCoverBackground(el) {
 // Signs of a viewer: tap/click/key/scroll on the page, returning to the tab, or seeking
 // in the player. Pause/play inside the player is NOT counted: the player also reports
 // paused when a video simply ends, which would reset the clock at every part.
-const REPLAY_IDLE_PROMPT_MS = 60 * 1000; // 45 * 60 * 1000; // Testing: 60 * 1000
-const REPLAY_IDLE_GRACE_MS = 20 * 1000; // 60 * 1000;       // Testing: 20 * 1000
+const REPLAY_IDLE_PROMPT_MS = 45 * 60 * 1000; // Testing: 60 * 1000
+const REPLAY_IDLE_GRACE_MS = 60 * 1000;       // Testing: 20 * 1000
 const REPLAY_IDLE_CHECK_MS = 15 * 1000;       // How often the rule is evaluated
 
 let replayLastActivityAt = Date.now();
