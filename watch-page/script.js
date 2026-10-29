@@ -612,8 +612,68 @@ function updateCountdown(targetDate) {
   document.getElementById('seconds').textContent = String(seconds).padStart(2, '0');
 }
 
-// Show live stream state
-function showLive() {
+// ==================== Live startup watchdog ====================
+// The Stream player sometimes stalls when loaded shortly after the encoder connects
+// (spinner over a frozen frame, playlists still 200), and never recovers on its own.
+// A page refresh always fixes it, so this does the equivalent: if the live player's
+// position hasn't advanced within LIVE_STARTUP_TIMEOUT_MS, reload the iframe.
+// Startup-only by design: once playback is confirmed, the listener and timer are removed.
+// Nothing runs mid-stream, so a guest pausing later never triggers a reload.
+const LIVE_STARTUP_TIMEOUT_MS = 20000;
+const LIVE_MAX_RELOADS = 3;
+let liveWatchdog = null;   // { timer, handler } while active
+let liveReloadCount = 0;   // Reloads used in the current LIVE session
+
+function stopLiveWatchdog() {
+  if (!liveWatchdog) return;
+  clearTimeout(liveWatchdog.timer);
+  window.removeEventListener('message', liveWatchdog.handler);
+  liveWatchdog = null;
+}
+
+function startLiveWatchdog(iframeEl, isRetry) {
+  stopLiveWatchdog();
+  if (!isRetry) liveReloadCount = 0; // Fresh LIVE entry gets the full retry budget
+
+  const sessionAtStart = liveSessionId;
+  let firstTime = null;
+
+  // Same postMessage format the sequential auto-advance relies on.
+  // e.source check ignores the replay player and anything else on the page.
+  const handler = (e) => {
+    if (e.source !== iframeEl.contentWindow) return;
+    const d = e.data;
+    if (d?.__privateUnstableMessageType !== 'propertyChange' || d.property !== 'currentTime') return;
+    if (typeof d.value !== 'number') return;
+    if (firstTime === null) { firstTime = d.value; return; }
+    if (d.value > firstTime + 1) { // Advanced more than 1s: playback is real
+      console.log('Live watchdog: playback confirmed');
+      liveReloadCount = 0;
+      stopLiveWatchdog();
+    }
+  };
+
+  const timer = setTimeout(() => {
+    stopLiveWatchdog();
+    // Page moved on (left LIVE, or a newer load superseded this one): do nothing
+    if (playbackMode !== 'LIVE' || liveSessionId !== sessionAtStart) return;
+    if (liveReloadCount >= LIVE_MAX_RELOADS) {
+      console.warn('Live watchdog: no playback after max reloads, giving up');
+      return;
+    }
+    liveReloadCount++;
+    liveSessionId++; // New session param forces a fresh iframe load
+    console.warn(`Live watchdog: no playback after ${LIVE_STARTUP_TIMEOUT_MS / 1000}s, reloading (${liveReloadCount}/${LIVE_MAX_RELOADS})`);
+    showLive(true);
+  }, LIVE_STARTUP_TIMEOUT_MS);
+
+  liveWatchdog = { timer, handler };
+  window.addEventListener('message', handler);
+}
+
+// Show live stream state.
+// isWatchdogRetry: true only when the startup watchdog is reloading a stalled player.
+function showLive(isWatchdogRetry = false) {
   const liveEl = document.getElementById('live');
   const titleEl = document.getElementById('live-title');
   let streamEl = document.getElementById('live-stream');
@@ -662,6 +722,9 @@ function showLive() {
       // Size the player box to the stream's real aspect ratio (vertical support).
       // Runs once per LIVE entry because the src changes with liveSessionId.
       applyStreamAspect(streamEl, liveInputId);
+
+      // Reload the player if it stalls on startup (see Live startup watchdog above)
+      startLiveWatchdog(streamEl, isWatchdogRetry);
     }
   } else if (!liveInputId) {
     console.error('No live_input_id found in eventData:', eventData);
