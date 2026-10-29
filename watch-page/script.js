@@ -466,6 +466,21 @@ function updateUI() {
     playbackMode = newMode;
     document.querySelectorAll('.state').forEach(el => el.classList.add('hidden'));
 
+    // Unload whichever player the new mode doesn't use. Hiding a section does NOT stop
+    // its iframe: a hidden player keeps fetching segments, competes with the visible
+    // player for the guest's bandwidth, and every segment is billed as Stream delivery.
+    // about:blank unloads it completely. The show*() functions compare src before
+    // setting it, so a blanked player reloads cleanly when its mode returns.
+    const replayInUse = newMode === 'LAST_RECORDING' || newMode === 'SEQUENTIAL';
+    [['live-stream', newMode === 'LIVE'], ['replay-stream', replayInUse]].forEach(([id, inUse]) => {
+      const el = document.getElementById(id);
+      const current = el?.getAttribute('src'); // Attribute, not .src: src="" resolves to the page URL
+      if (!inUse && current && current !== 'about:blank') {
+        el.src = 'about:blank';
+        console.log(`Unloaded hidden player #${id}`);
+      }
+    });
+
     // Update status badge
     updateStatusBadge();
 
