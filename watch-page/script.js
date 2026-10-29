@@ -1225,6 +1225,10 @@ function setupSequentialAdvance(iframeElement, recordings) {
       clearInterval(advanceCheckInterval);
       return;
     }
+
+    // Player unloaded by the replay idle check: no position updates arrive, so the stuck
+    // and no-duration fallbacks below would wrongly advance and restart unattended playback.
+    if (replayIdleState === 'paused') return;
     
     // If we have duration and current time info
     if (currentRecording.duration && lastKnownTime > 0) {
@@ -1635,8 +1639,14 @@ function resumeIdleReplay() {
   if (replayEl && replayUnloadedSrc) {
     const url = new URL(replayUnloadedSrc);
     url.searchParams.set('startTime', String(Math.floor(replayLastTime)));
+    // Force muted: later sequential parts load with muted=false, and an unmuted reload
+    // isn't guaranteed to autoplay. Muted autoplay always works; the hint covers unmuting.
+    url.searchParams.set('muted', 'true');
     replayEl.src = url.toString();
-    attachMuteOverlay(replayEl); // Reloads start muted; show the unmute hint again
+    attachMuteOverlay(replayEl); // Show the unmute hint again
+    // Sequential auto-advance measures silence from this timestamp. Restart it so the
+    // time spent unloaded isn't mistaken for a stuck or finished video.
+    lastUpdateTimestamp = Date.now();
     console.log(`Replay idle: resumed at ${Math.floor(replayLastTime)}s`);
   }
   replayUnloadedSrc = null;
@@ -1658,7 +1668,8 @@ function resetReplayIdle() {
 
 setInterval(() => {
   if (replayIdleState !== 'off') return;
-  if (playbackMode !== 'LAST_RECORDING') return; // SEQUENTIAL is added in the next step
+  // Replay modes only. Live is excluded on purpose (see header comment).
+  if (playbackMode !== 'LAST_RECORDING' && playbackMode !== 'SEQUENTIAL') return;
   const now = Date.now();
   const isPlaying = now - replayLastProgressAt < REPLAY_IDLE_CHECK_MS * 2;
   if (!isPlaying) return; // Paused or finished: nothing is being delivered
