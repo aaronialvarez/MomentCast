@@ -473,6 +473,7 @@ function updateUI() {
 
     playbackMode = newMode;
     document.querySelectorAll('.state').forEach(el => el.classList.add('hidden'));
+    resetReplayIdle(); // Drop any "Still watching?" overlay from the previous mode
 
     // Unload whichever player the new mode doesn't use. Hiding a section does NOT stop
     // its iframe: a hidden player keeps fetching segments, competes with the visible
@@ -1525,6 +1526,144 @@ function removeCoverBackground(el) {
   if (bg) bg.remove();
   el.classList.remove('mc-cover-active');
 }
+
+// ==================== Replay idle check ("Still watching?") ====================
+// Unattended replays keep fetching segments, and every segment is billed delivery.
+// After REPLAY_IDLE_PROMPT_MS with no sign of a viewer, ask. If nobody answers within
+// REPLAY_IDLE_GRACE_MS, unload the player. Resume restores the same recording at the
+// same position (Stream's startTime param). Live is excluded on purpose.
+// Signs of a viewer: tap/click/key/scroll on the page, returning to the tab, or seeking
+// in the player. Pause/play inside the player is NOT counted: the player also reports
+// paused when a video simply ends, which would reset the clock at every part.
+const REPLAY_IDLE_PROMPT_MS = 60 * 1000; // 45 * 60 * 1000; // Testing: 60 * 1000
+const REPLAY_IDLE_GRACE_MS = 20 * 1000; // 60 * 1000;       // Testing: 20 * 1000
+const REPLAY_IDLE_CHECK_MS = 15 * 1000;       // How often the rule is evaluated
+
+let replayLastActivityAt = Date.now();
+let replayLastProgressAt = 0;  // Last time the replay position advanced (0 = never)
+let replayLastTime = 0;        // Last reported replay position, in seconds
+let replayIdleState = 'off';   // 'off' | 'prompt' | 'paused'
+let replayGraceTimer = null;
+let replayUnloadedSrc = null;  // Embed URL to restore on Resume
+
+function markReplayActivity() {
+  replayLastActivityAt = Date.now();
+}
+
+// Page-level signs of a viewer. Taps inside the video iframe never reach this page.
+['pointerdown', 'keydown', 'scroll', 'wheel', 'touchstart'].forEach(type =>
+  window.addEventListener(type, markReplayActivity, { passive: true })
+);
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible') markReplayActivity();
+});
+
+// Replay player signals: position (is anything being delivered?) and user seeks.
+window.addEventListener('message', (e) => {
+  const replayEl = document.getElementById('replay-stream');
+  if (!replayEl || e.source !== replayEl.contentWindow) return;
+  const d = e.data;
+  if (d?.__privateUnstableMessageType !== 'propertyChange') return;
+  if (d.property === 'currentTime' && typeof d.value === 'number') {
+    if (d.value > replayLastTime) replayLastProgressAt = Date.now();
+    replayLastTime = d.value;
+  } else if (d.property === 'seeking' && d.value === true) {
+    markReplayActivity(); // Only true counts: the player reports seeking:false constantly
+  }
+});
+
+// Creates or updates the overlay inside the replay player box (styles: .mc-idle-* in style.css)
+function renderReplayIdleOverlay(title, sub, buttonLabel, onClick) {
+  const container = document.getElementById('replay-stream')?.parentElement;
+  if (!container) return;
+  let overlay = document.getElementById('replay-idle-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'replay-idle-overlay';
+    overlay.className = 'mc-idle-overlay';
+    overlay.innerHTML = `
+      <div class="mc-idle-inner">
+        <p class="mc-idle-title"></p>
+        <p class="mc-idle-sub"></p>
+        <button type="button" class="mc-idle-btn"></button>
+      </div>`;
+    container.appendChild(overlay);
+  }
+  overlay.querySelector('.mc-idle-title').textContent = title;
+  overlay.querySelector('.mc-idle-sub').textContent = sub;
+  const btn = overlay.querySelector('.mc-idle-btn');
+  btn.textContent = buttonLabel;
+  btn.onclick = onClick; // Assignment, not addEventListener, so handlers never stack
+}
+
+function showReplayIdlePrompt() {
+  replayIdleState = 'prompt';
+  renderReplayIdleOverlay(
+    'Still watching?',
+    `The replay will pause in ${Math.round(REPLAY_IDLE_GRACE_MS / 1000)} seconds.`,
+    'Keep watching',
+    dismissReplayIdle
+  );
+  replayGraceTimer = setTimeout(unloadIdleReplay, REPLAY_IDLE_GRACE_MS);
+  console.log('Replay idle: prompt shown');
+}
+
+// "Keep watching": close the prompt and restart the idle clock
+function dismissReplayIdle() {
+  clearTimeout(replayGraceTimer);
+  replayGraceTimer = null;
+  document.getElementById('replay-idle-overlay')?.remove();
+  replayIdleState = 'off';
+  markReplayActivity();
+}
+
+// No answer: unload the player completely (a paused player can keep buffering)
+function unloadIdleReplay() {
+  replayGraceTimer = null;
+  const replayEl = document.getElementById('replay-stream');
+  if (!replayEl || replayIdleState !== 'prompt') return;
+  replayUnloadedSrc = replayEl.src;
+  replayEl.src = 'about:blank';
+  replayIdleState = 'paused';
+  renderReplayIdleOverlay('Replay paused', 'Pick up right where you left off.', 'Resume', resumeIdleReplay);
+  console.log(`Replay idle: player unloaded at ${Math.floor(replayLastTime)}s`);
+}
+
+// "Resume": reload the same recording at the saved position
+function resumeIdleReplay() {
+  const replayEl = document.getElementById('replay-stream');
+  if (replayEl && replayUnloadedSrc) {
+    const url = new URL(replayUnloadedSrc);
+    url.searchParams.set('startTime', String(Math.floor(replayLastTime)));
+    replayEl.src = url.toString();
+    attachMuteOverlay(replayEl); // Reloads start muted; show the unmute hint again
+    console.log(`Replay idle: resumed at ${Math.floor(replayLastTime)}s`);
+  }
+  replayUnloadedSrc = null;
+  dismissReplayIdle();
+}
+
+// Called on every playback mode change. Clears the overlay but deliberately keeps the
+// idle clock: an unattended tab that rolls into a new mode gets prompted at the next
+// check instead of earning another full REPLAY_IDLE_PROMPT_MS.
+function resetReplayIdle() {
+  clearTimeout(replayGraceTimer);
+  replayGraceTimer = null;
+  document.getElementById('replay-idle-overlay')?.remove();
+  replayIdleState = 'off';
+  replayUnloadedSrc = null;
+  replayLastTime = 0;
+  replayLastProgressAt = 0;
+}
+
+setInterval(() => {
+  if (replayIdleState !== 'off') return;
+  if (playbackMode !== 'LAST_RECORDING') return; // SEQUENTIAL is added in the next step
+  const now = Date.now();
+  const isPlaying = now - replayLastProgressAt < REPLAY_IDLE_CHECK_MS * 2;
+  if (!isPlaying) return; // Paused or finished: nothing is being delivered
+  if (now - replayLastActivityAt >= REPLAY_IDLE_PROMPT_MS) showReplayIdlePrompt();
+}, REPLAY_IDLE_CHECK_MS);
 
 // Start the app
 init();
