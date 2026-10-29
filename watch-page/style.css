@@ -983,6 +983,88 @@ body::after {
   opacity: 0.88;
 }
 
+/* "Still watching?" overlay (replay idle check).
+   script.js creates it inside the replay .video-container. Two states share this markup:
+   the prompt (Keep watching) and the paused state after the player is unloaded (Resume).
+   z-index sits above the unmute hint (5) and processing overlay (10). */
+@keyframes mc-overlay-fadein {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+.mc-idle-overlay {
+  position: absolute;
+  inset: 0;
+  z-index: 15;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(11, 11, 13, 0.82);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: mc-overlay-fadein 0.3s ease both;
+}
+
+.mc-idle-inner {
+  text-align: center;
+  padding: 1rem 1.25rem;
+  max-width: 420px;
+}
+
+.mc-idle-title {
+  font-family: var(--font-display);
+  font-size: clamp(1.25rem, 3.5vw, 1.75rem);
+  font-weight: 400;
+  line-height: 1.2;
+  color: var(--text-1);
+  margin: 0 0 0.375rem;
+}
+
+.mc-idle-sub {
+  font-size: 0.8125rem;
+  line-height: 1.5;
+  color: var(--text-2);
+  margin: 0 0 1rem;
+}
+
+/* Matches the gold Share button: pill shape, 40px min tap target */
+.mc-idle-btn {
+  display: inline-flex;
+  align-items: center;
+  min-height: 40px;
+  padding: 0.65rem 1.4rem;
+  border: 1px solid var(--gold);
+  border-radius: 999px;
+  background: var(--gold);
+  color: #0b0b0d;
+  font-family: var(--font-body);
+  font-size: 0.8125rem;
+  font-weight: 600;
+  letter-spacing: 0.04em;
+  cursor: pointer;
+}
+
+.mc-idle-btn:hover {
+  opacity: 0.88;
+}
+
+.mc-idle-btn:focus-visible {
+  outline: 2px solid var(--gold);
+  outline-offset: 3px;
+}
+
+/* Phones: a 16:9 player is only ~210px tall, so tighten spacing to fit */
+@media (max-width: 479px) {
+  .mc-idle-inner {
+    padding: 0.75rem 1rem;
+  }
+
+  .mc-idle-sub {
+    font-size: 0.75rem;
+    margin-bottom: 0.75rem;
+  }
+}
+
 /* Viewer limit screen */
 .mc-limit-screen {
   align-items: center;
