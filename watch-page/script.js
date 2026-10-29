@@ -324,6 +324,9 @@ function determinePlaybackMode() {
   const hasReadyRecordings = hasRecordings && eventData.recordings.some(
     r => r.readyToStream === true || r.status === 'ready' || r.state?.state === 'ready'
   );
+  // True only after the encoder disconnects (set by the live webhook). Separates
+  // "recording is finalizing" from "encoder just connected, status not live yet".
+  const isDisconnected = eventData.stream_state === 'disconnected';
   
   // Check 2-hour timeout if we have last_stream_activity
   let timeSinceActivity = null;
@@ -373,7 +376,10 @@ function determinePlaybackMode() {
   // Event is 'ready' (within 24h window)
   if (eventData.status === 'ready') {
     // If stream just disconnected (< 10 minutes) and no recordings yet, show processing
-    if (!hasRecordings && recentActivity && timeSinceActivity < 10 * 60 * 1000) {
+    // last_stream_activity also updates when the encoder CONNECTS, before status flips
+    // to 'live'. Without the disconnect check, that gap showed a false "Processing
+    // recording" on a fresh event. Only a real disconnect means a recording is finalizing.
+    if (!hasRecordings && recentActivity && timeSinceActivity < 10 * 60 * 1000 && isDisconnected) {
       return 'PROCESSING'; // New mode for recording finalization
     }
     
@@ -381,9 +387,11 @@ function determinePlaybackMode() {
       return 'WAITING'; // No recordings yet, show waiting
     }
 
-    // Recordings exist but none are playable yet: stay in PROCESSING until one is
+    // Recordings exist but none are playable yet. After a disconnect, the recording is
+    // finalizing (PROCESSING). Otherwise the encoder just connected and the only recording
+    // is the in-progress live one: show WAITING until status flips to 'live'.
     if (!hasReadyRecordings) {
-      return 'PROCESSING';
+      return isDisconnected ? 'PROCESSING' : 'WAITING';
     }
     
     if (recentActivity) {
@@ -939,7 +947,7 @@ function showProcessing() {
         <div class="mc-spinner mc-spinner--gold"></div>
         <p class="mc-processing-title">Processing recording...</p>
         <p class="mc-processing-sub">Your stream will be ready for playback shortly</p>
-        <p class="mc-processing-sub mc-processing-sub--faint">Refresh your browser in 2-5 minutes</p>
+        <p class="mc-processing-sub mc-processing-sub--faint">This page updates automatically</p>
       </div>
     `;
     const container = streamEl?.parentElement;
