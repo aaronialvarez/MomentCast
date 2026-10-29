@@ -365,7 +365,9 @@ function determinePlaybackMode() {
       : scheduledDate;
     const daysSinceEvent = (now - endedAt) / (1000 * 60 * 60 * 24);
     
-    if (daysSinceEvent > 30) {
+    // Demo events (is_demo, set manually in the DB) use uploaded videos that never
+    // auto-delete, so they skip the 30-day expiry and replay indefinitely.
+    if (daysSinceEvent > 30 && !eventData.is_demo) {
       return 'EXPIRED';
     }
     
