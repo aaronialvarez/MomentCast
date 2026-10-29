@@ -612,23 +612,52 @@ function updateCountdown(targetDate) {
   document.getElementById('seconds').textContent = String(seconds).padStart(2, '0');
 }
 
-// ==================== Live startup watchdog ====================
-// The Stream player sometimes stalls when loaded shortly after the encoder connects
-// (spinner over a frozen frame, playlists still 200), and never recovers on its own.
-// A page refresh always fixes it, so this does the equivalent: if the live player's
-// position hasn't advanced within LIVE_STARTUP_TIMEOUT_MS, reload the iframe.
-// Startup-only by design: once playback is confirmed, the listener and timer are removed.
-// Nothing runs mid-stream, so a guest pausing later never triggers a reload.
-const LIVE_STARTUP_TIMEOUT_MS = 20000;
-const LIVE_MAX_RELOADS = 3;
-let liveWatchdog = null;   // { timer, handler } while active
-let liveReloadCount = 0;   // Reloads used in the current LIVE session
+// ==================== Live stall watchdog ====================
+// The Stream player can stall (spinner over a frozen frame) and never recover on its own:
+// at startup when loaded shortly after the encoder connects, or mid-stream after a network
+// drop, even once its playlist requests succeed again. A refresh always fixes it, so this
+// reloads the iframe when the player's position stops advancing while it isn't paused.
+// Signals come from the player's postMessage propertyChange updates (currentTime, paused).
+const LIVE_STARTUP_TIMEOUT_MS = 20000; // No playback at all within 20s of loading
+const LIVE_STALL_TIMEOUT_MS = 15000;   // Playing, then frozen for 15s (pause doesn't count)
+const LIVE_CHECK_INTERVAL_MS = 5000;   // How often the stall rule is evaluated
+const LIVE_MAX_RELOADS = 5;            // Consecutive reloads before waiting for reconnect
+let liveWatchdog = null;   // { interval, handler, isProgressing, resetClock } while active
+let liveReloadCount = 0;   // Consecutive reloads without recovery
 
 function stopLiveWatchdog() {
   if (!liveWatchdog) return;
-  clearTimeout(liveWatchdog.timer);
+  clearInterval(liveWatchdog.interval);
   window.removeEventListener('message', liveWatchdog.handler);
   liveWatchdog = null;
+}
+
+// Reloads the live iframe with a new session param (same effect as a page refresh).
+function reloadLivePlayer(reason) {
+  stopLiveWatchdog();
+  if (liveReloadCount >= LIVE_MAX_RELOADS) {
+    console.warn('Live watchdog: max reloads reached, waiting for reconnect or poll');
+    return;
+  }
+  liveReloadCount++;
+  liveSessionId++;
+  console.warn(`Live watchdog: ${reason}, reloading (${liveReloadCount}/${LIVE_MAX_RELOADS})`);
+  showLive(true);
+}
+
+// A stall often just means the encoder disconnected. Re-check the event first so the page
+// moves to PROCESSING/replay right away instead of reloading a dead live input.
+async function handleLiveStall(reason) {
+  stopLiveWatchdog(); // Prevent a second trigger while the check is in flight
+  const modeBefore = playbackMode;
+  try {
+    await fetchEvent();
+    updateUI();
+    if (playbackMode !== modeBefore) startPolling(); // Re-tune the poll interval for the new mode
+  } catch (err) {
+    console.warn('Live watchdog: status check failed (offline?)', err);
+  }
+  if (playbackMode === 'LIVE') reloadLivePlayer(reason);
 }
 
 function startLiveWatchdog(iframeEl, isRetry) {
@@ -636,40 +665,82 @@ function startLiveWatchdog(iframeEl, isRetry) {
   if (!isRetry) liveReloadCount = 0; // Fresh LIVE entry gets the full retry budget
 
   const sessionAtStart = liveSessionId;
-  let firstTime = null;
+  let startedAt = Date.now();
+  let lastTime = null;
+  let lastProgressAt = null; // Stays null until playback is first confirmed
+  let paused = false;
 
-  // Same postMessage format the sequential auto-advance relies on.
   // e.source check ignores the replay player and anything else on the page.
   const handler = (e) => {
     if (e.source !== iframeEl.contentWindow) return;
     const d = e.data;
-    if (d?.__privateUnstableMessageType !== 'propertyChange' || d.property !== 'currentTime') return;
-    if (typeof d.value !== 'number') return;
-    if (firstTime === null) { firstTime = d.value; return; }
-    if (d.value > firstTime + 1) { // Advanced more than 1s: playback is real
-      console.log('Live watchdog: playback confirmed');
-      liveReloadCount = 0;
-      stopLiveWatchdog();
+    if (d?.__privateUnstableMessageType !== 'propertyChange') return;
+
+    if (d.property === 'paused') {
+      paused = d.value === true;
+      // Resuming restarts the clock so time spent paused never counts as a stall
+      if (!paused) {
+        if (lastProgressAt !== null) lastProgressAt = Date.now();
+        else startedAt = Date.now();
+      }
+      return;
+    }
+
+    if (d.property === 'currentTime' && typeof d.value === 'number') {
+      if (lastTime !== null && d.value > lastTime) {
+        if (lastProgressAt === null) {
+          console.log('Live watchdog: playback confirmed');
+          liveReloadCount = 0; // Recovered: restore the full retry budget
+        }
+        lastProgressAt = Date.now();
+      }
+      lastTime = d.value;
     }
   };
 
-  const timer = setTimeout(() => {
-    stopLiveWatchdog();
-    // Page moved on (left LIVE, or a newer load superseded this one): do nothing
-    if (playbackMode !== 'LIVE' || liveSessionId !== sessionAtStart) return;
-    if (liveReloadCount >= LIVE_MAX_RELOADS) {
-      console.warn('Live watchdog: no playback after max reloads, giving up');
+  const interval = setInterval(() => {
+    // Left LIVE: clean up. (A newer load already stopped this one via startLiveWatchdog.)
+    if (playbackMode !== 'LIVE' || liveSessionId !== sessionAtStart) {
+      stopLiveWatchdog();
       return;
     }
-    liveReloadCount++;
-    liveSessionId++; // New session param forces a fresh iframe load
-    console.warn(`Live watchdog: no playback after ${LIVE_STARTUP_TIMEOUT_MS / 1000}s, reloading (${liveReloadCount}/${LIVE_MAX_RELOADS})`);
-    showLive(true);
-  }, LIVE_STARTUP_TIMEOUT_MS);
+    if (paused) return; // Guest paused on purpose
+    const now = Date.now();
+    if (lastProgressAt === null && now - startedAt > LIVE_STARTUP_TIMEOUT_MS) {
+      handleLiveStall(`no playback after ${LIVE_STARTUP_TIMEOUT_MS / 1000}s`);
+    } else if (lastProgressAt !== null && now - lastProgressAt > LIVE_STALL_TIMEOUT_MS) {
+      handleLiveStall(`stalled for ${LIVE_STALL_TIMEOUT_MS / 1000}s`);
+    }
+  }, LIVE_CHECK_INTERVAL_MS);
 
-  liveWatchdog = { timer, handler };
+  liveWatchdog = {
+    interval,
+    handler,
+    // True if the player advanced in the last 3s (survived a blip on its own)
+    isProgressing: () => lastProgressAt !== null && Date.now() - lastProgressAt < 3000,
+    // Restart the clocks, e.g. after the phone was locked and timers were suspended
+    resetClock: () => {
+      if (lastProgressAt !== null) lastProgressAt = Date.now();
+      else startedAt = Date.now();
+    }
+  };
   window.addEventListener('message', handler);
 }
+
+// Connection came back (Wi-Fi drop, tunnel, etc.): don't wait out a stall timer.
+window.addEventListener('online', () => {
+  if (playbackMode !== 'LIVE') return;
+  liveReloadCount = 0; // Fresh budget: whatever caused the stalls may be gone
+  if (liveWatchdog?.isProgressing()) return; // Brief blip the player survived
+  console.log('Live watchdog: connection restored');
+  handleLiveStall('connection restored');
+});
+
+// Tab or phone screen comes back: timers were throttled or suspended, so don't
+// mistake the time away for a stall.
+document.addEventListener('visibilitychange', () => {
+  if (document.visibilityState === 'visible' && liveWatchdog) liveWatchdog.resetClock();
+});
 
 // Show live stream state.
 // isWatchdogRetry: true only when the startup watchdog is reloading a stalled player.
@@ -723,7 +794,7 @@ function showLive(isWatchdogRetry = false) {
       // Runs once per LIVE entry because the src changes with liveSessionId.
       applyStreamAspect(streamEl, liveInputId);
 
-      // Reload the player if it stalls on startup (see Live startup watchdog above)
+      // Reload the player if it stalls at startup or mid-stream (see Live stall watchdog above)
       startLiveWatchdog(streamEl, isWatchdogRetry);
     }
   } else if (!liveInputId) {
