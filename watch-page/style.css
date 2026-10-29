@@ -1164,6 +1164,15 @@ body::after {
   top: 7rem; /* adjust to push QR down without moving the photo */
 }
 
+/* No cover photo: same QR position, but as real margin instead of a visual offset.
+   'top' leaves the original space in the flow, so without the cover layout's
+   full-height column the "Powered by" line stayed put and the shifted QR covered it.
+   9rem = .qr-share-block's 2rem margin + the 7rem offset above. */
+#countdown:not(.mc-cover-active) #qr-share-block {
+  top: 0;
+  margin-top: 9rem;
+}
+
 .qr-label {
   font-size: 0.625rem;
   letter-spacing: 0.25em;
