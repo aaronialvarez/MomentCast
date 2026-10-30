@@ -1912,7 +1912,7 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
 
       const { data: event, error } = await supabase
         .from('events')
-        .select('id, user_id, title, scheduled_date, timezone, status, stream_state, live_input_id, recordings, merged_video_id, viewer_hours_consumed, viewer_hour_limit, stream_started_manually_at, last_stream_activity, qr_code_data_url, cover_image_url, is_test')
+        .select('id, user_id, title, scheduled_date, timezone, status, stream_state, live_input_id, recordings, merged_video_id, viewer_hours_consumed, viewer_hour_limit, stream_started_manually_at, last_stream_activity, qr_code_data_url, cover_image_url, is_test, is_demo')
         .eq('slug', slug)
         .single();
 
@@ -2053,7 +2053,8 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
       // (MINUTES_PER_CREDIT per credit; pre-change events keep 12000). Convert before comparing.
       const viewerHoursConsumed = Number(event.viewer_hours_consumed) || 0;
       const viewerHourLimitMinutes = event.viewer_hour_limit || MINUTES_PER_CREDIT; // fallback for a null limit only
-      const limitExceeded = viewerHoursConsumed >= viewerHourLimitMinutes / 60;
+      // Demo events (is_demo) are the marketing showcase and never hit the viewer limit.
+      const limitExceeded = !event.is_demo && viewerHoursConsumed >= viewerHourLimitMinutes / 60;
 
       // Fetch photographer's logo from users table
       let logoUrl: string | null = null;
@@ -2115,6 +2116,14 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
 
       if (event.is_test) {
         return new Response(JSON.stringify({ error: 'Use /api/test-event/start for test events' }), {
+          status: 400,
+          headers: corsHeaders,
+        });
+      }
+
+      // Demo events play uploaded videos and must never open a streaming window.
+      if (event.is_demo) {
+        return new Response(JSON.stringify({ error: 'Demo events cannot be streamed to' }), {
           status: 400,
           headers: corsHeaders,
         });

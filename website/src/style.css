@@ -1814,3 +1814,26 @@ ul { list-style: none; }
     align-items: stretch;
   }
 }
+/* Clickable hero mockup linking to the demo replay (index.njk) */
+.mc-mockup-link {
+  display: block;
+  color: inherit;
+  text-decoration: none;
+}
+.mc-mockup-link .mc-mockup-img {
+  transition: filter 0.25s ease;
+}
+.mc-mockup-link:hover .mc-mockup-img,
+.mc-mockup-link:focus-visible .mc-mockup-img {
+  filter: brightness(1.08);
+}
+.mc-mockup-link:focus-visible {
+  outline: 2px solid currentColor;
+  outline-offset: 6px;
+}
+.mc-mockup-caption {
+  margin-top: 0.75rem;
+  text-align: center;
+  font-size: 0.875rem;
+  opacity: 0.75;
+}

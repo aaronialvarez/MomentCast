@@ -37,23 +37,29 @@ ogDescription: "Beautiful, branded live streams for weddings, quinceañeras, bap
     </div>
 
     <div class="mc-hero-mockup">
-      <div class="mc-mockup-browser">
-        <div class="mc-mockup-bar">
-          <span class="mc-dot"></span><span class="mc-dot"></span><span class="mc-dot"></span>
-          <span class="mc-mockup-url">go.momentcast.live/artwalk</span>
-        </div>
-        <div class="mc-mockup-screen">
-          <img src="stream-preview.jpg" alt="Live wedding stream on MomentCast" class="mc-mockup-img" />
-          <div class="mc-mockup-badge">LIVE</div>
-          <div class="mc-mockup-bottom">
-            <span class="mc-mockup-title">The DTSA Art Walk</span>
-            <span class="mc-mockup-viewers">
-              <svg width="10" height="10" viewBox="0 0 10 10"><circle cx="5" cy="5" r="4" fill="#e54b4b"/></svg>
-              Streaming Now
-            </span>
+      <!-- Links to the permanent demo event (is_demo in Supabase: never expires, never
+           releases its slug). The watch page autoplays muted on open, same as for guests. -->
+      <a href="https://go.momentcast.live/momentcast-demo" target="_blank" rel="noopener" class="mc-mockup-link" aria-label="Watch a real quinceañera replay on MomentCast">
+        <div class="mc-mockup-browser">
+          <div class="mc-mockup-bar">
+            <span class="mc-dot"></span><span class="mc-dot"></span><span class="mc-dot"></span>
+            <span class="mc-mockup-url">go.momentcast.live/momentcast-demo</span>
+          </div>
+          <div class="mc-mockup-screen">
+            <img src="demo-replay.jpg" alt="Quinceañera replay on a MomentCast watch page" class="mc-mockup-img" />
+            <div class="mc-mockup-badge">REPLAY</div>
+            <div class="mc-mockup-bottom">
+              <span class="mc-mockup-title">Quinceañera Misa</span>
+              <span class="mc-mockup-viewers">
+                <svg width="10" height="10" viewBox="0 0 10 10"><path d="M2 1l7 4-7 4z" fill="currentColor"/></svg>
+                Watch the Replay
+              </span>
+            </div>
           </div>
         </div>
-      </div>
+        <!-- Visible cue: visitors don't assume a screenshot is clickable -->
+        <p class="mc-mockup-caption">Tap to watch a real event replay</p>
+      </a>
     </div>
   </section>
 
