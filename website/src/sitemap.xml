@@ -2,7 +2,7 @@
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
   <url>
     <loc>https://momentcast.live/</loc>
-    <lastmod>2026-10-24</lastmod>
+    <lastmod>2026-10-29</lastmod>
     <priority>1.0</priority>
   </url>
   <url>
@@ -18,7 +18,7 @@
   <!-- Blog. URLs match each page's canonical tag (no .html). Bump lastmod when a guide changes. -->
   <url>
     <loc>https://momentcast.live/blog/</loc>
-    <lastmod>2026-10-24</lastmod>
+    <lastmod>2026-10-29</lastmod>
     <priority>0.6</priority>
   </url>
   <url>
@@ -30,5 +30,10 @@
     <loc>https://momentcast.live/blog/how-to-watch</loc>
     <lastmod>2026-10-24</lastmod>
     <priority>0.6</priority>
+  </url>
+  <url>
+    <loc>https://momentcast.live/blog/stream-from-your-phone</loc>
+    <lastmod>2026-10-29</lastmod>
+    <priority>0.8</priority>
   </url>
 </urlset>

@@ -3,5 +3,6 @@
   "gaId": "G-3VWZFFXWQW",
   "appUrl": "https://app.momentcast.live",
   "supportEmail": "support@momentcast.live",
-  "consentBanner": true
+  "consentBanner": true,
+  "pricePerCredit": 30
 }

@@ -1,8 +1,13 @@
 ---
-title: "MomentCast — Premium Live Streaming for Events | Starting at $30"
-description: "Give your clients a premium live viewing experience. Beautiful, branded live streams for weddings, quinceañeras, baptisms, and corporate events. Starting at $30 per event."
+# Price comes from site.pricePerCredit in src/_data/site.json. eleventyComputed is what
+# lets front matter use {{ }}; plain front matter values are not rendered as templates.
+# The actual charge lives in worker.ts (Stripe tiers) and the dashboard's CREDIT_TIERS:
+# change all three together.
+eleventyComputed:
+  title: "MomentCast — Premium Live Streaming for Events | Starting at ${{ site.pricePerCredit }}"
+  description: "Give your clients a premium live viewing experience. Beautiful, branded live streams for weddings, quinceañeras, funerals, and corporate events. Stream from OBS, vMix, or your phone. Starting at ${{ site.pricePerCredit }} per event."
+  ogDescription: "Beautiful, branded live streams for weddings, quinceañeras, funerals, and corporate events. Starting at ${{ site.pricePerCredit }} per event."
 ogTitle: "MomentCast — Premium Live Streaming for Events"
-ogDescription: "Beautiful, branded live streams for weddings, quinceañeras, baptisms, and corporate events. Starting at $30 per event."
 ---
 {# Head, nav, footer, and scroll reveal come from the base layout. #}
 {% extends "layouts/base.njk" %}
@@ -23,9 +28,11 @@ ogDescription: "Beautiful, branded live streams for weddings, quinceañeras, bap
         Your Events.<br>
         <span class="mc-gold">Streamed Beautifully.</span>
       </h1>
+      <!-- Price from site.pricePerCredit (src/_data/site.json) -->
       <p class="mc-hero-sub">
-        Premium, branded live streaming for weddings, quinceañeras, baptisms, and corporate events.
-        No subscriptions. No hidden fees. Starting at just <strong>$30 per event</strong>.
+        Premium, branded live streaming for weddings, quinceañeras, funerals, and corporate events.
+        Stream from your multi-cam rig or straight from your phone.
+        No subscriptions. No hidden fees. Starting at just <strong>${{ site.pricePerCredit }} per event</strong>.
       </p>
       <div class="mc-hero-actions">
         <a href="https://app.momentcast.live" target="_blank" class="mc-btn mc-btn-primary">Get Started</a>
@@ -140,8 +147,10 @@ ogDescription: "Beautiful, branded live streams for weddings, quinceañeras, bap
           <div class="mc-feature-icon">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M9 12l2 2 4-4"/><path d="M12 2a10 10 0 110 20 10 10 0 010-20z"/></svg>
           </div>
-          <h3>OBS &amp; RTMPS Compatible</h3>
-          <p>Use your existing setup. Connect OBS Studio, Streamlabs Desktop, vMix, Wirecast, XSplit, or any encoder that streams H.264/AAC over RTMPS. Bring your multi-cam rig.</p>
+          <!-- App names are here on purpose (search and AI answers). Name only apps verified to
+               reach a custom RTMPS server with no branding on the client's stream. -->
+          <h3>Your Rig or Your Phone</h3>
+          <p>Bring the multi-cam setup or the phone in your pocket. MomentCast works with OBS Studio, vMix, Wirecast, Streamlabs Desktop, Moblin on iPhone, IRL Pro on Android, and any app that streams H.264/AAC over RTMPS.</p>
         </div>
       </div>
     </div>
@@ -171,7 +180,7 @@ ogDescription: "Beautiful, branded live streams for weddings, quinceañeras, bap
           <li>Custom branding (logo + cover photo)</li>
           <li>QR code for easy sharing</li>
           <li>Automatic replay after stream ends</li>
-          <li>Works with any encoder that streams H.264/AAC over RTMPS, such as OBS Studio and Streamlabs Desktop</li>
+          <li>Works with OBS Studio, vMix, and phone apps like Moblin and IRL Pro</li>
           <li>No ads, ever</li>
         </ul>
         <a href="https://app.momentcast.live" target="_blank" class="mc-btn mc-btn-primary mc-btn-full">Get Started</a>
@@ -210,7 +219,8 @@ ogDescription: "Beautiful, branded live streams for weddings, quinceañeras, bap
           </div>
           <div class="mc-est-cost">
             <span class="mc-est-cost-label" id="est-credits-out">1 credit</span>
-            <span class="mc-est-cost-value" id="est-price-out">$30</span>
+            <!-- Placeholder until the estimator script runs; same constant as the script -->
+            <span class="mc-est-cost-value" id="est-price-out">${{ site.pricePerCredit }}</span>
           </div>
           <p class="mc-est-detail" id="est-detail-out"></p>
           <p class="mc-est-note">Streaming longer or to a bigger crowd? Add 250 hours for 1 credit anytime from your dashboard, even mid-event. List price shown. Bulk credits save up to 13%.</p>
@@ -222,7 +232,7 @@ ogDescription: "Beautiful, branded live streams for weddings, quinceañeras, bap
              platform wins on price at roughly 500+ viewing hours, so this copy makes no claim
              past the entry price. Verify the $69 figure against current competitor pricing
              before deploying, and reverify periodically. -->
-        <p>Other flat-rate platforms start around <strong>$69 per event</strong> and bundle thousands of viewing hours, most of which are never used. MomentCast starts at <strong>$30</strong>. A typical event with a few dozen live guests fits in one credit, and if yours grows, you add 250 hours at a time, even mid-event.</p>
+        <p>Other flat-rate platforms start around <strong>$69 per event</strong> and bundle thousands of viewing hours, most of which are never used. MomentCast starts at <strong>${{ site.pricePerCredit }}</strong>. A typical event with a few dozen live guests fits in one credit, and if yours grows, you add 250 hours at a time, even mid-event.</p>
       </div>
     </div>
   </section>
@@ -256,12 +266,12 @@ ogDescription: "Beautiful, branded live streams for weddings, quinceañeras, bap
         <div class="mc-step">
           <span class="mc-step-num">03</span>
           <h3>Go Live</h3>
-          <p>Point your streaming software at your RTMPS endpoint and start streaming. The watch page updates automatically when you go live.</p>
+          <p>Point OBS, your encoder, or a streaming app on your phone at your RTMPS URL. The watch page switches to live on its own.</p>
         </div>
       </div>
 
       <!-- Link to the full user guide. Styled by .mc-steps-guide in style.css -->
-      <p class="mc-steps-guide">Want every step, from the free test to the final download? <a href="/blog/livestream-event-guide">Read the guide</a>.</p>
+      <p class="mc-steps-guide">Want every step, from the free test to the final download? <a href="/blog/livestream-event-guide">Read the guide</a>. Streaming from a phone? <a href="/blog/stream-from-your-phone">Start here</a>.</p>
     </div>
   </section>
 
@@ -287,8 +297,8 @@ ogDescription: "Beautiful, branded live streams for weddings, quinceañeras, bap
         </div>
         <div class="mc-usecase">
           <span class="mc-usecase-emoji">⛪</span>
-          <h3>Baptisms &amp; Christenings</h3>
-          <p>Include grandparents and godparents who can't be there in person.</p>
+          <h3>Religious Services</h3>
+          <p>Masses, first communions, and church ceremonies for the family that can't make it.</p>
         </div>
         <div class="mc-usecase">
           <span class="mc-usecase-emoji">🎓</span>
@@ -301,9 +311,10 @@ ogDescription: "Beautiful, branded live streams for weddings, quinceañeras, bap
           <p>Conferences, product launches, and company all-hands, streamed professionally.</p>
         </div>
         <div class="mc-usecase">
-          <span class="mc-usecase-emoji">🎵</span>
-          <h3>Concerts &amp; Performances</h3>
-          <p>Reach audiences beyond the venue with a premium viewing experience.</p>
+          <!-- Funeral livestreaming: high-intent search term, and MomentCast's first paying event type -->
+          <span class="mc-usecase-emoji">🕊️</span>
+          <h3>Funerals &amp; Memorial Services</h3>
+          <p>Let family and friends who can't travel say goodbye together, and keep the service to rewatch.</p>
         </div>
       </div>
     </div>
@@ -329,12 +340,12 @@ ogDescription: "Beautiful, branded live streams for weddings, quinceañeras, bap
 {% block scripts %}
   <script>
     // Pricing estimator. Same math as the dashboard's create-event page:
-    // hours = duration x viewers, 250 hours per credit, $30 per credit at list price.
+    // hours = duration x viewers, 250 hours per credit, list price per credit from site.json.
     // Keep HOURS_PER_CREDIT in sync with MINUTES_PER_CREDIT / 60 in worker.ts.
     // Wrapped in an IIFE so nothing leaks to the global scope.
     (function () {
       var HOURS_PER_CREDIT = 250;
-      var PRICE_PER_CREDIT = 30;
+      var PRICE_PER_CREDIT = {{ site.pricePerCredit }}; // from src/_data/site.json
 
       var dur = document.getElementById('est-duration');
       var view = document.getElementById('est-viewers');
