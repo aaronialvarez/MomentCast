@@ -20,6 +20,22 @@ const TEST_EVENT_VIEWER_LIMIT_MINUTES = 1500;
 const MINUTES_PER_CREDIT = 15000;
 const HOURS_PER_CREDIT = MINUTES_PER_CREDIT / 60;
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
+// Default replay retention, in days, for every new recording. Single source for:
+//   - the Live Input deletion rule (Cloudflare's safety net, see createCloudflareStreamLiveInput)
+//   - the fallback date for videos Cloudflare has not stamped (e.g. future uploads)
+// Each event's actual expiry lives in events.recordings_expire_at, which only grows
+// (paid storage extensions raise it). Phase 2 exposes this value through /api/config.
+const DEFAULT_RETENTION_DAYS = 30;
+
+// Cloudflare calls the retention reconcile may spend per cron run. The free Workers plan
+// allows 50 subrequests per invocation, and Supabase calls count toward that too.
+const RETENTION_RECONCILE_BUDGET = 30;
+
+// UTC hour of the once-a-day cleanup tick (see the scheduled() handler).
+const DAILY_JOB_HOUR_UTC = 3;
+
 // Origins allowed to embed the Stream Player. Hostnames only, no scheme.
 // If you add a custom domain (e.g. live.aaronalvarez.com), it MUST be added here
 // or the player will refuse to load on that domain.
@@ -82,6 +98,147 @@ async function lockDownInputRecordings(liveInputId: string, slug: string, env: W
     }
   } catch (err) {
     console.error('lockDownInputRecordings failed:', err);
+  }
+}
+
+/**
+ * Utility: Make every recording of one event expire on the same date.
+ *
+ * events.recordings_expire_at is the single source of truth for replay retention.
+ * This function never decides retention; it only makes Cloudflare match the column:
+ *   1. Reads each recording's state and current deletion date from Cloudflare.
+ *   2. Target = the later of the column and the newest date any finalized recording
+ *      already carries (Cloudflare stamps finalize time + DEFAULT_RETENTION_DAYS).
+ *      Never earlier than the column, so a paid extension survives later reconnects.
+ *   3. Sets every finalized recording's scheduledDeletion to the target.
+ *
+ * Recordings still finalizing are skipped: Cloudflare stamps them when they finish and
+ * would overwrite our date. They make the result pending, and the cron retries.
+ * Recordings Cloudflare no longer has (404) or that failed to encode are ignored.
+ * Never throws. Stops early (pending) when the subrequest budget runs out.
+ */
+async function reconcileRecordingRetention(
+  event: { slug: string; recordings: any[] | null; recordings_expire_at: string | null },
+  env: WorkerEnv,
+  budget: number
+): Promise<{ done: boolean; expiresAt: string | null; subrequests: number }> {
+  const base = `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/stream`;
+  const auth = { 'Authorization': `Bearer ${env.CLOUDFLARE_STREAM_API_TOKEN}` };
+  const uids: string[] = (event.recordings || []).map((r: any) => r?.uid).filter(Boolean);
+
+  let subrequests = 0;
+  let pending = false;
+  let latestMs = event.recordings_expire_at ? new Date(event.recordings_expire_at).getTime() : 0;
+  const finalized: { uid: string; currentMs: number | null }[] = [];
+
+  // 1-2. Read every recording and find the latest date in play
+  for (const uid of uids) {
+    if (subrequests >= budget) { pending = true; break; }
+    subrequests++;
+    try {
+      const res = await fetch(`${base}/${uid}`, { headers: auth });
+      if (res.status === 404) continue;                       // already deleted by Cloudflare
+      const data = await res.json() as any;
+      if (!res.ok || !data.success) { pending = true; continue; } // transient, retry next pass
+
+      const video = data.result;
+      const state = video.status?.state;
+      if (state === 'error') continue;                         // never playable, nothing to keep
+      if (state !== 'ready') { pending = true; continue; }     // still finalizing
+
+      const currentMs = video.scheduledDeletion ? new Date(video.scheduledDeletion).getTime() : null;
+      // Unstamped videos (e.g. uploads) default to created + DEFAULT_RETENTION_DAYS
+      const stampMs = currentMs ?? new Date(video.created).getTime() + DEFAULT_RETENTION_DAYS * DAY_MS;
+      latestMs = Math.max(latestMs, stampMs);
+      finalized.push({ uid, currentMs });
+    } catch (err) {
+      console.error(`reconcileRecordingRetention: read ${uid} for ${event.slug} threw:`, err);
+      pending = true;
+    }
+  }
+
+  if (!latestMs) return { done: !pending, expiresAt: null, subrequests };
+
+  // Cloudflare stores whole minutes; round UP so the target is never earlier than a stamp
+  // and an already-synced recording compares equal (no repeat writes).
+  const targetMs = Math.ceil(latestMs / 60000) * 60000;
+  const target = new Date(targetMs).toISOString();
+
+  // 3. Bring every finalized recording to the target
+  for (const v of finalized) {
+    if (v.currentMs === targetMs) continue;                    // already in sync
+    if (subrequests >= budget) { pending = true; break; }
+    subrequests++;
+    try {
+      const res = await fetch(`${base}/${v.uid}`, {
+        method: 'POST',
+        headers: { ...auth, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ scheduledDeletion: target }),
+      });
+      if (!res.ok) {
+        console.error(`reconcileRecordingRetention: set ${v.uid} for ${event.slug} failed (${res.status}):`, await res.text());
+        pending = true;
+      }
+    } catch (err) {
+      console.error(`reconcileRecordingRetention: set ${v.uid} for ${event.slug} threw:`, err);
+      pending = true;
+    }
+  }
+
+  return { done: !pending, expiresAt: target, subrequests };
+}
+
+/**
+ * Cron step: reconcile replay retention for flagged events.
+ * A database trigger sets events.retention_sync_needed whenever events.recordings changes
+ * (new recording, reconnect, future uploads), so no route has to remember to call this.
+ * Oldest-flagged first, within RETENTION_RECONCILE_BUDGET Cloudflare calls per run.
+ */
+async function reconcileRetentionBatch(env: WorkerEnv, supabase: any): Promise<void> {
+  const { data: flagged, error } = await supabase
+    .from('events')
+    .select('id, slug, recordings, recordings_expire_at, updated_at')
+    .eq('retention_sync_needed', true)
+    .eq('is_test', false)
+    .eq('is_demo', false)
+    .order('updated_at', { ascending: true })
+    .limit(5);
+
+  if (error) {
+    console.error('reconcileRetentionBatch: failed to fetch flagged events:', error);
+    return;
+  }
+  if (!flagged || flagged.length === 0) return;
+
+  let used = 0;
+  for (const evt of flagged) {
+    const remaining = RETENTION_RECONCILE_BUDGET - used;
+    if (remaining <= 0) break;
+
+    const result = await reconcileRecordingRetention(evt, env, remaining);
+    used += result.subrequests;
+
+    const updates: Record<string, any> = {};
+    const storedMs = evt.recordings_expire_at ? new Date(evt.recordings_expire_at).getTime() : null;
+    if (result.expiresAt && new Date(result.expiresAt).getTime() !== storedMs) {
+      updates.recordings_expire_at = result.expiresAt;
+    }
+    if (result.done) updates.retention_sync_needed = false;
+    if (Object.keys(updates).length === 0) continue;
+
+    // Only write if the row is unchanged since we read it. If a reconnect added a recording
+    // mid-run, the trigger re-flagged the row and the next pass handles it with fresh data.
+    const { error: updateError } = await supabase
+      .from('events')
+      .update(updates)
+      .eq('id', evt.id)
+      .eq('updated_at', evt.updated_at);
+
+    if (updateError) {
+      console.error(`reconcileRetentionBatch: failed to update ${evt.slug}:`, updateError);
+    } else {
+      console.log(`🗓️ ${evt.slug}: recordings expire ${result.expiresAt ?? 'n/a'}${result.done ? '' : ' (pending)'}`);
+    }
   }
 }
 
@@ -291,7 +448,9 @@ async function createCloudflareStreamLiveInput(
             requireSignedURLs: false,
             allowedOrigins: ALLOWED_PLAYBACK_ORIGINS,
           },
-          deleteRecordingAfterDays: 30,
+          // Safety net only. reconcileRecordingRetention() sets each recording's real
+          // date from events.recordings_expire_at once the recording finalizes.
+          deleteRecordingAfterDays: DEFAULT_RETENTION_DAYS,
         }),
       }
     );
@@ -3765,8 +3924,20 @@ export default {
   async scheduled(event: any, env: WorkerEnv, ctx: any) {
     const supabase = createClient(env.SUPABASE_URL, env.SUPABASE_SERVICE_KEY);
 
-    // Route based on which cron trigger fired
-    if (event.cron === '0 3 * * *') {
+    // ONE cron trigger ("*/5 * * * *" in wrangler.toml) drives every scheduled job.
+    // The Free plan allows 5 cron triggers per ACCOUNT, shared with your other Workers,
+    // so this Worker uses a single trigger and routes each 5-minute tick by its UTC time.
+    // One job per tick keeps every run under the 50-subrequest limit.
+    //   03:00          daily cleanup (slug release, expired-window sweep, Live Input cleanup)
+    //   hh:00          MailerLite retry (every other hour, on the hour)
+    //   hh:10 - hh:50  viewer-hours sync (every 10 minutes)
+    //   hh:05 - hh:55  test-session cap + retention reconcile (every 10 minutes)
+    // scheduledTime is the slot's planned time, so a late-starting run still routes correctly.
+    const tick = new Date(event.scheduledTime);
+    const minute = tick.getUTCMinutes();
+    const isDailyTick = tick.getUTCHours() === DAILY_JOB_HOUR_UTC && minute === 0;
+
+    if (isDailyTick) {
       // === Release slugs of events past the cooldown ===
       // Runs first and in its own try/catch: the cleanup below returns early when it
       // has nothing to do, and a failure here must not block that cleanup.
@@ -3899,15 +4070,15 @@ export default {
 
       console.log('✅ Daily cleanup completed');
 
-    } else if (event.cron === '*/10 * * * *') {
+    } else if (minute % 10 === 0 && minute !== 0) {
       // === Sync viewer hours from Cloudflare Stream analytics ===
       console.log('📊 Running viewer-hours sync...');
       await syncViewerHours(env, supabase);
       console.log('✅ Viewer-hours sync completed');
 
-    } else if (event.cron === '*/5 * * * *') {
+    } else if (minute % 10 === 5) {
       // === Cap test-event sessions at 15 minutes connected ===
-      // Own 5-minute trigger: worst case a session runs 20 minutes instead of 25.
+      // Runs on the :05 ticks (every 10 minutes): worst case a session runs 25 minutes.
       console.log('🧪 Checking for test sessions over the cap...');
       const TEST_SESSION_CAP_MS = 15 * 60 * 1000;
       const { data: overCapped } = await supabase
@@ -3959,10 +4130,17 @@ export default {
         }
       }
       console.log('✅ Test session cap check completed');
-    } else if (event.cron === '0 * * * *') {
+
+      // === Reconcile replay retention (one deletion date per event) ===
+      // Runs every 10 minutes, so a recording is synced soon after Cloudflare finalizes it.
+      try {
+        await reconcileRetentionBatch(env, supabase);
+      } catch (err) {
+        console.error('Retention reconcile crashed:', err);
+      }
+    } else if (minute === 0) {
       // === Hourly MailerLite retry for confirmed users the webhook missed ===
-      // Own branch on purpose: the 10-minute branch already spends subrequests on
-      // viewer-hours sync and the test-session cap.
+      // Own tick on purpose: the sync and reconcile ticks already spend subrequests.
       console.log('📬 Running MailerLite reconcile...');
       await reconcileMailerLite(env, supabase);
     }

@@ -22,6 +22,7 @@ persist = true
 head_sampling_rate = 1
 
 [triggers]
-# Hourly (0 * * * *): MailerLite retry for confirmed signups the webhook missed
-# Every 5 min (*/5 * * * *): cap test-event sessions at 15 min connected
-crons = ["0 3 * * *", "*/10 * * * *", "*/5 * * * *", "0 * * * *"]  # Daily cleanup at 3 AM UTC + viewer-hours sync every 10 min
+# ONE trigger on purpose. The Free plan allows 5 cron triggers per ACCOUNT, shared with
+# your other Workers. scheduled() in src/worker.ts routes each 5-minute tick to one job
+# by its UTC time (daily cleanup, MailerLite retry, viewer-hours sync, test cap + retention).
+crons = ["*/5 * * * *"]
