@@ -59,7 +59,9 @@ create table public.events (
   stream_started_at           timestamptz,
   recordings                  jsonb default '[]'::jsonb,
   merged_video_id             varchar(255),
-  viewer_hours_consumed       numeric default 0,             -- HOURS, rounded to 0.1
+  -- Calculated by Postgres from viewer_minutes_consumed (never written directly).
+  -- Physically the last column in the live table; shown here for readability.
+  viewer_hours_consumed       numeric generated always as (round(viewer_minutes_consumed / 60, 1)) stored,
   viewer_hour_limit           integer default 15000,         -- MINUTES despite the name
   tier                        varchar(50) default 'standard'
                               check (tier in ('standard', 'premium')),
@@ -89,7 +91,11 @@ create table public.events (
   recordings_expire_at        timestamptz,
   -- Set by the flag_retention_sync trigger when recordings change; cleared by the
   -- worker's retention reconcile once Cloudflare matches recordings_expire_at.
-  retention_sync_needed       boolean not null default false
+  retention_sync_needed       boolean not null default false,
+  -- Viewer usage in exact MINUTES, banked by day (worker computeViewerUsage).
+  viewer_minutes_consumed       numeric not null default 0,  -- lifetime total, compared to viewer_hour_limit
+  viewer_minutes_banked         numeric not null default 0,  -- settled days only
+  viewer_minutes_banked_through date                         -- last banked UTC day; NULL = not started
 );
 
 create index idx_events_recordings_expire_at  on public.events using btree (recordings_expire_at)
@@ -215,10 +221,8 @@ returns integer language plpgsql as $$
 declare
   released_count integer;
 begin
-  -- Recordings live ~31 days on Cloudflare. Releasing earlier could hand the slug
-  -- to a stranger while the old replay still plays.
-  if cooldown_days < 32 then
-    raise exception 'cooldown_days must be at least 32';
+  if cooldown_days < 1 then
+    raise exception 'cooldown_days must be at least 1';
   end if;
 
   update public.events
@@ -228,7 +232,9 @@ begin
   where is_test = false
     and is_demo = false  -- demo events keep their slug permanently
     and slug_released_at is null
-    and coalesce(stream_started_manually_at, scheduled_date)
+    -- Countdown starts when the replay expires, so a link never dies while its replay is
+    -- watchable. Events that never recorded count from the event date instead.
+    and coalesce(recordings_expire_at, stream_started_manually_at, scheduled_date)
         < now() - make_interval(days => cooldown_days);
 
   get diagnostics released_count = row_count;

@@ -2,10 +2,9 @@ import { createClient } from '@supabase/supabase-js';
 import type { WorkerEnv, Event, User, CreateEventRequest, CreateEventResponse } from './types';
 import QRCode from 'qrcode-svg';
 
-// Days after an event's start before its URL slug is released for reuse.
-// Must stay >= 32: Cloudflare deletes recordings ~30-31 days after creation, and
-// releasing sooner could hand the slug to a stranger while the old replay still plays.
-// The SQL function release_expired_slugs() enforces the same floor.
+// Days after an event's replay expires (events.recordings_expire_at) before its URL slug
+// is released for reuse. Same rule for normal and extended events. Events that never
+// recorded count from the event date. Applied by the SQL function release_expired_slugs().
 const SLUG_COOLDOWN_DAYS = 90;
 
 // Viewing cap for each user's permanent test event, in MINUTES (viewer_hour_limit is stored in
@@ -32,6 +31,14 @@ const DEFAULT_RETENTION_DAYS = 30;
 // Cloudflare calls the retention reconcile may spend per cron run. The free Workers plan
 // allows 50 subrequests per invocation, and Supabase calls count toward that too.
 const RETENTION_RECONCILE_BUDGET = 30;
+
+// Viewer-usage sync (see computeViewerUsage):
+// Cloudflare's widest analytics query, in days (its limit is 31).
+const ANALYTICS_WINDOW_DAYS = 31;
+// Recent days Cloudflare may still revise. Older days are banked once and never re-queried.
+const VIEWER_SETTLE_DAYS = 2;
+// Calls (Supabase + Cloudflare) one sync run may spend; the Free plan allows 50.
+const VIEWER_SYNC_BUDGET = 45;
 
 // UTC hour of the once-a-day cleanup tick (see the scheduled() handler).
 const DAILY_JOB_HOUR_UTC = 3;
@@ -99,6 +106,16 @@ async function lockDownInputRecordings(liveInputId: string, slug: string, env: W
   } catch (err) {
     console.error('lockDownInputRecordings failed:', err);
   }
+}
+
+/**
+ * Utility: True once an event's replay is gone for good (recordings_expire_at has passed).
+ * The one expiry rule every route uses: watch page data, top-ups, analytics.
+ * NULL means nothing recorded yet, which is never expired. Demo events never expire.
+ */
+function isReplayExpired(event: { recordings_expire_at?: string | null; is_demo?: boolean }): boolean {
+  if (event.is_demo || !event.recordings_expire_at) return false;
+  return Date.now() >= new Date(event.recordings_expire_at).getTime();
 }
 
 /**
@@ -618,173 +635,250 @@ async function snapshotTestRecordings(
 }
 
 /**
- * Utility: Sync viewer_hours_consumed for all active events
- * Queries Cloudflare Stream GraphQL API for minutesViewed per recording UID,
- * then writes the totals (as hours, 1 decimal) back to each event row.
+ * Utility: Minutes viewed per recording, per UTC day, from Cloudflare Stream analytics.
+ * Covers the widest window Cloudflare allows: the last ANALYTICS_WINDOW_DAYS days through today.
+ * Returns Map<uid, Map<'YYYY-MM-DD', minutes>>, or null if ANY request fails.
+ * Callers must treat null as "unknown" and never as zero, or a Cloudflare hiccup
+ * would wipe real usage.
  */
-async function syncViewerHours(env: WorkerEnv, supabase: any): Promise<void> {
-  // Fetch events that could have viewable recordings.
-  // stream_started_manually_at / scheduled_date feed the age filter below.
-  const { data: fetched, error } = await supabase
-    .from('events')
-    .select('id, slug, recordings, viewer_hours_consumed, stream_started_manually_at, scheduled_date, is_test')
-    // Test rows sit at status 'scheduled' between sessions, so the status filter alone would skip them
-    .or('status.in.(live,ready,ended),is_test.eq.true')
-    .not('recordings', 'is', null);
+async function fetchViewerMinutesByDay(
+  uids: string[],
+  env: WorkerEnv
+): Promise<{ byUid: Map<string, Map<string, number>>; requests: number } | null> {
+  const byUid = new Map<string, Map<string, number>>();
+  if (uids.length === 0) return { byUid, requests: 0 };
 
-  if (error) {
-    console.error('syncViewerHours: failed to fetch events:', error);
-    return;
-  }
+  const now = Date.now();
+  const startDate = utcDay(now - (ANALYTICS_WINDOW_DAYS - 1) * DAY_MS);
+  const endDate = utcDay(now + DAY_MS); // date_lt is exclusive, so tomorrow includes today
 
-  // Recordings are deleted from Cloudflare ~30 days after creation, so nothing
-  // accrues past that point. Skipping older events keeps the GraphQL query small
-  // and stops us touching rows whose data has aged out.
-  const SYNC_MAX_AGE_DAYS = 32;
-  const cutoffMs = Date.now() - SYNC_MAX_AGE_DAYS * 24 * 60 * 60 * 1000;
-  const events = (fetched || []).filter((e: any) => {
-    // Test rows: scheduled_date is the row's creation time, so age-filtering would freeze
-    // them 32 days after signup. Their recording list is already limited to what Cloudflare holds.
-    if (e.is_test) return true;
-    const ref = e.stream_started_manually_at || e.scheduled_date;
-    return ref && new Date(ref).getTime() >= cutoffMs;
-  });
+  // One row per uid per day. 50 uids x 31 days = 1,550 rows, well under the row limit.
+  const UID_BATCH_SIZE = 50;
+  let requests = 0;
 
-  if (events.length === 0) {
-    console.log('syncViewerHours: no events in sync window');
-    return;
-  }
-
-  // Build a map: recording UID → event ID (so we can attribute minutes back)
-  const uidToEventId = new Map<string, string>();
-  const eventMinutes = new Map<string, number>(); // event ID → total minutes
-
-  for (const event of events) {
-    const raw = event.recordings || [];
-    const recs: any[] = typeof raw === 'string' ? JSON.parse(raw) : raw;
-    const uids = recs.map((r: any) => r.uid).filter(Boolean);
-
-    for (const uid of uids) {
-      uidToEventId.set(uid, event.id);
-    }
-    eventMinutes.set(event.id, 0);
-  }
-
-  const allUids = Array.from(uidToEventId.keys());
-  if (allUids.length === 0) {
-    console.log('syncViewerHours: no recording UIDs found across events');
-    return;
-  }
-
-  // Query Cloudflare GraphQL for minutesViewed, grouped by UID
-  const today = new Date();
-  const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
-  const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
-  const graphqlQuery = {
-    query: `
-      query SyncViewerHours($accountTag: String!, $startDate: String!, $endDate: String!, $uids: [String!]!) {
-        viewer {
-          accounts(filter: { accountTag: $accountTag }) {
-            streamMinutesViewedAdaptiveGroups(
-              filter: {
-                date_geq: $startDate,
-                date_lt: $endDate,
-                uid_in: $uids
-              }
-              limit: 100
-            ) {
-              sum {
-                minutesViewed
-              }
-              dimensions {
-                uid
-              }
-            }
-          }
-        }
-      }
-    `,
-    variables: {
-      accountTag: env.CLOUDFLARE_ACCOUNT_ID,
-      startDate: thirtyDaysAgo.toISOString().split('T')[0],
-      endDate: tomorrow.toISOString().split('T')[0],  // date_lt is exclusive, so use tomorrow to include today's data
-      uids: allUids
-    }
-  };
-
-  try {
-    // The query returns one row per uid, capped by `limit`, so a single query silently drops
-    // every uid past the cap. Batch the uids (50 per query, limit 100 leaves headroom).
-    // Any failure aborts the whole run before the write-back, so a partial pass can never
-    // lower a stored value.
-    const UID_BATCH_SIZE = 50;
-    for (let i = 0; i < allUids.length; i += UID_BATCH_SIZE) {
-      graphqlQuery.variables.uids = allUids.slice(i, i + UID_BATCH_SIZE);
-
+  for (let i = 0; i < uids.length; i += UID_BATCH_SIZE) {
+    requests++;
+    try {
       const response = await fetch('https://api.cloudflare.com/client/v4/graphql', {
         method: 'POST',
         headers: {
           'Authorization': `Bearer ${env.CLOUDFLARE_STREAM_API_TOKEN}`,
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify(graphqlQuery)
+        body: JSON.stringify({
+          query: `
+            query ViewerMinutesByDay($accountTag: String!, $startDate: String!, $endDate: String!, $uids: [String!]!) {
+              viewer {
+                accounts(filter: { accountTag: $accountTag }) {
+                  streamMinutesViewedAdaptiveGroups(
+                    filter: { date_geq: $startDate, date_lt: $endDate, uid_in: $uids }
+                    limit: 10000
+                  ) {
+                    sum { minutesViewed }
+                    dimensions { uid date }
+                  }
+                }
+              }
+            }
+          `,
+          variables: {
+            accountTag: env.CLOUDFLARE_ACCOUNT_ID,
+            startDate,
+            endDate,
+            uids: uids.slice(i, i + UID_BATCH_SIZE),
+          },
+        }),
       });
 
       const data = await response.json() as any;
-
-      // Abort on any API failure. Without this, an error response yields zero
-      // minutes for every event and the write-back below wipes real data.
       if (!response.ok || data.errors?.length || !data.data?.viewer?.accounts?.[0]) {
-        console.error('syncViewerHours: GraphQL failure, aborting run without writing:', response.status, JSON.stringify(data.errors));
-        return;
+        console.error('fetchViewerMinutesByDay: GraphQL failure:', response.status, JSON.stringify(data.errors));
+        return null;
       }
-      const groups = data.data.viewer.accounts[0].streamMinutesViewedAdaptiveGroups;
 
-      if (groups && groups.length > 0) {
-        for (const group of groups) {
-          const uid = group.dimensions?.uid;
-          const minutes = group.sum?.minutesViewed || 0;
-          if (uid && uidToEventId.has(uid)) {
-            const eventId = uidToEventId.get(uid)!;
-            eventMinutes.set(eventId, (eventMinutes.get(eventId) || 0) + minutes);
-          }
-        }
+      for (const group of data.data.viewer.accounts[0].streamMinutesViewedAdaptiveGroups || []) {
+        const uid = group.dimensions?.uid;
+        const day = group.dimensions?.date;
+        const minutes = Number(group.sum?.minutesViewed) || 0;
+        if (!uid || !day) continue;
+        if (!byUid.has(uid)) byUid.set(uid, new Map());
+        const days = byUid.get(uid)!;
+        days.set(day, (days.get(day) || 0) + minutes);
       }
+    } catch (err) {
+      console.error('fetchViewerMinutesByDay: request threw:', err);
+      return null;
     }
-
-    // Write back to each event (only if the value increased)
-    let updatedCount = 0;
-    for (const event of events) {
-      const totalMinutes = eventMinutes.get(event.id) || 0;
-      const hours = Math.round((totalMinutes / 60) * 10) / 10;
-      const currentHours = event.viewer_hours_consumed || 0;
-
-      // Monotonic: only ever raise the stored value. The 31-day GraphQL window
-      // slides forward, so a lower computed number means views aged out of the
-      // window, not that they were undone. Historic hours must never decrease.
-      // Test rows are the exception to the monotonic rule: their cap is "viewing in the last
-      // ~30 days", so the value must fall as old views leave the window. Otherwise one heavy
-      // month would lock the test page forever.
-      const shouldWrite = event.is_test ? hours !== currentHours : hours > currentHours;
-      if (shouldWrite) {
-        const { error: updateError } = await supabase
-          .from('events')
-          .update({ viewer_hours_consumed: hours })
-          .eq('id', event.id);
-
-        if (updateError) {
-          console.error(`syncViewerHours: failed to update ${event.slug}:`, updateError);
-        } else {
-          console.log(`📊 ${event.slug}: ${currentHours}h → ${hours}h`);
-          updatedCount++;
-        }
-      }
-    }
-
-    console.log(`syncViewerHours: checked ${events.length} events, updated ${updatedCount}`);
-  } catch (err) {
-    console.error('syncViewerHours: GraphQL request failed:', err);
   }
+
+  return { byUid, requests };
+}
+
+/** Utility: 'YYYY-MM-DD' for a UTC timestamp (ms). */
+function utcDay(ms: number): string {
+  return new Date(ms).toISOString().split('T')[0];
+}
+
+/** Utility: The recording uids stored on an event (handles a JSON-string column defensively). */
+function eventRecordingUids(event: { recordings?: any }): string[] {
+  const raw = event.recordings || [];
+  const recs: any[] = typeof raw === 'string' ? JSON.parse(raw) : raw;
+  return recs.map((r: any) => r?.uid).filter(Boolean);
+}
+
+/** Utility: One per-day minutes series for an event, summed across all its recordings. */
+function eventMinutesByDay(event: { recordings?: any }, byUid: Map<string, Map<string, number>>): Map<string, number> {
+  const minutesByDay = new Map<string, number>();
+  for (const uid of eventRecordingUids(event)) {
+    for (const [day, minutes] of byUid.get(uid) || []) {
+      minutesByDay.set(day, (minutesByDay.get(day) || 0) + minutes);
+    }
+  }
+  return minutesByDay;
+}
+
+/**
+ * Utility: True while an event can still gain viewing minutes, plus VIEWER_SETTLE_DAYS after
+ * its replay expires so late-arriving analytics are banked. Test events always qualify
+ * (their recording list only ever holds what Cloudflare still has).
+ */
+function isViewerSyncEligible(event: { is_test?: boolean; recordings_expire_at?: string | null }): boolean {
+  if (event.is_test) return true;
+  if (!event.recordings_expire_at) return true; // live, or ended moments ago (not reconciled yet)
+  return Date.now() < new Date(event.recordings_expire_at).getTime() + (VIEWER_SETTLE_DAYS + 1) * DAY_MS;
+}
+
+/**
+ * Utility: An event's viewing usage, in MINUTES, from per-day analytics.
+ *
+ * Cloudflare can only be asked about the last 31 days, so lifetime usage is BANKED:
+ *   - Settled days (older than VIEWER_SETTLE_DAYS) are added once to viewer_minutes_banked,
+ *     and viewer_minutes_banked_through moves forward. A banked day is never counted again.
+ *   - Recent days are recounted on every call, since Cloudflare may still revise them.
+ *   - consumed = banked + recent days. It never decreases.
+ *
+ * First call for an event (banked_through NULL, i.e. created under the old 30-day sync):
+ * the bank starts at the larger of the settled days in the window and the old stored total
+ * minus the recent days, so nothing already counted is lost or double-counted.
+ *
+ * Test events are the exception: their cap is "viewing in the last 30 days", so consumed is
+ * simply the window total and is allowed to fall. Their bank is never touched.
+ */
+function computeViewerUsage(
+  event: {
+    is_test?: boolean;
+    viewer_minutes_consumed?: number | string | null;
+    viewer_minutes_banked?: number | string | null;
+    viewer_minutes_banked_through?: string | null;
+  },
+  minutesByDay: Map<string, number>
+): { consumed: number; banked: number; bankedThrough: string | null } {
+  const storedConsumed = Number(event.viewer_minutes_consumed) || 0;
+  const storedBanked = Number(event.viewer_minutes_banked) || 0;
+  const storedThrough = event.viewer_minutes_banked_through || null;
+
+  if (event.is_test) {
+    let windowTotal = 0;
+    for (const minutes of minutesByDay.values()) windowTotal += minutes;
+    return { consumed: Math.round(windowTotal * 100) / 100, banked: storedBanked, bankedThrough: storedThrough };
+  }
+
+  // Last settled day: days up to and including it can be banked.
+  const lastSettledDay = utcDay(Date.now() - (VIEWER_SETTLE_DAYS + 1) * DAY_MS);
+
+  let settled = 0; // settled days not yet in the bank
+  let recent = 0;  // unsettled days, recounted every time
+  for (const [day, minutes] of minutesByDay) {
+    if (storedThrough && day <= storedThrough) continue; // already banked
+    if (day <= lastSettledDay) settled += minutes;
+    else recent += minutes;
+  }
+
+  let banked: number;
+  if (storedThrough) {
+    banked = storedBanked + settled;
+  } else {
+    // Transition from the old sync: storedConsumed already includes everything it saw.
+    banked = Math.max(settled, storedConsumed - recent);
+  }
+  const bankedThrough = storedThrough && storedThrough > lastSettledDay ? storedThrough : lastSettledDay;
+
+  // Never report less than before (the old sync's peak can exceed what the window still shows).
+  // Rounded to 2 decimals so float noise never counts as a change worth writing.
+  const round2 = (n: number) => Math.round(n * 100) / 100;
+  const consumed = Math.max(round2(banked + recent), storedConsumed);
+  return { consumed, banked: round2(banked), bankedThrough };
+}
+
+/**
+ * Cron step: Sync viewing usage for every event that can still gain minutes.
+ * One analytics query per 50 recordings, then one write per event whose numbers changed.
+ * Writes stop at VIEWER_SYNC_BUDGET total calls; unwritten events are fully recomputed on
+ * the next run (their minutes are still inside the 31-day window), so nothing is lost.
+ * Any analytics failure aborts the run before writing anything.
+ */
+async function syncViewerHours(env: WorkerEnv, supabase: any): Promise<void> {
+  const { data: fetched, error } = await supabase
+    .from('events')
+    .select('id, slug, recordings, is_test, recordings_expire_at, viewer_minutes_consumed, viewer_minutes_banked, viewer_minutes_banked_through, updated_at')
+    // Test rows sit at status 'scheduled' between sessions, so the status filter alone would skip them
+    .or('status.in.(live,ready,ended),is_test.eq.true')
+    .not('recordings', 'is', null)
+    .order('updated_at', { ascending: true }); // stalest first, so a budget cut-off rotates fairly
+
+  if (error) {
+    console.error('syncViewerHours: failed to fetch events:', error);
+    return;
+  }
+
+  const events = (fetched || []).filter((e: any) => isViewerSyncEligible(e) && eventRecordingUids(e).length > 0);
+  if (events.length === 0) {
+    console.log('syncViewerHours: no events in sync window');
+    return;
+  }
+
+  const allUids: string[] = Array.from(new Set<string>(events.flatMap((e: any) => eventRecordingUids(e))));
+  const analytics = await fetchViewerMinutesByDay(allUids, env);
+  if (!analytics) {
+    console.error('syncViewerHours: analytics unavailable, aborting run without writing');
+    return;
+  }
+
+  let callsUsed = 1 + analytics.requests; // the select above + the GraphQL batches
+  let updatedCount = 0;
+
+  for (const event of events) {
+    const usage = computeViewerUsage(event, eventMinutesByDay(event, analytics.byUid));
+    const changed =
+      usage.consumed !== (Number(event.viewer_minutes_consumed) || 0) ||
+      usage.banked !== (Number(event.viewer_minutes_banked) || 0) ||
+      usage.bankedThrough !== (event.viewer_minutes_banked_through || null);
+    if (!changed) continue;
+
+    if (callsUsed >= VIEWER_SYNC_BUDGET) {
+      console.warn('syncViewerHours: call budget reached, remaining events sync next run');
+      break;
+    }
+    callsUsed++;
+
+    const { error: updateError } = await supabase
+      .from('events')
+      .update({
+        viewer_minutes_consumed: usage.consumed,
+        viewer_minutes_banked: usage.banked,
+        viewer_minutes_banked_through: usage.bankedThrough,
+      })
+      .eq('id', event.id);
+
+    if (updateError) {
+      console.error(`syncViewerHours: failed to update ${event.slug}:`, updateError);
+    } else {
+      console.log(`📊 ${event.slug}: ${Number(event.viewer_minutes_consumed) || 0} → ${usage.consumed} min`);
+      updatedCount++;
+    }
+  }
+
+  console.log(`syncViewerHours: checked ${events.length} events, updated ${updatedCount}`);
 }
 
 /**
@@ -2071,7 +2165,7 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
 
       const { data: event, error } = await supabase
         .from('events')
-        .select('id, user_id, title, scheduled_date, timezone, status, stream_state, live_input_id, recordings, merged_video_id, viewer_hours_consumed, viewer_hour_limit, stream_started_manually_at, last_stream_activity, qr_code_data_url, cover_image_url, is_test, is_demo')
+        .select('id, user_id, title, scheduled_date, timezone, status, stream_state, live_input_id, recordings, merged_video_id, viewer_minutes_consumed, viewer_hour_limit, stream_started_manually_at, last_stream_activity, qr_code_data_url, cover_image_url, is_test, is_demo, recordings_expire_at')
         .eq('slug', slug)
         .single();
 
@@ -2157,17 +2251,17 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
       // Fetch recordings from Cloudflare Stream if event is ready or ended
       let recordings = event.recordings || []; // Use stored recordings as fallback
       
-      // Recordings are deleted from Cloudflare ~30 days after creation, so past 32 days
-      // there is nothing to fetch. The watch page shows its EXPIRED state at day 30 anyway.
-      const eventRefDate = event.stream_started_manually_at || event.scheduled_date;
-      const eventAgeDays = (Date.now() - new Date(eventRefDate).getTime()) / (24 * 60 * 60 * 1000);
+      // Replay expiry is decided by events.recordings_expire_at (isReplayExpired), never by
+      // event age. Once expired, the server stops handing out recordings at all, so the
+      // watch page's EXPIRED screen is not the only thing standing between a guest and a replay.
+      const replayExpired = isReplayExpired(event);
 
       // Test rows have no meaningful age (scheduled_date is the row's creation time) and
       // Cloudflare's list only returns recordings that still exist, so refetch whenever
       // the test is not live.
       const refetchTestRecordings = !!event.is_test && event.status !== 'live' && !!event.live_input_id;
 
-      if (refetchTestRecordings || ((event.status === 'ready' || event.status === 'ended') && event.live_input_id && eventAgeDays <= 32)) {
+      if (refetchTestRecordings || ((event.status === 'ready' || event.status === 'ended') && event.live_input_id && !replayExpired)) {
         try {
           const recordingsResponse = await fetch(
             `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/stream/live_inputs/${event.live_input_id}/videos`,
@@ -2192,12 +2286,19 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
                 dash: video.playback?.dash
               }
             }));
+            // The Live Input only lists what was streamed. Keep stored entries marked
+            // source: 'upload' (future streamer uploads) so a refetch never drops them.
+            const uploads = (event.recordings || []).filter((r: any) => r?.source === 'upload');
+            recordings = [...recordings, ...uploads];
           }
         } catch (err) {
           console.error('Error fetching recordings:', err);
           // Fall back to stored recordings in database if fetch fails
         }
       }
+
+      // Expired replays expose nothing. Checked after the refetch so no path can re-add them.
+      if (replayExpired) recordings = [];
 
       // Test events expose only their newest recording. Older ones stay stored until
       // Cloudflare deletes them but are never linked from the watch page.
@@ -2208,12 +2309,12 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
       }
 
       // Check if viewer limit exceeded (only applies to live/replay viewing).
-      // viewer_hours_consumed is in HOURS; viewer_hour_limit is stored in MINUTES
-      // (MINUTES_PER_CREDIT per credit; pre-change events keep 12000). Convert before comparing.
-      const viewerHoursConsumed = Number(event.viewer_hours_consumed) || 0;
-      const viewerHourLimitMinutes = event.viewer_hour_limit || MINUTES_PER_CREDIT; // fallback for a null limit only
+      // Both sides in MINUTES: viewer_minutes_consumed (exact, from the sync) and
+      // viewer_hour_limit (MINUTES despite its name; MINUTES_PER_CREDIT per credit).
+      const viewerMinutesConsumed = Number(event.viewer_minutes_consumed) || 0;
+      const viewerLimitMinutes = event.viewer_hour_limit || MINUTES_PER_CREDIT; // fallback for a null limit only
       // Demo events (is_demo) are the marketing showcase and never hit the viewer limit.
-      const limitExceeded = !event.is_demo && viewerHoursConsumed >= viewerHourLimitMinutes / 60;
+      const limitExceeded = !event.is_demo && viewerMinutesConsumed >= viewerLimitMinutes;
 
       // Fetch photographer's logo from users table
       let logoUrl: string | null = null;
@@ -2232,6 +2333,7 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
         ...event,
         recordings, // Override with fresh data from Cloudflare
         limitExceeded,
+        replayExpired, // The watch page shows EXPIRED from this flag, not its own date math
         logo_url: logoUrl,
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -2733,11 +2835,10 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
 
       const slug = pathname.split('/')[3];
 
-      // Verify ownership. Status, age and test checks happen below.
-      // stream_started_manually_at / scheduled_date feed the 30-day replay window check.
+      // Verify ownership. Status, expiry and test checks happen below.
       const { data: event, error: eventError } = await supabase
         .from('events')
-        .select('id, slug, user_id, status, viewer_hour_limit, is_test, stream_started_manually_at, scheduled_date')
+        .select('id, slug, user_id, status, viewer_hour_limit, is_test, is_demo, recordings, recordings_expire_at')
         .eq('slug', slug)
         .single();
 
@@ -2767,16 +2868,19 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
         });
       }
 
-      // Ended events keep serving replay until Cloudflare deletes the recordings
-      // (deleteRecordingAfterDays: 30), so top-ups stay open for that window. Same
-      // reference date and 30-day cutoff as the watch page EXPIRED check and the
-      // dashboard's RECORDING_RETENTION_DAYS. Released slugs never reach this route:
-      // the released_<id> placeholder contains an underscore, which the route regex rejects.
+      // Ended events keep serving replay until recordings_expire_at (isReplayExpired), so
+      // top-ups stay open exactly as long as there is a replay to watch, including after a
+      // paid storage extension. Released slugs never reach this route: the released_<id>
+      // placeholder contains an underscore, which the route regex rejects.
       if (event.status === 'ended') {
-        const refDate = event.stream_started_manually_at || event.scheduled_date;
-        const ageDays = (Date.now() - new Date(refDate).getTime()) / (24 * 60 * 60 * 1000);
-        if (ageDays > 30) {
+        if (isReplayExpired(event)) {
           return new Response(JSON.stringify({ error: 'Recordings for this event have expired, so viewing hours can no longer be added' }), {
+            status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          });
+        }
+        // Ended without ever recording: no replay exists, so extra viewing hours buy nothing.
+        if (!event.recordings_expire_at && !(Array.isArray(event.recordings) && event.recordings.length > 0)) {
+          return new Response(JSON.stringify({ error: 'This event has no recordings, so viewing hours cannot be added' }), {
             status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' },
           });
         }
@@ -3130,7 +3234,7 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
       // Get event
       const { data: event, error: getError } = await supabase
         .from('events')
-        .select('id, user_id, live_input_id, recordings, viewer_hours_consumed, viewer_hour_limit, stream_started_manually_at, scheduled_date')
+        .select('id, user_id, recordings, is_test, recordings_expire_at, viewer_hour_limit, viewer_minutes_consumed, viewer_minutes_banked, viewer_minutes_banked_through')
         .eq('slug', slug)
         .single();
 
@@ -3141,103 +3245,24 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
         );
       }
 
-      // Past the sync window, Cloudflare's 31-day query can no longer see this
-      // event's views, so a live query would return 0. Serve the banked value
-      // from the database and skip the Cloudflare call entirely.
-      // Keep in sync with SYNC_MAX_AGE_DAYS in syncViewerHours().
-      const refDate = event.stream_started_manually_at || event.scheduled_date;
-      const ageDays = refDate ? (Date.now() - new Date(refDate).getTime()) / (24 * 60 * 60 * 1000) : 0;
-      if (ageDays > 32) {
-        return new Response(
-          JSON.stringify({
-            viewerHoursUsed: event.viewer_hours_consumed || 0,
-            frozen: true,
-          }),
-          { headers: { ...corsHeaders, 'Content-Type': 'application/json' } }
-        );
-      }
-
-      // Extract recording UIDs from stored recordings jsonb
-      // Guard: parse if Supabase returns a JSON string instead of a parsed array
-      const rawRecordings = event.recordings || [];
-      const parsedRecordings: any[] = typeof rawRecordings === 'string'
-        ? JSON.parse(rawRecordings)
-        : rawRecordings;
-      const recordingUids: string[] = parsedRecordings
-        .map((r: any) => r.uid)
-        .filter(Boolean);
-
-      // No recordings = no viewer hours possible, skip the API call
-      let viewerHours = 0;
-
-      if (recordingUids.length > 0) {
-        const today = new Date();
-        const thirtyDaysAgo = new Date(today.getTime() - 30 * 24 * 60 * 60 * 1000);
-        const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000);
-        const graphqlQuery = {
-          query: `
-            query StreamAnalytics($accountTag: String!, $startDate: String!, $endDate: String!, $uids: [String!]!) {
-              viewer {
-                accounts(filter: { accountTag: $accountTag }) {
-                  streamMinutesViewedAdaptiveGroups(
-                    filter: { 
-                      date_geq: $startDate, 
-                      date_lt: $endDate,
-                      uid_in: $uids
-                    }
-                    limit: 100
-                  ) {
-                    sum {
-                      minutesViewed
-                    }
-                  }
-                }
-              }
-            }
-          `,
-          variables: {
-            accountTag: env.CLOUDFLARE_ACCOUNT_ID,
-            startDate: thirtyDaysAgo.toISOString().split('T')[0],
-            endDate: tomorrow.toISOString().split('T')[0],  // date_lt is exclusive, so use tomorrow to include today's data
-            uids: recordingUids
-          }
-        };
-
-        const analyticsResponse = await fetch(
-          'https://api.cloudflare.com/client/v4/graphql',
-          {
-            method: 'POST',
-            headers: {
-              'Authorization': `Bearer ${env.CLOUDFLARE_STREAM_API_TOKEN}`,
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(graphqlQuery)
-          }
-        );
-
-        const analyticsData = await analyticsResponse.json() as any;
-            
-        // Sum minutesViewed across all recording UIDs
-        let viewerMinutes = 0;
-        const groups = analyticsData.data?.viewer?.accounts?.[0]?.streamMinutesViewedAdaptiveGroups;
-        if (groups && groups.length > 0) {
-          viewerMinutes = groups.reduce((total: number, group: any) => {
-            return total + (group.sum?.minutesViewed || 0);
-          }, 0);
+      // Live usage: the same banked math the 10-minute sync uses (computeViewerUsage),
+      // computed fresh but not saved. Falls back to the stored value when the event can no
+      // longer gain minutes, has no recordings, or Cloudflare's analytics are unavailable.
+      let consumedMinutes = Number(event.viewer_minutes_consumed) || 0;
+      const uids = eventRecordingUids(event);
+      if (uids.length > 0 && isViewerSyncEligible(event)) {
+        const analytics = await fetchViewerMinutesByDay(uids, env);
+        if (analytics) {
+          consumedMinutes = computeViewerUsage(event, eventMinutesByDay(event, analytics.byUid)).consumed;
         }
-        
-        viewerHours = Math.round((viewerMinutes / 60) * 10) / 10;
       }
 
-      // Inside the window, never report less than what the sync job has already
-      // banked. Also covers events with no recordings yet (live query = 0).
-      viewerHours = Math.max(viewerHours, event.viewer_hours_consumed || 0);
-
-      // viewer_hour_limit is stored in MINUTES (MINUTES_PER_CREDIT per credit); viewerHours is in hours.
-      const limitHours = event.viewer_hour_limit / 60;
-      const limitWarning = viewerHours >= limitHours
+      // Response stays in hours (1 decimal) for the dashboard. Limit math stays in minutes.
+      const viewerHours = Math.round((consumedMinutes / 60) * 10) / 10;
+      const limitMinutes = Number(event.viewer_hour_limit) || MINUTES_PER_CREDIT; // MINUTES despite the name
+      const limitWarning = consumedMinutes >= limitMinutes
         ? 'limit-exceeded'
-        : viewerHours >= limitHours * 0.8
+        : consumedMinutes >= limitMinutes * 0.8
         ? 'limit-warning'
         : undefined;
 
@@ -3892,6 +3917,22 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
         status: 200,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       });
+    }
+
+    // GET /api/config - Public business constants for the dashboard and watch page.
+    // Read-only, takes no input, exposes nothing private: the values are already
+    // stated publicly on the marketing site. Clients read this instead of keeping copies.
+    if (pathname === '/api/config' && method === 'GET') {
+      return new Response(
+        JSON.stringify({ defaultRetentionDays: DEFAULT_RETENTION_DAYS }),
+        {
+          headers: {
+            ...corsHeaders,
+            'Content-Type': 'application/json',
+            'Cache-Control': 'public, max-age=300', // 5 min: changes land quickly, few repeat calls
+          },
+        }
+      );
     }
 
     // GET /ping - Health check
