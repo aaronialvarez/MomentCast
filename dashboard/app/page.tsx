@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createClient } from '@/lib/supabase/client';
+import { isReplayExpired } from '@/lib/retention';
 
 interface User {
   id: string;
@@ -19,10 +20,12 @@ interface Event {
   status: 'scheduled' | 'live' | 'ended' | 'cancelled' | 'ready';
   stream_state: 'inactive' | 'active' | 'paused' | 'finalized';
   timezone?: string;
-  // Set once the slug has been released (90 days after the event, or at cancel time).
+  // Set once the slug has been released (90 days after the replay expires, or at cancel time).
   // The live slug column then holds a released_<id> placeholder, so never show it.
   slug_released_at?: string | null;
   original_slug?: string | null;
+  // When the replay is deleted (worker-owned). Drives the EXPIRED label. See lib/retention.ts.
+  recordings_expire_at?: string | null;
 }
 
 interface CreditTransaction {
@@ -274,7 +277,7 @@ export default function DashboardHome() {
     
     const { data: moreEndedEvents, error } = await supabase
       .from('events')
-      .select('id, slug, title, scheduled_date, status, stream_state, timezone, slug_released_at, original_slug')
+      .select('id, slug, title, scheduled_date, status, stream_state, timezone, slug_released_at, original_slug, recordings_expire_at')
       .eq('user_id', targetUserId)
       .eq('status', 'ended')
       .eq('is_test', false)
@@ -1068,7 +1071,7 @@ export default function DashboardHome() {
                             )}
                           </div>
                           <span className="px-3 py-1 rounded-full text-sm font-medium bg-[var(--mc-surface-2)] text-[var(--mc-text-3)]">
-                            {event.slug_released_at ? 'EXPIRED' : 'ENDED'}
+                            {event.slug_released_at || isReplayExpired(event) ? 'EXPIRED' : 'ENDED'}
                           </span>
                         </div>
                       </div>

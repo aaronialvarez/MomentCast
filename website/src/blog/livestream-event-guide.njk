@@ -105,7 +105,7 @@ ogType: article
               <tr><td>Streaming window</td><td>24 hours, starting when you press <span class="bg-ui">Start Streaming</span></td></tr>
               <tr><td>Start Streaming unlocks</td><td>2 hours before the scheduled start time</td></tr>
               <tr><td>Reconnect grace</td><td>Back within 5 minutes and the recording continues as one file</td></tr>
-              <tr><td>Replay and downloads</td><td>30 days, then permanently deleted</td></tr>
+              <tr><td>Replay and downloads</td><td>{{ retention.days }} days, then permanently deleted</td></tr>
               <tr><td>MP4 downloads</td><td>Recording parts up to 4 hours long</td></tr>
               <tr><td>Free test sessions</td><td>15 minutes each, 3 per day</td></tr>
               <tr><td>Encoder format</td><td>H.264 video and AAC audio over RTMPS</td></tr>
@@ -123,7 +123,7 @@ ogType: article
 
       <p>Each event includes 250 viewing hours. Viewing hours are the total time everyone spends watching, added together. Fifty guests watching a three-hour reception use 150 hours. An aunt rewatching the replay next week uses hours too. A typical wedding or quinceañera with a few dozen live guests fits comfortably in one credit, and if yours grows, you add another 250 hours for one more credit, even in the middle of the stream.</p>
 
-      <p>On event day you press <span class="bg-ui">Start Streaming</span> on the event page. That opens a 24-hour window. Inside it you can go live, stop, and go live again as many times as you want, all on the same link. When the window closes, the event becomes a replay that stays up for 30 days.</p>
+      <p>On event day you press <span class="bg-ui">Start Streaming</span> on the event page. That opens a 24-hour window. Inside it you can go live, stop, and go live again as many times as you want, all on the same link. When the window closes, the event becomes a replay that stays up for {{ retention.days }} days.</p>
 
       <p>No subscription. You pay per event, and testing is free.</p>
 
@@ -152,7 +152,7 @@ ogType: article
 
       <p>A test session runs up to 15 minutes. The timer starts when your encoder connects, not when you click Start, and the session stops on its own when time's up. You get three sessions per day, with a 15-minute wait after each one. If you click Start and then stop before anything connects, it doesn't count against you. Hit the daily limit and the page tells you, in your local time, when you can test again.</p>
 
-      <p>Test streams carry a "MomentCast Test Stream" label on the video so nobody mistakes one for the real thing. Your latest test recording stays on the test watch page as a replay for 30 days. Keep that link to yourself. Test playback is capped at 25 viewing hours per rolling 30 days, and a shared link burns through that quickly.</p>
+      <p>Test streams carry a "MomentCast Test Stream" label on the video so nobody mistakes one for the real thing. Your latest test recording stays on the test watch page as a replay for {{ retention.days }} days. Keep that link to yourself. Test playback is capped at 25 viewing hours per rolling 30 days, and a shared link burns through that quickly.</p>
 
       <h3>What to check during a test</h3>
       <ul>
@@ -330,7 +330,7 @@ ogType: article
 
       <p>At 100%, new visitors see a "Viewing Limit Reached" screen that asks them to contact the host, which is you. Anyone already watching keeps watching. A guest who refreshes their page counts as a new visitor, though.</p>
 
-      <p>To add more, click <span class="bg-ui">+ Add 250 Viewing Hours (1 credit)</span>. It works before the event, during it, and after it, right up until the recording is deleted at 30 days. Guests stuck on the limit screen get in automatically within a minute or two, without refreshing. Credits added after you press Start Streaming can't be refunded.</p>
+      <p>To add more, click <span class="bg-ui">+ Add 250 Viewing Hours (1 credit)</span>. It works before the event, during it, and after it, right up until the recording is deleted, {{ retention.days }} days after the event. Guests stuck on the limit screen get in automatically within a minute or two, without refreshing. Credits added after you press Start Streaming can't be refunded.</p>
 
       <p>My advice: top up at the 80% warning, not at the wall. Replays count toward the total, and a popular event can keep climbing for days after it ends.</p>
 
@@ -344,8 +344,8 @@ ogType: article
       <p>Each part appears about 5 minutes after the stream stops or drops, so you can grab the ceremony during dinner if you want.</p>
 
       <div class="bg-callout">
-        <p class="bg-callout-title">30 days, then gone</p>
-        <p>Recordings are permanently deleted 30 days after the event. The event page shows the exact date. Download everything you want to keep before then. After that, the watch page reads "Recording No Longer Available."</p>
+        <p class="bg-callout-title">{{ retention.days }} days, then gone</p>
+        <p>Recordings are permanently deleted {{ retention.days }} days after the event. The event page shows the exact date. Download everything you want to keep before then. After that, the watch page reads "Recording No Longer Available."</p>
       </div>
 
       <h3>Recordings over 4 hours</h3>
@@ -358,7 +358,7 @@ ogType: article
       <p>Easier still, avoid the 4-hour part in the first place. On a long event, stop your encoder for more than 5 minutes somewhere before the 4-hour mark. Dinner works. That splits the recording into two parts, each short enough to download normally.</p>
 
       <h3>What happens to the link</h3>
-      <p>The link keeps showing the replay for 30 days. At 90 days it's released, and it reads "Event Not Found" until someone creates a new event with the same title.</p>
+      <p>The link keeps showing the replay for {{ retention.days }} days. {{ retention.slugCooldownDays }} days after the replay expires, the link is released, and it reads "Event Not Found" until someone creates a new event with the same title.</p>
 
 
       <!-- ================================================================== -->

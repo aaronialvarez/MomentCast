@@ -134,7 +134,7 @@ ogType: article
 
     <p>If the host took breaks, the recording comes in parts. They play in order on their own, and the top of the video shows where you are, like <span class="hw-screen">Video 1 of 3</span>. You can skip forward and back inside each part. When a new part starts, you may need to tap the speaker icon again. Once every part has played, refresh the page to watch from the beginning.</p>
 
-    <p>The replay stays up for 30 days after the event. After that the link shows <span class="hw-screen">Recording No Longer Available</span>.</p>
+    <p>The replay stays up for {{ retention.days }} days after the event. After that the link shows <span class="hw-screen">Recording No Longer Available</span>.</p>
 
 
     <h2 id="messages">Messages you might see</h2>
@@ -150,7 +150,7 @@ ogType: article
         <tr><td>Viewing Limit Reached</td><td>The event has used all the watching time the host set up. Let the person who sent you the link know. Once they add more time, the page lets you in on its own.</td></tr>
         <tr><td>Event Not Found</td><td>The link is incomplete or mistyped. Ask for it again, or copy the whole thing.</td></tr>
         <tr><td>This event has ended</td><td>The event is over and no recording was saved.</td></tr>
-        <tr><td>Recording No Longer Available</td><td>The replay was available for 30 days and that time has passed.</td></tr>
+        <tr><td>Recording No Longer Available</td><td>The replay was available for {{ retention.days }} days and that time has passed.</td></tr>
       </tbody>
     </table>
 

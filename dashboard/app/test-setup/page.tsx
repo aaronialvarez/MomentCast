@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
+import { retentionPhrase, useDefaultRetentionDays } from '@/lib/retention';
 
 interface TestEventData {
   eventId: string;
@@ -38,6 +39,7 @@ export default function TestSetupPage() {
 
   const [loading, setLoading] = useState(true);
   const [testEvent, setTestEvent] = useState<TestEventData | null>(null);
+  const defaultRetentionDays = useDefaultRetentionDays(); // from the worker's /api/config
   const [error, setError] = useState<string | null>(null);
   const [actionLoading, setActionLoading] = useState(false);
   const [copiedField, setCopiedField] = useState<string | null>(null);
@@ -347,7 +349,7 @@ export default function TestSetupPage() {
               Check your camera, audio, and streaming setup before a real event, no credit used.
               Works with any encoder that streams H.264/AAC over RTMPS.
               Sessions run up to 15 minutes once connected and auto-stop. Your latest test
-              recording stays on your test watch page for 30 days, then it is deleted
+              recording stays on your test watch page for {retentionPhrase(defaultRetentionDays)}, then it is deleted
               automatically. This is a gear check, not an archive, and test playback is
               limited to 25 viewing hours per rolling 30 days.{' '}
               {typeof testEvent?.sessionsRemainingToday === 'number' ? (

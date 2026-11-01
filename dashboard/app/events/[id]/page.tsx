@@ -4,6 +4,7 @@ import { memo, useEffect, useRef, useState } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
 import { getTimezoneOptions, resolveTimezone } from '@/lib/timezones';
+import { isReplayExpired, retentionPhrase, useDefaultRetentionDays } from '@/lib/retention';
 export const runtime = 'edge';
 
 interface Event {
@@ -23,26 +24,20 @@ interface Event {
   can_be_rescheduled: boolean;
   timezone?: string;
   viewer_hours_consumed?: number | string | null;
-  // Set once the slug is released (90 days after the event, or at cancel time).
+  // Set once the slug is released (90 days after the replay expires, or at cancel time).
   // The live slug column then holds a released_<id> placeholder.
   slug_released_at?: string | null;
   original_slug?: string | null;
+  // When every recording is deleted. Set and extended only by the worker; NULL until
+  // something has been recorded. See lib/retention.ts.
+  recordings_expire_at?: string | null;
+  is_demo?: boolean;
 }
-
-// Cloudflare deletes recordings 30 days after they are created (deleteRecordingAfterDays: 30).
-const RECORDING_RETENTION_DAYS = 30;
 
 // Viewing hours added per credit on a top-up. Display only: the worker's MINUTES_PER_CREDIT
 // sets the real value and returns the final message. Keep in sync with worker.ts,
 // app/create-event/page.tsx, and the marketing estimator.
 const HOURS_PER_CREDIT = 250;
-
-// Event age in days, using the same reference date as the worker:
-// stream start if the event streamed, otherwise the scheduled date.
-function eventAgeDays(e: { stream_started_manually_at?: string; scheduled_date: string }): number {
-  const ref = e.stream_started_manually_at || e.scheduled_date;
-  return (Date.now() - new Date(ref).getTime()) / (24 * 60 * 60 * 1000);
-}
 
 /**
  * CoverPreviewWithCrop — shows the cover image at its natural aspect ratio
@@ -116,6 +111,7 @@ export default function EventDetailPage() {
   );
 
   const [event, setEvent] = useState<Event | null>(null);
+  const defaultRetentionDays = useDefaultRetentionDays(); // for copy shown before anything is recorded
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<string | null>(null);
@@ -907,9 +903,9 @@ export default function EventDetailPage() {
     if (!event) return;
     if (!event.stream_credentials_revealed) return;
     if (event.status === 'cancelled') return;
-    // Recordings are deleted 30 days after the event, and a released slug no longer
-    // resolves on the worker, so skip the downloads calls entirely.
-    if (event.slug_released_at || eventAgeDays(event) > RECORDING_RETENTION_DAYS) return;
+    // Expired recordings are gone, and a released slug no longer resolves on the worker,
+    // so skip the downloads calls entirely.
+    if (event.slug_released_at || isReplayExpired(event)) return;
     setLoadingDownloads(true);
     fetchDownloadStatus()
       .then((recs) => {
@@ -966,13 +962,12 @@ export default function EventDetailPage() {
     );
   }
 
-  // Lifecycle: recordings expire 30 days after the event; the slug is released at 90 days
-  // (or immediately on cancel). Plain consts, no hooks, so this is safe after the early returns.
-  const recordingsExpired = eventAgeDays(event) > RECORDING_RETENTION_DAYS;
-  const recordingsExpireOn = new Date(
-    new Date(event.stream_started_manually_at || event.scheduled_date).getTime() +
-      RECORDING_RETENTION_DAYS * 24 * 60 * 60 * 1000
-  );
+  // Lifecycle: recordings expire on recordings_expire_at (worker-owned, may be extended);
+  // the slug is released 90 days after that (or immediately on cancel).
+  // recordingsExpireOn is null until something has been recorded. Plain consts, no hooks,
+  // so this is safe after the early returns.
+  const recordingsExpired = isReplayExpired(event);
+  const recordingsExpireOn = event.recordings_expire_at ? new Date(event.recordings_expire_at) : null;
   const formatDay = (d: Date) =>
     d.toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' });
 
@@ -1241,9 +1236,11 @@ export default function EventDetailPage() {
               <p className="text-[var(--mc-text-1)] font-medium mb-4">
                 {event.slug_released_at
                   ? "This event's watch page has been released"
-                  : recordingsExpired
+                  : recordingsExpired && recordingsExpireOn
                   ? `Recordings expired on ${formatDay(recordingsExpireOn)}`
-                  : `Recordings are available at the watch page until ${formatDay(recordingsExpireOn)}, then permanently deleted`}
+                  : recordingsExpireOn
+                  ? `Recordings are available at the watch page until ${formatDay(recordingsExpireOn)}, then permanently deleted`
+                  : `Recordings are kept for ${retentionPhrase(defaultRetentionDays)}, then permanently deleted`}
               </p>
               <a 
                 href={`https://go.momentcast.live/${event.slug}`}
@@ -1413,14 +1410,19 @@ export default function EventDetailPage() {
               MP4 files of your event recordings, for archiving or editing. Only you can see these.
             </p>
 
-            {/* Retention notice: before day 30 warn, after day 30 explain */}
-            {recordingsExpired ? (
+            {/* Retention notice: before expiry warn with the exact date, after expiry explain.
+                Before anything is recorded there is no date yet, so state the default length. */}
+            {recordingsExpired && recordingsExpireOn ? (
               <div className="bg-[var(--mc-surface-2)] rounded-lg p-4 text-sm text-[var(--mc-text-2)]">
-                Recordings expired on {formatDay(recordingsExpireOn)}. MomentCast keeps recordings for {RECORDING_RETENTION_DAYS} days after the event, then permanently deletes them.
+                Recordings expired on {formatDay(recordingsExpireOn)} and were permanently deleted.
               </div>
+            ) : recordingsExpireOn ? (
+              <p className="text-[var(--mc-text-3)] text-xs mb-4">
+                Recordings are permanently deleted on {formatDay(recordingsExpireOn)}. Download what you want to keep before then.
+              </p>
             ) : (
               <p className="text-[var(--mc-text-3)] text-xs mb-4">
-                Recordings are permanently deleted on or about {formatDay(recordingsExpireOn)}. Download what you want to keep before then.
+                Recordings are kept for {retentionPhrase(defaultRetentionDays)} after your event, then permanently deleted. Download what you want to keep before then.
               </p>
             )}
 
@@ -1542,7 +1544,7 @@ export default function EventDetailPage() {
                                 <p className="text-xs text-[var(--mc-text-1)] leading-relaxed">
                                   <span className="font-semibold">This recording exceeds 4 hours.</span>{' '}
                                   Recordings over 4 hours can't be downloaded as MP4. Replay stays on your
-                                  watch page until {formatDay(recordingsExpireOn)}. To keep a copy, save it
+                                  watch page until {recordingsExpireOn ? formatDay(recordingsExpireOn) : 'it expires'}. To keep a copy, save it
                                   with FFmpeg, a free command-line tool, before then.
                                 </p>
 
@@ -1687,8 +1689,8 @@ export default function EventDetailPage() {
             )}
 
             {/* Add More Hours / Buy Credits button. Ended events keep it until recordings
-                expire (30 days), matching the worker's add-credits guard, so a busy replay
-                can still be topped up. recordingsExpired is computed above the return. */}
+                expire (recordings_expire_at), matching the worker's add-credits guard, so a busy
+                replay can still be topped up. recordingsExpired is computed above the return. */}
             {event.status !== 'cancelled' && !event.slug_released_at && !(event.status === 'ended' && recordingsExpired) && (
               <div className="mt-4">
                 {userCredits !== null && userCredits < 1 ? (

@@ -4,6 +4,7 @@ import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
 import { getBrowserTimezone, getTimezoneOptions, resolveTimezone } from '@/lib/timezones';
+import { retentionPhrase, useDefaultRetentionDays } from '@/lib/retention';
 
 export default function CreateEventPage() {
   const router = useRouter();
@@ -18,6 +19,7 @@ export default function CreateEventPage() {
   // added to the list when it is missing, so a streamer outside the list still defaults to
   // the right zone. It is set in an effect so the server and client render the same first paint.
   const [browserTz, setBrowserTz] = useState<string | null>(null);
+  const defaultRetentionDays = useDefaultRetentionDays(); // from the worker's /api/config
   const [timezone, setTimezone] = useState('America/Los_Angeles');
   const timezoneOptions = getTimezoneOptions(browserTz);
 
@@ -356,9 +358,9 @@ export default function CreateEventPage() {
               1 credit will be deducted. Fully refundable if you cancel before streaming starts.
             </p>
 
-            {/* Retention notice: Cloudflare deletes recordings 30 days after they are created */}
+            {/* Retention notice. The length comes from the worker (DEFAULT_RETENTION_DAYS). */}
             <p className="text-xs text-[var(--mc-text-3)] text-center mt-2">
-              Recordings are kept for 30 days after your event, then permanently deleted. Download your MP4s from the event page before then.
+              Recordings are kept for {retentionPhrase(defaultRetentionDays)} after your event, then permanently deleted. Download your MP4s from the event page before then.
             </p>
           </form>
         )}

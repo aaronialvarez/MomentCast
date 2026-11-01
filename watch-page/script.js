@@ -359,15 +359,10 @@ function determinePlaybackMode() {
   }
   
   if (isEnded) {
-    // Check if event ended more than 30 days ago
-    const endedAt = eventData.stream_started_manually_at 
-      ? new Date(eventData.stream_started_manually_at) 
-      : scheduledDate;
-    const daysSinceEvent = (now - endedAt) / (1000 * 60 * 60 * 24);
-    
-    // Demo events (is_demo, set manually in the DB) use uploaded videos that never
-    // auto-delete, so they skip the 30-day expiry and replay indefinitely.
-    if (daysSinceEvent > 30 && !eventData.is_demo) {
+    // The worker decides expiry from events.recordings_expire_at (which paid storage
+    // extensions can push later) and stops sending recordings once it passes.
+    // Demo events never expire; the worker handles that too.
+    if (eventData.replayExpired) {
       return 'EXPIRED';
     }
     
@@ -452,8 +447,7 @@ function updateUI() {
 
   // Determine what mode we should be in
   const newMode = determinePlaybackMode();
-  console.log('Mode:', newMode, '| days since event:',
-    (new Date() - new Date(eventData.stream_started_manually_at)) / (1000 * 60 * 60 * 24),
+  console.log('Mode:', newMode, '| replay expires:', eventData.recordings_expire_at,
     '| hasRecordings:', eventData.recordings?.length,
     '| status:', eventData.status
   );
@@ -1361,7 +1355,12 @@ function showCountdownState(mode) {
     EXPIRED: {
       date: `Held on ${heldOn}`,
       title: 'Recording No Longer Available',
-      subtitle: 'Recordings are kept for 30 days after the event.'
+      // Date comes from the worker (recordings_expire_at), shown in the event's timezone.
+      subtitle: eventData.recordings_expire_at
+        ? `The replay was available until ${new Date(eventData.recordings_expire_at).toLocaleDateString('en-US', {
+            year: 'numeric', month: 'long', day: 'numeric', timeZone: tz
+          })}.`
+        : 'The replay is no longer available.'
     }
   };
 

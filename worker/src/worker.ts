@@ -3924,7 +3924,7 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
     // stated publicly on the marketing site. Clients read this instead of keeping copies.
     if (pathname === '/api/config' && method === 'GET') {
       return new Response(
-        JSON.stringify({ defaultRetentionDays: DEFAULT_RETENTION_DAYS }),
+        JSON.stringify({ defaultRetentionDays: DEFAULT_RETENTION_DAYS, slugCooldownDays: SLUG_COOLDOWN_DAYS }),
         {
           headers: {
             ...corsHeaders,
