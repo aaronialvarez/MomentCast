@@ -105,7 +105,8 @@ ogType: article
               <tr><td>Streaming window</td><td>24 hours, starting when you press <span class="bg-ui">Start Streaming</span></td></tr>
               <tr><td>Start Streaming unlocks</td><td>2 hours before the scheduled start time</td></tr>
               <tr><td>Reconnect grace</td><td>Back within 5 minutes and the recording continues as one file</td></tr>
-              <tr><td>Replay and downloads</td><td>{{ retention.days }} days, then permanently deleted</td></tr>
+              <tr><td>Replay and downloads</td><td>{{ retention.days }} days, then permanently deleted, unless you extend storage</td></tr>
+              <tr><td>Longer replay</td><td>1 credit keeps {{ retention.hoursPerCreditMonth }} recorded hours online one more month, up to {{ retention.maxExtensionMonths }} extra months</td></tr>
               <tr><td>MP4 downloads</td><td>Recording parts up to 4 hours long</td></tr>
               <tr><td>Free test sessions</td><td>15 minutes each, 3 per day</td></tr>
               <tr><td>Encoder format</td><td>H.264 video and AAC audio over RTMPS</td></tr>
@@ -123,7 +124,7 @@ ogType: article
 
       <p>Each event includes 250 viewing hours. Viewing hours are the total time everyone spends watching, added together. Fifty guests watching a three-hour reception use 150 hours. An aunt rewatching the replay next week uses hours too. A typical wedding or quinceañera with a few dozen live guests fits comfortably in one credit, and if yours grows, you add another 250 hours for one more credit, even in the middle of the stream.</p>
 
-      <p>On event day you press <span class="bg-ui">Start Streaming</span> on the event page. That opens a 24-hour window. Inside it you can go live, stop, and go live again as many times as you want, all on the same link. When the window closes, the event becomes a replay that stays up for {{ retention.days }} days.</p>
+      <p>On event day you press <span class="bg-ui">Start Streaming</span> on the event page. That opens a 24-hour window. Inside it you can go live, stop, and go live again as many times as you want, all on the same link. When the window closes, the event becomes a replay that stays up for {{ retention.days }} days, or longer if you extend it.</p>
 
       <p>No subscription. You pay per event, and testing is free.</p>
 
@@ -330,7 +331,7 @@ ogType: article
 
       <p>At 100%, new visitors see a "Viewing Limit Reached" screen that asks them to contact the host, which is you. Anyone already watching keeps watching. A guest who refreshes their page counts as a new visitor, though.</p>
 
-      <p>To add more, click <span class="bg-ui">+ Add 250 Viewing Hours (1 credit)</span>. It works before the event, during it, and after it, right up until the recording is deleted, {{ retention.days }} days after the event. Guests stuck on the limit screen get in automatically within a minute or two, without refreshing. Credits added after you press Start Streaming can't be refunded.</p>
+      <p>To add more, click <span class="bg-ui">+ Add 250 Viewing Hours (1 credit)</span>. It works before the event, during it, and after it, right up until the replay expires. Guests stuck on the limit screen get in automatically within a minute or two, without refreshing. Credits added after you press Start Streaming can't be refunded.</p>
 
       <p>My advice: top up at the 80% warning, not at the wall. Replays count toward the total, and a popular event can keep climbing for days after it ends.</p>
 
@@ -345,8 +346,13 @@ ogType: article
 
       <div class="bg-callout">
         <p class="bg-callout-title">{{ retention.days }} days, then gone</p>
-        <p>Recordings are permanently deleted {{ retention.days }} days after the event. The event page shows the exact date. Download everything you want to keep before then. After that, the watch page reads "Recording No Longer Available."</p>
+        <p>Recordings are permanently deleted {{ retention.days }} days after the event unless you extend storage. The event page shows the exact date. Download everything you want to keep before then. After that, the watch page reads "Recording No Longer Available."</p>
       </div>
+
+      <h3>Keep the replay online longer</h3>
+      <p>Sometimes the family wants the link to keep working for months, not weeks. Once the event ends, the event page shows a <span class="bg-ui">Keep This Replay Longer</span> card. Each credit keeps {{ retention.hoursPerCreditMonth }} recorded hours online for one more month, so shorter events stretch further. A 2-hour service gets {{ retention.monthsPerCredit(2) }} months from one credit. An 8-hour wedding day gets {{ retention.monthsPerCredit(8) }} months per credit.</p>
+
+      <p>The card shows the new date for each option before you pay. You can extend more than once, up to {{ retention.maxExtensionMonths }} extra months per event, and the replay, the link and your downloads all stay up until the new date. Storage credits can't be refunded, and a replay that has already expired can't be brought back, so decide before the date on the event page.</p>
 
       <h3>Recordings over 4 hours</h3>
       <p>A single recording part longer than 4 hours can't be turned into an MP4. The replay still plays on the watch page. For those parts, the event page shows a copy-ready FFmpeg command instead of a Download button. FFmpeg is a free tool from <a href="https://ffmpeg.org/download.html" target="_blank" rel="noopener">ffmpeg.org</a>. Install it, open Terminal on a Mac or Command Prompt on Windows, paste the command, and press Enter. It looks like this:</p>
@@ -358,7 +364,7 @@ ogType: article
       <p>Easier still, avoid the 4-hour part in the first place. On a long event, stop your encoder for more than 5 minutes somewhere before the 4-hour mark. Dinner works. That splits the recording into two parts, each short enough to download normally.</p>
 
       <h3>What happens to the link</h3>
-      <p>The link keeps showing the replay for {{ retention.days }} days. {{ retention.slugCooldownDays }} days after the replay expires, the link is released, and it reads "Event Not Found" until someone creates a new event with the same title.</p>
+      <p>The link keeps showing the replay until it expires: {{ retention.days }} days, or longer if you extended storage. {{ retention.slugCooldownDays }} days after the replay expires, the link is released, and it reads "Event Not Found" until someone creates a new event with the same title.</p>
 
 
       <!-- ================================================================== -->

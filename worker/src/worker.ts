@@ -4306,6 +4306,7 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
           defaultRetentionDays: DEFAULT_RETENTION_DAYS,
           slugCooldownDays: SLUG_COOLDOWN_DAYS,
           maxStorageExtensionMonths: MAX_STORAGE_EXTENSION_MONTHS,
+          recordedHoursPerCreditMonth: RECORDED_MINUTES_PER_CREDIT_MONTH / 60,
         }),
         {
           headers: {
