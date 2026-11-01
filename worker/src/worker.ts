@@ -58,9 +58,10 @@ const STREAM_PLAYBACK_HOST = 'customer-r5vkm8rpzqtdt9cz.cloudflarestream.com';
 // expires, but gets no new one; a copied link stops working after the same window.
 const PLAYBACK_TOKEN_TTL_HOURS = 12;
 
-// Live playback locking for REAL events. Off until live tokens are verified on a test
-// event (test events always lock). Flip to true to lock every new real event's live input.
-const LOCK_LIVE_PLAYBACK_FOR_REAL_EVENTS = false;
+// Live playback locking for REAL events (test events always lock). Verified on a test event
+// 2026-10-31. Applied when a live input is created and again at Start Streaming, so inputs
+// created before locking existed are covered. Set to false to unlock new sessions.
+const LOCK_LIVE_PLAYBACK_FOR_REAL_EVENTS = true;
 
 const ALLOWED_PLAYBACK_ORIGINS = [
   'momentcast.live',
@@ -2660,6 +2661,25 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
           status: 200,
           headers: corsHeaders,
         });
+      }
+
+      // Lock live playback before the first stream (signed tokens only). Covers live inputs
+      // created before locking existed. Best effort: if it fails, the event still streams,
+      // just unlocked, so it must never block Start Streaming.
+      if (event.live_input_id) {
+        try {
+          const lockRes = await fetch(
+            `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/stream/live_inputs/${event.live_input_id}`,
+            {
+              method: 'PUT',
+              headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${env.CLOUDFLARE_STREAM_API_TOKEN}` },
+              body: JSON.stringify({ recording: liveInputRecordingSettings('automatic', LOCK_LIVE_PLAYBACK_FOR_REAL_EVENTS) }),
+            }
+          );
+          if (!lockRes.ok) console.error(`Live input lock failed for ${event.slug} (${lockRes.status}):`, await lockRes.text());
+        } catch (err) {
+          console.error(`Live input lock threw for ${event.slug}:`, err);
+        }
       }
 
       // Mark credentials as revealed and record start time
