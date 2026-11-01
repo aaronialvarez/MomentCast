@@ -58,6 +58,10 @@ const STREAM_PLAYBACK_HOST = 'customer-r5vkm8rpzqtdt9cz.cloudflarestream.com';
 // expires, but gets no new one; a copied link stops working after the same window.
 const PLAYBACK_TOKEN_TTL_HOURS = 12;
 
+// Live playback locking for REAL events. Off until live tokens are verified on a test
+// event (test events always lock). Flip to true to lock every new real event's live input.
+const LOCK_LIVE_PLAYBACK_FOR_REAL_EVENTS = false;
+
 const ALLOWED_PLAYBACK_ORIGINS = [
   'momentcast.live',
   '*.momentcast.live',
@@ -115,6 +119,55 @@ async function lockDownInputRecordings(liveInputId: string, slug: string, env: W
     }
   } catch (err) {
     console.error('lockDownInputRecordings failed:', err);
+  }
+}
+
+/**
+ * Utility: Save recordings Cloudflare has for an event's Live Input that the event's own list
+ * is missing (e.g. one that finalized after the last disconnect was saved). Append-only and
+ * keyed by uid, so it never drops or duplicates entries. Saving changes events.recordings, so
+ * the flag_retention_sync trigger flags the event and the retention reconcile gives the new
+ * recording the event's expiry date and locks it.
+ * videos: the Live Input's listing when the caller already fetched it (saves a request).
+ * Returns how many recordings were added. Never throws.
+ */
+async function saveMissingRecordings(
+  event: { id: string; slug: string; live_input_id: string },
+  env: WorkerEnv,
+  supabase: any,
+  videos?: any[]
+): Promise<number> {
+  try {
+    if (!videos) {
+      const res = await fetch(
+        `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/stream/live_inputs/${event.live_input_id}/videos`,
+        { headers: { 'Authorization': `Bearer ${env.CLOUDFLARE_STREAM_API_TOKEN}` } }
+      );
+      const data = await res.json() as any;
+      if (!data.success || !Array.isArray(data.result)) return 0;
+      videos = data.result;
+    }
+
+    // Re-read the stored list right before writing, so a webhook update is not overwritten
+    const { data: current } = await supabase.from('events').select('recordings').eq('id', event.id).single();
+    const stored: any[] = current?.recordings || [];
+    const known = new Set(stored.map((r: any) => r?.uid));
+    const missing = (videos || [])
+      .filter((v: any) => v?.uid && !known.has(v.uid))
+      .map((v: any) => ({ uid: v.uid, status: v.status?.state, duration: v.duration, created: v.created, thumbnail: v.thumbnail }));
+    if (missing.length === 0) return 0;
+
+    const { error } = await supabase.from('events').update({ recordings: [...stored, ...missing] }).eq('id', event.id);
+    if (error) {
+      console.error(`saveMissingRecordings: failed to save for ${event.slug}:`, error);
+      return 0;
+    }
+    await lockDownRecordings(missing.map((r: any) => r.uid), event.slug, env); // allowed sites + share link
+    console.log(`📼 ${event.slug}: saved ${missing.length} recording(s) missing from the event list`);
+    return missing.length;
+  } catch (err) {
+    console.error(`saveMissingRecordings: ${event.slug} threw:`, err);
+    return 0;
   }
 }
 
@@ -230,7 +283,7 @@ async function reconcileRecordingRetention(
   let subrequests = 0;
   let pending = false;
   let latestMs = event.recordings_expire_at ? new Date(event.recordings_expire_at).getTime() : 0;
-  const finalized: { uid: string; currentMs: number | null }[] = [];
+  const finalized: { uid: string; currentMs: number | null; locked: boolean }[] = [];
 
   // 1-2. Read every recording and find the latest date in play
   for (const uid of uids) {
@@ -251,7 +304,7 @@ async function reconcileRecordingRetention(
       // Unstamped videos (e.g. uploads) default to created + DEFAULT_RETENTION_DAYS
       const stampMs = currentMs ?? new Date(video.created).getTime() + DEFAULT_RETENTION_DAYS * DAY_MS;
       latestMs = Math.max(latestMs, stampMs);
-      finalized.push({ uid, currentMs });
+      finalized.push({ uid, currentMs, locked: video.requireSignedURLs === true });
     } catch (err) {
       console.error(`reconcileRecordingRetention: read ${uid} for ${event.slug} threw:`, err);
       pending = true;
@@ -265,16 +318,16 @@ async function reconcileRecordingRetention(
   const targetMs = Math.ceil(latestMs / 60000) * 60000;
   const target = new Date(targetMs).toISOString();
 
-  // 3. Bring every finalized recording to the target
+  // 3. Bring every finalized recording to the target date, locked (signed tokens only)
   for (const v of finalized) {
-    if (v.currentMs === targetMs) continue;                    // already in sync
+    if (v.currentMs === targetMs && v.locked) continue;        // already in sync
     if (subrequests >= budget) { pending = true; break; }
     subrequests++;
     try {
       const res = await fetch(`${base}/${v.uid}`, {
         method: 'POST',
         headers: { ...auth, 'Content-Type': 'application/json' },
-        body: JSON.stringify({ scheduledDeletion: target }),
+        body: JSON.stringify({ scheduledDeletion: target, requireSignedURLs: true }),
       });
       if (!res.ok) {
         console.error(`reconcileRecordingRetention: set ${v.uid} for ${event.slug} failed (${res.status}):`, await res.text());
@@ -526,6 +579,22 @@ async function verifyJWT(token: string, env: WorkerEnv): Promise<string | null> 
 /**
  * Utility: Create Cloudflare Live Input
  */
+/**
+ * Utility: The recording block for a Live Input. One definition for creating and updating
+ * inputs, so an update can never silently reset a setting (Cloudflare treats a missing
+ * mode as 'off', which also disables live playback).
+ * requireSignedURLs: true locks live playback and every recording made from the input,
+ * so they only play through signed tokens (see signPlaybackToken).
+ */
+function liveInputRecordingSettings(mode: 'automatic' | 'off', requireSignedURLs: boolean) {
+  return {
+    mode,
+    timeoutSeconds: 300, // 5 minutes - allows quick reconnects, finalizes recordings after disconnect
+    requireSignedURLs,
+    allowedOrigins: ALLOWED_PLAYBACK_ORIGINS,
+  };
+}
+
 async function createCloudflareStreamLiveInput(
   title: string,
   env: WorkerEnv,
@@ -543,12 +612,7 @@ async function createCloudflareStreamLiveInput(
         body: JSON.stringify({
           meta: { name: title },
           //  preferLowLatency: true,
-          recording: {
-            mode: recordingMode,
-            timeoutSeconds: 300,  // 5 minutes - allows quick reconnects, finalizes recordings after disconnect
-            requireSignedURLs: false,
-            allowedOrigins: ALLOWED_PLAYBACK_ORIGINS,
-          },
+          recording: liveInputRecordingSettings(recordingMode, LOCK_LIVE_PLAYBACK_FOR_REAL_EVENTS),
           // Safety net only. reconcileRecordingRetention() sets each recording's real
           // date from events.recordings_expire_at once the recording finalizes.
           deleteRecordingAfterDays: DEFAULT_RETENTION_DAYS,
@@ -2156,7 +2220,9 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
           {
             method: 'PUT',
             headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${env.CLOUDFLARE_STREAM_API_TOKEN}` },
-            body: JSON.stringify({ enabled: true }),
+            // Test events always lock live playback and their recordings (signed tokens only).
+            // Sent on every start, so test inputs created before locking existed get it too.
+            body: JSON.stringify({ enabled: true, recording: liveInputRecordingSettings('automatic', true) }),
           }
         );
       } catch (err) {
@@ -2370,6 +2436,14 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
                 dash: video.playback?.dash
               }
             }));
+            // Save any recording the event's list is missing (rare, so this rarely writes).
+            // Runs after the response so guests never wait on it. Test events manage their own list.
+            if (!event.is_test && !event.is_demo) {
+              ctx.waitUntil(saveMissingRecordings(
+                { id: event.id, slug: slug as string, live_input_id: event.live_input_id },
+                env, supabase, recordingsData.result
+              ));
+            }
             // The Live Input only lists what was streamed. Keep stored entries marked
             // source: 'upload' (future streamer uploads) so a refetch never drops them.
             const uploads = (event.recordings || []).filter((r: any) => r?.source === 'upload');
@@ -4186,6 +4260,10 @@ export default {
       console.log(`Found ${expiredEvents.length} ended events with Live Inputs`);
 
       for (const evt of expiredEvents) {
+        // Last chance to list this input's recordings: save any the event is missing
+        // before the Live Input (and with it Cloudflare's per-input listing) is deleted.
+        await saveMissingRecordings(evt, env, supabase);
+
         try {
           const deleteResponse = await fetch(
             `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/stream/live_inputs/${evt.live_input_id}`,

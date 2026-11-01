@@ -1099,7 +1099,7 @@ function showSequentialPlayback() {
   
   if (videoId) {
     // Start muted to guarantee autoplay; overlay prompts user to unmute on first video
-    const embedUrl = `https://customer-r5vkm8rpzqtdt9cz.cloudflarestream.com/${videoId}/iframe?autoplay=true&muted=true`;
+    const embedUrl = streamUrl(videoId, 'iframe?autoplay=true&muted=true');
     
     // Only set src if it's different (prevents reload on poll)
     if (streamEl.src !== embedUrl) {
