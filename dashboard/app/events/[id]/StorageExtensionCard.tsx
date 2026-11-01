@@ -82,8 +82,10 @@ export default function StorageExtensionCard({
 
     const ok = window.confirm(
       `Spend ${option.credits} credit${option.credits !== 1 ? 's' : ''} to keep this replay online until ` +
-      `${formatDay(new Date(option.newExpiry))} (+${option.months} month${option.months !== 1 ? 's' : ''})? ` +
-      `Storage credits are non-refundable.`
+      `${formatDay(new Date(option.newExpiry))} (+${option.months} month${option.months !== 1 ? 's' : ''})?\n\n` +
+      `This doesn't add viewing hours` +
+      (hoursLeft !== null && viewerHours ? ` (${hoursLeft.toFixed(1)} of ${viewerHours.limit} hours left).` : '.') +
+      ` Storage credits are non-refundable.`
     );
     if (!ok) return;
 
@@ -107,6 +109,8 @@ export default function StorageExtensionCard({
   }
 
   const cheapest = quote?.eligible ? quote.options[0]?.credits ?? null : null;
+  // Viewing hours left on the event, shown in the notice and the purchase confirmation
+  const hoursLeft = viewerHours ? Math.max(0, viewerHours.limit - viewerHours.used) : null;
   const cannotAfford = userCredits !== null && cheapest !== null && userCredits < cheapest;
 
   return (
@@ -197,7 +201,7 @@ export default function StorageExtensionCard({
               </p>
             ) : (
               <p className="text-xs text-[var(--mc-text-3)] mt-3">
-                Extending storage doesn&apos;t add viewing hours: {Math.max(0, viewerHours.limit - viewerHours.used).toFixed(1)} of{' '}
+                Extending storage doesn&apos;t add viewing hours: {hoursLeft?.toFixed(1)} of{' '}
                 {viewerHours.limit} hours left. Add more anytime from Viewing Hours on this page.
               </p>
             )
