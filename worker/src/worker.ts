@@ -19,6 +19,14 @@ const TEST_EVENT_VIEWER_LIMIT_MINUTES = 1500;
 const MINUTES_PER_CREDIT = 15000;
 const HOURS_PER_CREDIT = MINUTES_PER_CREDIT / 60;
 
+// Checkout consent checkbox (shown on every credit purchase). Single source for the wording:
+// keep it matched to the refund clause on momentcast.live/terms and the dashboard danger zone.
+// Stripe needs the Terms of service URL set in Dashboard > Settings > Business > Public details.
+const TERMS_URL = 'https://momentcast.live/terms';
+const CHECKOUT_TERMS_MESSAGE =
+  `I agree to the [Terms of Service](${TERMS_URL}). I request immediate access to credits ` +
+  `and understand credits are non-refundable once purchased, except where required by law.`;
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 // Default replay retention, in days, for every new recording. Single source for:
@@ -3669,6 +3677,10 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
           // the Customer keeps only the email we created it with (no name, no country).
           'customer_update[name]': 'auto',
           'customer_update[address]': 'auto',
+          // Required checkbox before Pay enables. Acceptance is stored on the session
+          // as consent.terms_of_service = 'accepted'.
+          'consent_collection[terms_of_service]': 'required',
+          'custom_text[terms_of_service_acceptance][message]': CHECKOUT_TERMS_MESSAGE,
         });
 
         console.log(`Stripe checkout request: key prefix=${env.STRIPE_SECRET_KEY.substring(0, 8)}..., tier=${body.tierId}`);
@@ -3843,6 +3855,7 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
           stripe_session_id: stripeSessionId,
         });
 
+        console.log(`Stripe consent for ${stripeSessionId}: terms_of_service=${session.consent?.terms_of_service ?? 'none'}`);
         const amountPaid = (session.amount_total / 100).toFixed(2);
         console.log(`✅ Stripe: +${credits} credits for user ${userId} (${tierId}, $${amountPaid}), balance now ${newBalance}`);
       }

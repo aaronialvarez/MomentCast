@@ -1160,7 +1160,7 @@ export default function DashboardHome() {
             Watch links stop working and this cannot be undone. Payment records are kept as
             required for tax purposes.
             {user && user.credits > 0 &&
-              ` You have ${user.credits} unused credit${user.credits === 1 ? '' : 's'}, which are forfeited when you delete. To request a refund first, email support@momentcast.live before deleting.`}
+              ` You have ${user.credits} credit${user.credits === 1 ? '' : 's'}, which ${user.credits === 1 ? 'is' : 'are'} forfeited when you delete. Credits are non-refundable except where required by law.`}
           </p>
 
           {!showDeleteAccount ? (
