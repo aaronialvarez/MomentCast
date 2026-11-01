@@ -32,6 +32,15 @@ const DEFAULT_RETENTION_DAYS = 30;
 // allows 50 subrequests per invocation, and Supabase calls count toward that too.
 const RETENTION_RECONCILE_BUDGET = 30;
 
+// Paid replay storage extensions (see storageExtensionQuote):
+// Most extra storage one event can buy, across all purchases, in months.
+const MAX_STORAGE_EXTENSION_MONTHS = 12;
+// One credit keeps this many RECORDED minutes online for one extra month (24 hours).
+// months = floor(credits x RECORDED_MINUTES_PER_CREDIT_MONTH / recorded minutes), capped.
+const RECORDED_MINUTES_PER_CREDIT_MONTH = 24 * 60;
+// Purchases close this close to expiry, so the new date reaches Cloudflare in time.
+const STORAGE_EXTENSION_MIN_LEAD_MINUTES = 60;
+
 // Viewer-usage sync (see computeViewerUsage):
 // Cloudflare's widest analytics query, in days (its limit is 31).
 const ANALYTICS_WINDOW_DAYS = 31;
@@ -341,6 +350,95 @@ async function reconcileRecordingRetention(
   }
 
   return { done: !pending, expiresAt: target, subrequests };
+}
+
+/** Utility: Add calendar months in UTC, clamping to month end (Jan 31 + 1 = Feb 28), like Postgres. */
+function addMonthsUtc(ms: number, months: number): Date {
+  const d = new Date(ms);
+  const day = d.getUTCDate();
+  d.setUTCDate(1);
+  d.setUTCMonth(d.getUTCMonth() + months);
+  const daysInMonth = new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).getUTCDate();
+  d.setUTCDate(Math.min(day, daysInMonth));
+  return d;
+}
+
+type StorageExtensionQuote =
+  | { eligible: false; reason: string }
+  | {
+      eligible: true;
+      recordedMinutes: number;
+      currentExpiry: string;
+      extendedMonths: number;
+      remainingMonths: number;
+      maxMonths: number;
+      options: { credits: number; months: number; newExpiry: string }[];
+    };
+
+/**
+ * Utility: What a storage extension can buy for one event. The single source for the dashboard
+ * preview AND the purchase, so the page never shows a price the worker would not honor.
+ * Recorded minutes come from Cloudflare at call time (stored durations can be stale).
+ * Options list only credit counts that buy more months than a smaller count; the cap
+ * (MAX_STORAGE_EXTENSION_MONTHS across all purchases) ends the list.
+ */
+async function storageExtensionQuote(
+  event: { slug: string; status: string; is_test?: boolean; is_demo?: boolean; slug_released_at?: string | null;
+           recordings?: any; recordings_expire_at?: string | null; recordings_extended_months?: number | null },
+  env: WorkerEnv
+): Promise<StorageExtensionQuote> {
+  if (event.is_test || event.is_demo) return { eligible: false, reason: 'Storage extensions are not available for this event.' };
+  if (event.status !== 'ended') return { eligible: false, reason: 'Storage can be extended once the event has ended.' };
+  if (event.slug_released_at || !event.recordings_expire_at || isReplayExpired(event)) {
+    return { eligible: false, reason: 'This replay has expired.' };
+  }
+  const expiryMs = new Date(event.recordings_expire_at).getTime();
+  if (expiryMs < Date.now() + STORAGE_EXTENSION_MIN_LEAD_MINUTES * 60 * 1000) {
+    return { eligible: false, reason: 'This replay expires too soon to extend.' };
+  }
+  const extendedMonths = Number(event.recordings_extended_months) || 0;
+  const remainingMonths = MAX_STORAGE_EXTENSION_MONTHS - extendedMonths;
+  if (remainingMonths <= 0) {
+    return { eligible: false, reason: `This replay already has the maximum extra storage (${MAX_STORAGE_EXTENSION_MONTHS} months).` };
+  }
+
+  // Total recorded minutes, from Cloudflare. Every recording must be finished processing.
+  let recordedSeconds = 0;
+  let found = 0;
+  for (const uid of eventRecordingUids(event)) {
+    const res = await fetch(
+      `https://api.cloudflare.com/client/v4/accounts/${env.CLOUDFLARE_ACCOUNT_ID}/stream/${uid}`,
+      { headers: { 'Authorization': `Bearer ${env.CLOUDFLARE_STREAM_API_TOKEN}` } }
+    );
+    if (res.status === 404) continue; // deleted
+    const data = await res.json() as any;
+    if (!res.ok || !data.success) throw new Error(`Cloudflare lookup failed for ${uid} (${res.status})`);
+    const state = data.result?.status?.state;
+    if (state === 'error') continue; // never playable, costs no storage
+    if (state !== 'ready') return { eligible: false, reason: 'Recordings are still processing. Try again in a few minutes.' };
+    recordedSeconds += Math.max(0, Number(data.result?.duration) || 0);
+    found++;
+  }
+  if (found === 0 || recordedSeconds <= 0) return { eligible: false, reason: 'This event has no recordings to keep.' };
+
+  const recordedMinutes = recordedSeconds / 60;
+  const options: { credits: number; months: number; newExpiry: string }[] = [];
+  for (let credits = 1; credits <= 100; credits++) {
+    const months = Math.min(remainingMonths, Math.floor((credits * RECORDED_MINUTES_PER_CREDIT_MONTH) / recordedMinutes));
+    if (months < 1 || months <= (options[options.length - 1]?.months ?? 0)) continue;
+    options.push({ credits, months, newExpiry: addMonthsUtc(expiryMs, months).toISOString() });
+    if (months === remainingMonths) break;
+  }
+
+  return {
+    eligible: true,
+    recordedMinutes: Math.round(recordedMinutes * 10) / 10,
+    currentExpiry: event.recordings_expire_at,
+    extendedMonths,
+    remainingMonths,
+    maxMonths: MAX_STORAGE_EXTENSION_MONTHS,
+    options,
+  };
 }
 
 /**
@@ -4115,12 +4213,100 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
       });
     }
 
+    // GET/POST /api/events/:slug/storage-extension - Paid replay storage extension (owner only).
+    // GET returns the quote (what each credit count buys). POST { credits } buys one option:
+    // the worker recomputes the quote, so the client's numbers are never trusted, then the
+    // database applies it atomically (extend_replay_storage) and Cloudflare gets the new date.
+    if (pathname.match(/^\/api\/events\/[a-z0-9-]+\/storage-extension$/) && (method === 'GET' || method === 'POST')) {
+      const json = (body: unknown, status = 200) =>
+        new Response(JSON.stringify(body), { status, headers: { ...corsHeaders, 'Content-Type': 'application/json' } });
+
+      const token = extractToken(request.headers.get('authorization'));
+      if (!token) return json({ error: 'Unauthorized' }, 401);
+      const userId = await verifyJWT(token, env);
+      if (!userId) return json({ error: 'Invalid token' }, 401);
+
+      const slug = pathname.split('/')[3];
+      const { data: event } = await supabase
+        .from('events')
+        .select('id, slug, user_id, status, is_test, is_demo, slug_released_at, recordings, recordings_expire_at, recordings_extended_months')
+        .eq('slug', slug)
+        .single();
+      if (!event || event.user_id !== userId) return json({ error: 'Event not found' }, 404);
+
+      let quote: StorageExtensionQuote;
+      try {
+        quote = await storageExtensionQuote(event, env);
+      } catch (err) {
+        console.error(`storage-extension quote failed for ${slug}:`, err);
+        return json({ error: 'Could not check the recordings right now. Please try again.' }, 502);
+      }
+
+      if (method === 'GET') return json(quote);
+
+      // POST: buy the option matching the requested credit count
+      if (!quote.eligible) return json({ error: quote.reason }, 400);
+      let body: any = {};
+      try { body = await request.json(); } catch { /* handled below */ }
+      const option = quote.options.find(o => o.credits === Number(body?.credits));
+      if (!option) return json({ error: 'That option is no longer available. Refresh and try again.' }, 400);
+
+      const { data: rows, error: rpcError } = await supabase.rpc('extend_replay_storage', {
+        p_user_id: userId,
+        p_event_id: event.id,
+        p_credits: option.credits,
+        p_months: option.months,
+        p_max_months: MAX_STORAGE_EXTENSION_MONTHS,
+        p_min_lead_minutes: STORAGE_EXTENSION_MIN_LEAD_MINUTES,
+      });
+      if (rpcError) {
+        const messages: Record<string, [string, number]> = {
+          insufficient_credits: ['You don\'t have enough credits for this option.', 402],
+          over_cap: [`This replay already has the maximum extra storage (${MAX_STORAGE_EXTENSION_MONTHS} months).`, 400],
+          too_late: ['This replay expires too soon to extend.', 400],
+          not_eligible: ['Storage can\'t be extended for this event.', 400],
+          not_found: ['Event not found', 404],
+        };
+        const key = Object.keys(messages).find(k => rpcError.message?.includes(k));
+        if (!key) console.error(`extend_replay_storage failed for ${slug}:`, rpcError);
+        const [message, status] = key ? messages[key] : ['Could not extend storage. No credits were used.', 500];
+        return json({ error: message }, status);
+      }
+      const result = Array.isArray(rows) ? rows[0] : rows;
+
+      // Push the new date to Cloudflare now. The flag set by the purchase makes the 5-minute
+      // cron retry anything this misses, so a failure here is logged, not returned.
+      try {
+        await reconcileRecordingRetention(
+          { slug: event.slug, recordings: event.recordings, recordings_expire_at: result.new_expires_at },
+          env,
+          RETENTION_RECONCILE_BUDGET
+        );
+      } catch (err) {
+        console.error(`storage-extension: immediate reconcile failed for ${slug}:`, err);
+      }
+
+      console.log(`🗄️ ${slug}: +${option.months} months for ${option.credits} credit(s), replay until ${result.new_expires_at}`);
+      return json({
+        success: true,
+        monthsAdded: option.months,
+        creditsSpent: option.credits,
+        newExpiry: result.new_expires_at,
+        extendedMonths: result.total_extended_months,
+        creditsRemaining: result.credits_remaining,
+      });
+    }
+
     // GET /api/config - Public business constants for the dashboard and watch page.
     // Read-only, takes no input, exposes nothing private: the values are already
     // stated publicly on the marketing site. Clients read this instead of keeping copies.
     if (pathname === '/api/config' && method === 'GET') {
       return new Response(
-        JSON.stringify({ defaultRetentionDays: DEFAULT_RETENTION_DAYS, slugCooldownDays: SLUG_COOLDOWN_DAYS }),
+        JSON.stringify({
+          defaultRetentionDays: DEFAULT_RETENTION_DAYS,
+          slugCooldownDays: SLUG_COOLDOWN_DAYS,
+          maxStorageExtensionMonths: MAX_STORAGE_EXTENSION_MONTHS,
+        }),
         {
           headers: {
             ...corsHeaders,

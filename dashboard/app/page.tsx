@@ -854,6 +854,7 @@ export default function DashboardHome() {
                           {tx.type === 'purchase' && 'Purchase'}
                           {tx.type === 'refund' && 'Refund'}
                           {tx.type === 'test_deduction' && 'Test deduction'}
+                          {tx.type === 'storage_extension' && 'Replay storage extended'}
                         </td>
                         <td className="px-4 py-3 text-[var(--mc-text-2)]">
                           {tx.events?.title || '—'}

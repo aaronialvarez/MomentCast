@@ -5,6 +5,7 @@ import { useRouter, useParams } from 'next/navigation';
 import { createBrowserClient } from '@supabase/ssr';
 import { getTimezoneOptions, resolveTimezone } from '@/lib/timezones';
 import { isReplayExpired, retentionPhrase, useDefaultRetentionDays } from '@/lib/retention';
+import StorageExtensionCard from './StorageExtensionCard';
 export const runtime = 'edge';
 
 interface Event {
@@ -1399,6 +1400,21 @@ export default function EventDetailPage() {
             individual segments are finalized by Cloudflare, not just when the event
             has ended. Streamer-only: viewers never see these download links.
             MP4 generation is auto-prepared on dashboard open (see useEffect above). */}
+        {/* Paid storage extension: ended events whose replay is still online.
+            The card loads its own quote from the worker; see StorageExtensionCard.tsx. */}
+        {event.status === 'ended' && !event.slug_released_at && !recordingsExpired && (
+          <StorageExtensionCard
+            slug={event.slug}
+            supabase={supabase}
+            userCredits={userCredits}
+            formatDay={formatDay}
+            onExtended={({ newExpiry, creditsRemaining }) => {
+              setEvent(prev => (prev ? { ...prev, recordings_expire_at: newExpiry } : prev));
+              setUserCredits(creditsRemaining);
+            }}
+          />
+        )}
+
         {event.stream_credentials_revealed && event.status !== 'cancelled' && (
           <div className="bg-[var(--mc-surface)] rounded-lg p-6 mb-6 border border-[var(--mc-border)]">
             <h3 className="text-lg font-semibold mb-1">Download Recordings</h3>
