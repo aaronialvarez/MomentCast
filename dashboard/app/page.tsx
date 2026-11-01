@@ -135,7 +135,7 @@ export default function DashboardHome() {
   const CREDIT_TIERS = [
     { id: 'single',  credits: 1,  regular: 30.00, promo: 30.00, label: '1 Credit' },
     { id: 'pro5',    credits: 5,  regular: 150.00, promo: 140.00, label: '5 Credits', badge: 'Most Popular' },
-    { id: 'studio10', credits: 10, regular: 300.00, promo: 260.00, label: '10 Credits', badge: 'Best Value' },
+    { id: 'studio15', credits: 15, regular: 450.00, promo: 390.00, label: '15 Credits', badge: 'Best Value' },
   ] as const;
 
   useEffect(() => {

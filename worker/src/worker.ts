@@ -3589,13 +3589,13 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
     /**
      * POST /api/checkout — Create a Stripe Checkout Session (authenticated)
      * 
-     * Body: { tierId: 'single' | 'pro5' | 'studio10' }
+     * Body: { tierId: 'single' | 'pro5' | 'studio15' }
      * Returns: { url: string } — the Stripe Checkout URL to redirect the user to
      * 
      * Pricing tiers (must match CREDIT_TIERS on the dashboard home page.tsx):
      *   single:   1 credit  @ $30.00
      *   pro5:     5 credits @ $140.00  ($28.00/ea)
-     *   studio10: 10 credits @ $260.00 ($26.00/ea)
+     *   studio15: 15 credits @ $390.00 ($26.00/ea)
      */
     if (pathname === '/api/checkout' && method === 'POST') {
       const token = extractToken(request.headers.get('authorization'));
@@ -3623,7 +3623,7 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
       const tiers: Record<string, { credits: number; priceInCents: number; label: string }> = {
         single:   { credits: 1,  priceInCents: 3000,  label: 'MomentCast Credit' },
         pro5:     { credits: 5,  priceInCents: 14000, label: '5 MomentCast Credits' },
-        studio10: { credits: 10, priceInCents: 26000, label: '10 MomentCast Credits' },
+        studio15: { credits: 15, priceInCents: 39000, label: '15 MomentCast Credits' },
       };
 
       const tier = tiers[body.tierId];
