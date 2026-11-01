@@ -124,4 +124,8 @@ export interface WorkerEnv {
   MAILERLITE_API_KEY: string;
   MAILERLITE_GROUP_ID: string;
   SUPABASE_WEBHOOK_SECRET: string; // shared secret sent by the Supabase Database Webhook
+  // Cloudflare Stream signing key (created once via POST /stream/keys, stored with
+  // `wrangler secret put`). Used to sign playback tokens locally; see signPlaybackToken().
+  STREAM_SIGNING_KEY_ID: string;
+  STREAM_SIGNING_JWK: string; // base64-encoded JWK, exactly as Cloudflare returned it
 }

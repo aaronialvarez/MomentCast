@@ -160,6 +160,7 @@ export default function EventDetailPage() {
     tooLongForMp4: boolean;
     status: 'not_started' | 'inprogress' | 'ready' | 'unsupported' | 'error' | 'unknown';
     url: string | null;
+    hlsUrl?: string | null; // signed HLS address, sent only for recordings too long for MP4
     filename: string;
     percentComplete: number;
   };
@@ -169,15 +170,10 @@ export default function EventDetailPage() {
   const [downloadError, setDownloadError] = useState<string | null>(null);
   // Minutes-to-hours helper (DB stores minutes, UI shows hours)
   const toHours = (minutes: number) => Math.round((minutes / 60) * 10) / 10;
-  // Cloudflare Stream customer subdomain. Tied to the MomentCast Cloudflare
-  // account, not the streamer's account. Stable for the lifetime of this
-  // Cloudflare account and safe to hardcode (every playback URL already exposes
-  // it publicly). Only update if the platform migrates to a different CF account.
-  const CF_CUSTOMER_SUBDOMAIN = 'customer-r5vkm8rpzqtdt9cz';
-  const buildHlsUrl = (uid: string) =>
-    `https://${CF_CUSTOMER_SUBDOMAIN}.cloudflarestream.com/${uid}/manifest/video.m3u8`;
-  const buildFfmpegCmd = (uid: string, filename: string) =>
-    `ffmpeg -i "${buildHlsUrl(uid)}" -c copy "${filename}"`;
+  // The worker sends a signed HLS address (rec.hlsUrl) for recordings too long for MP4.
+  // Signed addresses expire after a few hours; reloading the page fetches fresh ones.
+  const buildFfmpegCmd = (hlsUrl: string, filename: string) =>
+    `ffmpeg -i "${hlsUrl}" -c copy "${filename}"`;
   // Same shared list as the create-event page; also includes this event's own zone if it
   // is not in the curated list, so the reschedule dropdown never loses the current value.
   const timezoneOptions = getTimezoneOptions(event?.timezone ?? null);
@@ -1545,7 +1541,8 @@ export default function EventDetailPage() {
                                   <span className="font-semibold">This recording exceeds 4 hours.</span>{' '}
                                   Recordings over 4 hours can't be downloaded as MP4. Replay stays on your
                                   watch page until {recordingsExpireOn ? formatDay(recordingsExpireOn) : 'it expires'}. To keep a copy, save it
-                                  with FFmpeg, a free command-line tool, before then.
+                                  with FFmpeg, a free command-line tool, before then. The links below expire
+                                  after a few hours; reload this page for fresh ones.
                                 </p>
 
                                 {/* HLS URL */}
@@ -1555,11 +1552,11 @@ export default function EventDetailPage() {
                                     <input
                                       type="text"
                                       readOnly
-                                      value={buildHlsUrl(rec.uid)}
+                                      value={rec.hlsUrl ?? ''}
                                       className="flex-1 px-3 py-1.5 bg-[var(--mc-surface)] border border-[var(--mc-border)] rounded font-mono text-xs text-[var(--mc-text-1)] min-w-0"
                                     />
                                     <button
-                                      onClick={() => copyToClipboard(buildHlsUrl(rec.uid), `hls-${rec.uid}`)}
+                                      onClick={() => copyToClipboard(rec.hlsUrl ?? '', `hls-${rec.uid}`)}
                                       className="px-3 py-1.5 bg-[var(--mc-gold)] hover:bg-[var(--mc-gold-hover)] text-white text-xs font-semibold rounded transition-colors whitespace-nowrap"
                                     >
                                       {copied === `hls-${rec.uid}` ? 'Copied!' : 'Copy URL'}
@@ -1574,11 +1571,11 @@ export default function EventDetailPage() {
                                     <input
                                       type="text"
                                       readOnly
-                                      value={buildFfmpegCmd(rec.uid, rec.filename)}
+                                      value={buildFfmpegCmd(rec.hlsUrl ?? '', rec.filename)}
                                       className="flex-1 px-3 py-1.5 bg-[var(--mc-surface)] border border-[var(--mc-border)] rounded font-mono text-xs text-[var(--mc-text-1)] min-w-0"
                                     />
                                     <button
-                                      onClick={() => copyToClipboard(buildFfmpegCmd(rec.uid, rec.filename), `ffmpeg-${rec.uid}`)}
+                                      onClick={() => copyToClipboard(buildFfmpegCmd(rec.hlsUrl ?? '', rec.filename), `ffmpeg-${rec.uid}`)}
                                       className="px-3 py-1.5 bg-[var(--mc-gold)] hover:bg-[var(--mc-gold-hover)] text-white text-xs font-semibold rounded transition-colors whitespace-nowrap"
                                     >
                                       {copied === `ffmpeg-${rec.uid}` ? 'Copied!' : 'Copy Command'}

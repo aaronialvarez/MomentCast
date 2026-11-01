@@ -48,6 +48,16 @@ const DAILY_JOB_HOUR_UTC = 3;
 // or the player will refuse to load on that domain.
 // app.momentcast.live is included in case the dashboard previews streams.
 // Wildcards match subdomains only, never the apex, so both forms are listed.
+// Cloudflare Stream playback host for this account. Every player, manifest and download
+// URL is built on it. The watch page receives it in each event response (playbackHost),
+// so it is defined only here.
+const STREAM_PLAYBACK_HOST = 'customer-r5vkm8rpzqtdt9cz.cloudflarestream.com';
+
+// How long a signed playback token works, in hours (Cloudflare's maximum is 24).
+// A guest admitted before the viewer limit is hit keeps watching until their token
+// expires, but gets no new one; a copied link stops working after the same window.
+const PLAYBACK_TOKEN_TTL_HOURS = 12;
+
 const ALLOWED_PLAYBACK_ORIGINS = [
   'momentcast.live',
   '*.momentcast.live',
@@ -106,6 +116,80 @@ async function lockDownInputRecordings(liveInputId: string, slug: string, env: W
   } catch (err) {
     console.error('lockDownInputRecordings failed:', err);
   }
+}
+
+// ==================== Signed playback tokens ====================
+// Tokens are RS256 JWTs signed locally with the account's Stream signing key, so issuing
+// one costs no API call and has no rate limit. A token stands in for a video or live
+// input ID in any playback URL (iframe, manifest, thumbnail, MP4 download).
+
+let streamSigningKey: Promise<CryptoKey> | null = null;
+
+function getStreamSigningKey(env: WorkerEnv): Promise<CryptoKey> {
+  if (!streamSigningKey) {
+    // Cloudflare returns the JWK base64-encoded; it is stored exactly as returned.
+    const jwk = JSON.parse(atob(env.STREAM_SIGNING_JWK));
+    streamSigningKey = crypto.subtle.importKey(
+      'jwk', jwk, { name: 'RSASSA-PKCS1-v1_5', hash: 'SHA-256' }, false, ['sign']
+    );
+    // A failed import is not cached, so the next request retries
+    streamSigningKey.catch(() => { streamSigningKey = null; });
+  }
+  return streamSigningKey;
+}
+
+function base64Url(data: ArrayBuffer | string): string {
+  const bytes = typeof data === 'string' ? new TextEncoder().encode(data) : new Uint8Array(data);
+  let binary = '';
+  for (const b of bytes) binary += String.fromCharCode(b);
+  return btoa(binary).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+
+// Tokens are reused within an isolate while they still have most of their life left, which
+// keeps RSA signing (CPU) off the hot path when many guests poll the same event.
+const playbackTokenCache = new Map<string, { token: string; expMs: number }>();
+const PLAYBACK_TOKEN_REUSE_MS = 60 * 60 * 1000; // reuse while at most 1 hour old
+
+/**
+ * Utility: A signed playback token for one video or live input ID.
+ * downloadable: true is required for MP4 download URLs (owner-only, see the downloads routes).
+ */
+async function signPlaybackToken(id: string, env: WorkerEnv, opts: { downloadable?: boolean } = {}): Promise<string> {
+  const cacheKey = `${id}:${opts.downloadable ? 'dl' : 'view'}`;
+  const ttlMs = PLAYBACK_TOKEN_TTL_HOURS * 60 * 60 * 1000;
+  const cached = playbackTokenCache.get(cacheKey);
+  if (cached && cached.expMs - Date.now() > ttlMs - PLAYBACK_TOKEN_REUSE_MS) return cached.token;
+
+  const nowSec = Math.floor(Date.now() / 1000);
+  const expSec = nowSec + PLAYBACK_TOKEN_TTL_HOURS * 60 * 60;
+  const header = { alg: 'RS256', kid: env.STREAM_SIGNING_KEY_ID };
+  const payload: Record<string, unknown> = { sub: id, kid: env.STREAM_SIGNING_KEY_ID, exp: expSec };
+  if (opts.downloadable) payload.downloadable = true;
+
+  const unsigned = `${base64Url(JSON.stringify(header))}.${base64Url(JSON.stringify(payload))}`;
+  const signature = await crypto.subtle.sign(
+    'RSASSA-PKCS1-v1_5', await getStreamSigningKey(env), new TextEncoder().encode(unsigned)
+  );
+  const token = `${unsigned}.${base64Url(signature)}`;
+
+  playbackTokenCache.set(cacheKey, { token, expMs: expSec * 1000 });
+  return token;
+}
+
+/** Utility: Signed HLS address for a recording (the FFmpeg fallback for 4h+ recordings). */
+async function signedHlsUrl(uid: string, env: WorkerEnv): Promise<string> {
+  return `https://${STREAM_PLAYBACK_HOST}/${await signPlaybackToken(uid, env)}/manifest/video.m3u8`;
+}
+
+/**
+ * Utility: The owner's MP4 link for a recording. Cloudflare's URL carries the plain video ID;
+ * a downloadable token replaces it so the link keeps working once the video is locked.
+ * ?filename= makes the browser save a clean name instead of "default.mp4".
+ */
+async function signedDownloadUrl(baseUrl: string | undefined, uid: string, filename: string, env: WorkerEnv): Promise<string | null> {
+  if (!baseUrl) return null;
+  const token = await signPlaybackToken(uid, env, { downloadable: true });
+  return `${baseUrl.replace(`/${uid}/`, `/${token}/`)}?filename=${encodeURIComponent(filename)}`;
 }
 
 /**
@@ -2316,6 +2400,25 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
       // Demo events (is_demo) are the marketing showcase and never hit the viewer limit.
       const limitExceeded = !event.is_demo && viewerMinutesConsumed >= viewerLimitMinutes;
 
+      // Signed playback tokens, keyed by video / live input ID. Issued only to guests the
+      // viewer limit admits; replayExpired already emptied the recordings. A guest admitted
+      // earlier keeps the tokens they already have (the watch page remembers them) until
+      // they expire after PLAYBACK_TOKEN_TTL_HOURS, but receives no new ones.
+      const playbackTokens: Record<string, string> = {};
+      if (!limitExceeded) {
+        const ids = [
+          ...(event.live_input_id ? [event.live_input_id as string] : []),
+          ...(Array.isArray(recordings) ? recordings.map((r: any) => r?.uid).filter(Boolean) : []),
+        ];
+        try {
+          for (const id of ids) playbackTokens[id] = await signPlaybackToken(id, env);
+        } catch (err) {
+          // Unsigned videos still play from their plain ID, so a signing failure must not
+          // take the page down. Locked videos fail to play until signing works again.
+          console.error('Failed to sign playback tokens:', err);
+        }
+      }
+
       // Fetch photographer's logo from users table
       let logoUrl: string | null = null;
       try {
@@ -2334,6 +2437,8 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
         recordings, // Override with fresh data from Cloudflare
         limitExceeded,
         replayExpired, // The watch page shows EXPIRED from this flag, not its own date math
+        playbackHost: STREAM_PLAYBACK_HOST,
+        playbackTokens,
         logo_url: logoUrl,
       }), {
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
@@ -3683,6 +3788,7 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
             tooLongForMp4: true,
             status: 'unsupported',
             url: null,
+            hlsUrl: await signedHlsUrl(video.uid, env), // FFmpeg fallback; works for PLAYBACK_TOKEN_TTL_HOURS
             filename,
             percentComplete: 0,
           };
@@ -3699,11 +3805,8 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
           const downloadsData = await downloadsResponse.json() as any;
           const def = downloadsData.result?.default;
 
-          // Append ?filename= so the browser saves a clean name instead of "default.mp4"
-          const baseUrl = def?.url as string | undefined;
-          const urlWithFilename = baseUrl
-            ? `${baseUrl}?filename=${encodeURIComponent(filename)}`
-            : null;
+          // Signed MP4 link with a clean filename (see signedDownloadUrl)
+          const urlWithFilename = await signedDownloadUrl(def?.url, video.uid, filename, env);
 
           return {
             uid: video.uid,
@@ -3834,6 +3937,7 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
             tooLongForMp4: true,
             status: 'unsupported',
             url: null,
+            hlsUrl: await signedHlsUrl(video.uid, env), // FFmpeg fallback; works for PLAYBACK_TOKEN_TTL_HOURS
             filename,
             percentComplete: 0,
           };
@@ -3881,10 +3985,8 @@ async function handleRequest(request: Request, env: WorkerEnv, ctx: ExecutionCon
             };
           }
 
-          const baseUrl = def.url as string | undefined;
-          const urlWithFilename = baseUrl
-            ? `${baseUrl}?filename=${encodeURIComponent(filename)}`
-            : null;
+          // Signed MP4 link with a clean filename (see signedDownloadUrl)
+          const urlWithFilename = await signedDownloadUrl(def.url, video.uid, filename, env);
 
           return {
             uid: video.uid,

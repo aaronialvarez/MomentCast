@@ -19,6 +19,23 @@ let currentRecordingIndex = 0;
 let playbackMode = null; // 'LIVE', 'LAST_RECORDING', 'SEQUENTIAL', 'WAITING'
 let liveSessionId = 0;   // Incremented each time we enter LIVE mode to force iframe reload
 
+// ==================== Signed playback ====================
+// Every event response carries playbackHost and playbackTokens (video / live input ID ->
+// signed token). Tokens are remembered across polls: a guest admitted before the viewer
+// limit was hit keeps playing on the tokens they already hold until those expire, even
+// though later polls send none. IDs without a token (e.g. the demo's public uploads)
+// fall back to the plain ID.
+const playbackTokens = new Map();
+
+function rememberPlaybackTokens(tokens) {
+  for (const [id, token] of Object.entries(tokens || {})) playbackTokens.set(id, token);
+}
+
+// Full Cloudflare Stream URL for an ID, e.g. streamUrl(uid, 'manifest/video.m3u8')
+function streamUrl(id, path) {
+  return `https://${eventData.playbackHost}/${playbackTokens.get(id) || id}/${path}`;
+}
+
 // ==================== Aspect-ratio detection (vertical video support) ====================
 // Reads the HLS master manifest and returns the dimensions of the largest rendition.
 // The largest is used because small rungs are rounded (426x240 is not exact 16:9).
@@ -28,7 +45,7 @@ let aspectRequestId = 0; // Guards against a slow response landing after the pla
 
 async function detectStreamAspect(uid) {
   try {
-    const res = await fetch(`https://customer-r5vkm8rpzqtdt9cz.cloudflarestream.com/${uid}/manifest/video.m3u8`);
+    const res = await fetch(streamUrl(uid, 'manifest/video.m3u8'));
     if (!res.ok) return null;
     const text = await res.text();
     let best = null;
@@ -92,6 +109,7 @@ async function fetchEvent() {
     }
     
     eventData = await response.json();
+    rememberPlaybackTokens(eventData.playbackTokens);
   } catch (error) {
     console.error('Fetch error:', error);
     throw error; // Re-throw so init() can catch it
@@ -803,7 +821,7 @@ function showLive(isWatchdogRetry = false) {
   if (liveInputId && streamEl) {
     // Start muted to guarantee autoplay (browsers block unmuted autoplay without user gesture)
     // liveSessionId changes on each LIVE entry, forcing iframe to dump stale HLS state on reconnect
-    const embedUrl = `https://customer-r5vkm8rpzqtdt9cz.cloudflarestream.com/${liveInputId}/iframe?autoplay=true&muted=true&session=${liveSessionId}`;
+    const embedUrl = streamUrl(liveInputId, `iframe?autoplay=true&muted=true&session=${liveSessionId}`);
     
     // Only set src when switching to live mode (not on every poll)
     if (streamEl.src !== embedUrl) {
@@ -988,7 +1006,7 @@ function showLastRecording() {
   
   if (videoId) {
     // Start muted to guarantee autoplay; overlay prompts user to unmute
-    const embedUrl = `https://customer-r5vkm8rpzqtdt9cz.cloudflarestream.com/${videoId}/iframe?autoplay=true&muted=true`;
+    const embedUrl = streamUrl(videoId, 'iframe?autoplay=true&muted=true');
     
     // Only set src if it's different (prevents reload on poll)
     if (streamEl.src !== embedUrl) {
@@ -1301,7 +1319,7 @@ function advanceToNextRecording(recordings) {
   const videoId = recordings[currentRecordingIndex]?.uid;
   if (videoId) {
     const streamEl = document.getElementById('replay-stream');
-    const embedUrl = `https://customer-r5vkm8rpzqtdt9cz.cloudflarestream.com/${videoId}/iframe?autoplay=true&muted=false`;
+    const embedUrl = streamUrl(videoId, 'iframe?autoplay=true&muted=false');
     console.log(`Loading recording ${currentRecordingIndex + 1}/${recordings.length}`);
     streamEl.src = embedUrl;
     
