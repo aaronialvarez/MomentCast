@@ -1407,6 +1407,7 @@ export default function EventDetailPage() {
             slug={event.slug}
             supabase={supabase}
             userCredits={userCredits}
+            viewerHours={analytics ? { used: analytics.viewerHoursUsed, limit: analytics.viewerHoursLimit } : null}
             formatDay={formatDay}
             onExtended={({ newExpiry, creditsRemaining }) => {
               setEvent(prev => (prev ? { ...prev, recordings_expire_at: newExpiry } : prev));

@@ -29,12 +29,14 @@ export default function StorageExtensionCard({
   slug,
   supabase,
   userCredits,
+  viewerHours,
   formatDay,
   onExtended,
 }: {
   slug: string;
   supabase: any;
   userCredits: number | null;
+  viewerHours: { used: number; limit: number } | null; // from the page's Viewing Hours meter
   formatDay: (d: Date) => string;
   onExtended: (result: { newExpiry: string; creditsRemaining: number }) => void;
 }) {
@@ -184,6 +186,22 @@ export default function StorageExtensionCard({
             {userCredits !== null && `${userCredits} credit${userCredits !== 1 ? 's' : ''} available. `}
             Storage credits are non-refundable.
           </p>
+
+          {/* Storage and viewing hours are separate purchases. Say so, with the real numbers,
+              so nobody pays to keep a replay online that guests can no longer open. */}
+          {viewerHours && (
+            viewerHours.used >= viewerHours.limit ? (
+              <p className="text-sm text-[var(--mc-live)] mt-3">
+                This event has no viewing hours left, so guests can&apos;t open the replay. Extending storage
+                doesn&apos;t add hours. Add viewing hours on this page first.
+              </p>
+            ) : (
+              <p className="text-xs text-[var(--mc-text-3)] mt-3">
+                Extending storage doesn&apos;t add viewing hours: {Math.max(0, viewerHours.limit - viewerHours.used).toFixed(1)} of{' '}
+                {viewerHours.limit} hours left. Add more anytime from Viewing Hours on this page.
+              </p>
+            )
+          )}
         </>
       )}
 
